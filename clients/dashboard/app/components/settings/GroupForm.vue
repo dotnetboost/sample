@@ -70,7 +70,6 @@ function label(key: string) {
         <UButton
           :form="`settings-${group.route}`"
           label="Save changes"
-          color="neutral"
           type="submit"
           :loading="saving"
           :disabled="!dirty"
@@ -117,16 +116,16 @@ function label(key: string) {
         <USkeleton v-for="n in 4" :key="n" class="h-9 w-full" />
       </div>
 
-      <template v-else>
-        <template v-for="(key, index) in keys" :key="key">
-          <USeparator v-if="index > 0" />
-
+      <!-- Label over a full-width control, as the catalogue editors do it — rather than the
+           label-left/control-right split the Settings dashboard uses, so a field here looks like a
+           field anywhere else in this dashboard. -->
+      <div v-else class="space-y-4">
+        <template v-for="key in keys" :key="key">
           <UFormField
             :name="key"
             :label="label(key)"
             :description="field(key).description"
             :error="errors[key]"
-            class="flex max-sm:flex-col justify-between items-start gap-4"
           >
             <template #label>
               <span class="flex items-center gap-1.5">
@@ -152,7 +151,7 @@ function label(key: string) {
               :min="field(key).min"
               :max="field(key).max"
               :step="field(key).step"
-              class="w-full sm:w-56"
+              class="w-full"
             />
 
             <UInput
@@ -161,7 +160,7 @@ function label(key: string) {
               :type="revealed[key] ? 'text' : 'password'"
               autocomplete="new-password"
               placeholder="Not set"
-              class="w-full sm:w-72"
+              class="w-full"
               :ui="{ trailing: 'pe-1' }"
             >
               <template #trailing>
@@ -181,11 +180,11 @@ function label(key: string) {
               v-model="state[key]"
               :type="field(key).type ?? 'text'"
               autocomplete="off"
-              class="w-full sm:w-72"
+              class="w-full"
             />
           </UFormField>
         </template>
-      </template>
+      </div>
     </UPageCard>
 
     <!--
