@@ -26,6 +26,12 @@ export default defineNuxtConfig({
       // Linked from the sidebar — the API's own Scalar reference.
       apiReferenceUrl: 'http://localhost:5180/scalar',
 
+      // MultiLingualOptions.BaseLanguage on the API, when base-language mode is on: the language
+      // kept in the entities' own columns rather than in the translations table. This sample does
+      // not use that mode, so it is empty and the Languages page never shows the "base" badge.
+      // Override with NUXT_PUBLIC_BASE_LANGUAGE.
+      baseLanguage: '',
+
       // Matches WithMaxFileSize(...) on the API. The upload form refuses a larger file before
       // sending it, so the user hears about it immediately rather than as a 413. The API
       // enforces it either way — this is courtesy, not a control.

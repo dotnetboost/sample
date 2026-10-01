@@ -41,6 +41,15 @@ save that would overwrite someone else's is refused with `412`. The form then of
 only the fields *you* edited on top of the latest values, so neither writer clobbers the other.
 Verified by changing a group out-of-band mid-edit.
 
+**Languages** is DotNetBoost.MultiLingual's own page: a table with the code, the name written in
+its own script and direction, the direction badge, the default marker, an active switch, and a
+per-row menu for edit, make-default, *delete its translations* and delete. Refusals are shown in
+the API's words — deactivating the default answers "The default language cannot be deactivated.
+Promote another language to default first", and the switch snaps back.
+
+Leaving Direction as "from the code" lets the API derive it from the runtime's culture data:
+adding `he` comes back right-to-left without being told.
+
 **Media** is DotNetBoost.Media's own browser, lifted wholesale — search, category and tag filters,
 content-type filter, sorting, paging, upload, file details, attachments and delete, all of it in
 the query the API is asked rather than applied to the rows already on screen. The one addition is
@@ -257,6 +266,9 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/components/settings/GroupForm.vue  form generated from whatever the group returns
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
   app/utils/settings.ts                  the group registry — one entry per tab
+  app/pages/languages.vue                MultiLingual's own languages table
+  app/components/languages/FormModal.vue add or edit a language
+  app/composables/useLanguages.ts        create, update, set-default, delete, purge
   app/pages/catalog.vue                  Categories | Products tabs — list, edit, delete
   app/components/CategoryEditor.vue      slug + per-language text + banner picker
   app/components/ProductEditor.vue       columns + per-language text + primary & gallery

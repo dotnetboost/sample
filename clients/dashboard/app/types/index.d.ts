@@ -128,13 +128,42 @@ export interface EntityImage {
   url: string
 }
 
+/** Which way a language reads. The API serialises it lowercase. */
+export type TextDirection = 'ltr' | 'rtl'
+
 /** A language, as `GET api/languages` returns it. */
 export interface Language {
   code: string
   name: string
-  direction: number | string
+  direction: TextDirection
+  /** The language content falls back to when a translation is missing. Exactly one. */
   isDefault: boolean
+  /** Whether content is served in it at all. */
   isActive: boolean
+}
+
+/** Body of `POST api/languages`. */
+export interface NewLanguage {
+  code: string
+  name: string
+  /** Omit to take the direction from the runtime's culture data for the code. */
+  direction?: TextDirection
+  isActive?: boolean
+  /** The first language created is always the default, whatever this says. */
+  isDefault?: boolean
+}
+
+/** Body of `PUT api/languages/{code}`. A full replacement; the code cannot change. */
+export interface LanguageUpdate {
+  name: string
+  direction?: TextDirection
+  isActive: boolean
+}
+
+/** Result of `DELETE api/languages/{code}/translations`. */
+export interface PurgeResult {
+  code: string
+  deletedTranslations: number
 }
 
 /** languageCode -> (propertyName -> value): what the API returns and the editor hands back. */
