@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import type { EntityImage, MediaFile } from '~/types'
-
 useHead({ title: 'Settings — DotNetBoost Sample' })
 
-interface Branding { logoFileId: string, storeName: string, accentColor: string }
+interface Branding { storeName: string, accentColor: string }
 interface Catalog { pageSize: number, showProductsWithoutImages: boolean, currencySymbol: string }
 
 const api = useApi()
@@ -15,51 +13,20 @@ const { data: branding, refresh: refreshBranding }
 const { data: catalog, refresh: refreshCatalog }
   = await useAsyncData('settings-catalog', () => api.settings.get<Catalog>('catalog'))
 
-const { data: resolved, refresh: refreshResolved }
-  = await useAsyncData('settings-resolved', () => api.branding.get())
-
-const logo = ref<EntityImage | null>(null)
-watch(resolved, value => logo.value = value?.logo ?? null, { immediate: true })
-
-const choosing = ref(false)
-
-/** Bumped after a save lands, so the open picker re-reads what is attached. */
-const logoVersion = ref(0)
-
 /**
- * The owner the logo is attached to — two strings, with no table behind them. That is all the
- * media library ever needs, and it is what lets this page use the same role box and the same
- * picker as a product's primary image rather than a second, select-only one of its own.
- */
-const logoOwner = { entityName: 'Branding', entityId: 'branding' }
-
-/**
- * Picking only fills the form; **Save** writes the setting, and the API's change handler attaches
- * the file in the same step (Integration/BrandingLogoAttachment.cs).
+ * Branding's media, read from the application's own endpoint.
  *
- * The attach is deliberately NOT made here, even though the picker offers to: the setting is the
- * source of truth for which file is the logo, and store name and accent colour are not saved until
- * Save either. One write path, one Save, nothing half-applied.
- *
- * Alt text is resolved in the same step, because a logo needs one as much as any other image.
+ * It is NOT part of the settings group: the group holds text only, and the logo is an attachment
+ * on the owner ("Branding", "branding") — an owner with no table behind it. So it is not part of
+ * this form's Save either, exactly as a product's images are not part of the product's Save. An
+ * attach or a detach is its own request, landed before the boxes redraw.
  */
-async function chooseLogo(file: MediaFile) {
-  const text = await api.mediaText.resolve([file.id])
+const { data: media, refresh: refreshMedia }
+  = await useAsyncData('settings-branding-media', () => api.branding.get())
 
-  logo.value = {
-    id: file.id,
-    fileName: file.fileName,
-    contentType: file.contentType,
-    size: file.size,
-    role: 'logo',
-    sortOrder: 0,
-    altText: text[file.id]?.altText ?? null,
-    caption: text[file.id]?.caption ?? null,
-    url: contentUrl(file.id)
-  }
-
-  choosing.value = false
-}
+/** Mirrors BrandingSettings.MediaOwnerName / .MediaOwnerId on the API. */
+const ownerEntityName = 'Branding'
+const ownerEntityId = 'branding'
 
 const saving = ref(false)
 
@@ -68,14 +35,8 @@ async function saveBranding() {
 
   saving.value = true
   try {
-    // The logo is picked from the media library, and only its id goes into the setting.
-    await api.settings.set('branding', {
-      ...branding.value,
-      logoFileId: logo.value?.id ?? '00000000-0000-0000-0000-000000000000'
-    })
-    await Promise.all([refreshBranding(), refreshResolved()])
-    // The change handler has attached the file by now; let the picker see it.
-    logoVersion.value++
+    await api.settings.set('branding', branding.value)
+    await refreshBranding()
     toast.add({ title: 'Branding saved — no restart, no redeploy', color: 'success' })
   } catch (error) {
     toast.add({ title: 'Save failed', description: String(error), color: 'error' })
@@ -148,40 +109,29 @@ async function saveCatalog() {
             </div>
           </UFormField>
 
-          <UFormField
-            label="Logo"
-            help="The same box and the same picker the Catalog editor uses. The setting stores the GUID; saving also attaches the file under Branding/logo, so it shows up in the file's own details under &quot;Used by&quot; and cannot be deleted unnoticed."
-          >
-            <EntityRoleBox
-              :image="logo"
-              role="logo"
-              highlight
-              replaceable
-              @pick="choosing = true"
-              @detach="logo = null"
+          <div>
+            <p class="mb-2 text-sm font-medium">
+              Media
+            </p>
+            <EntityAttachments
+              :entity-name="ownerEntityName"
+              :entity-id="ownerEntityId"
+              :images="media?.images ?? []"
+              @changed="refreshMedia"
             />
-          </UFormField>
-
-          <!-- The very same picker the product and category editors open. -->
-          <MediaPickerModal
-            v-model:open="choosing"
-            :owner="logoOwner"
-            fixed-role="logo"
-            title="Choose a logo"
-            :version="logoVersion"
-            @attach="chooseLogo"
-          />
-
-          <div class="rounded bg-elevated p-3 font-mono text-xs">
-            LogoFileId = {{ logo?.id ?? '00000000-0000-0000-0000-000000000000' }}
+            <p class="mt-2 text-xs text-muted">
+              Not part of this form's Save — an attach or a detach lands immediately, as a
+              product's images do. The branding settings group holds no file id at all, so there is
+              nothing to drift out of step with.
+            </p>
           </div>
         </div>
 
         <template #footer>
           <div class="flex items-center justify-between gap-4">
             <p class="text-xs text-muted">
-              The settings library stores a GUID as it would store any value. Only this
-              application knows it means a file.
+              Two libraries, read independently. The settings group holds the text; the logo is a
+              media attachment on an owner with no table behind it.
             </p>
             <UButton :loading="saving" label="Save" @click="saveBranding" />
           </div>

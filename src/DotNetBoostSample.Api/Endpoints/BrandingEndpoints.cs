@@ -6,8 +6,14 @@ using DotNetBoostSample.Api.Settings;
 namespace DotNetBoostSample.Api.Endpoints;
 
 /// <summary>
-/// Settings and Media composed with no mechanism whatsoever: a setting holds a media file's id,
-/// and this endpoint resolves it. Two libraries, one line of glue, no shared abstraction.
+/// Branding: text from DotNetBoost.Settings, logo from DotNetBoost.Media, composed here and
+/// nowhere else.
+/// <para>
+/// The two halves are read independently and neither library knows about the other. The settings
+/// group holds no file id at all — the logo is an attachment on the owner
+/// <c>("Branding", "branding")</c>, which has no table behind it. See
+/// <see cref="BrandingSettings"/> for why it is modelled that way.
+/// </para>
 /// </summary>
 public static class BrandingEndpoints
 {
@@ -21,46 +27,35 @@ public static class BrandingEndpoints
             MediaText mediaText,
             CancellationToken ct) =>
         {
+            // Two reads, two libraries, no shared anything.
             var branding = await settings.For<BrandingSettings>().GetAsync(cancellationToken: ct);
 
-            // The whole integration: a Guid that came out of the settings library goes into the
-            // media library.
-            var logo = branding.LogoFileId == Guid.Empty
-                ? null
-                : await media.FindAsync(branding.LogoFileId, ct);
-
-            // And its alt text out of the third library — a logo needs one as much as any other
-            // image does.
-            var text = logo is null ? null : await mediaText.GetAsync(logo.Id, ct);
+            var owner = media.For(BrandingSettings.MediaOwnerName, BrandingSettings.MediaOwnerId);
 
             return Results.Ok(new
             {
                 branding.StoreName,
                 branding.AccentColor,
-                branding.LogoFileId,
-                // Shaped like an attached file so the dashboard can draw it with the same box it
-                // draws a category banner with — though nothing is attached here. The logo belongs
-                // to the application, not to a row, so the setting holds the id and the media
-                // library has no idea it is being used. "logo" is the box's label, not a media role.
-                Logo = logo is null ? null : new
-                {
-                    logo.Id,
-                    logo.FileName,
-                    logo.ContentType,
-                    logo.Size,
-                    Role      = "logo",
-                    SortOrder = 0,
-                    AltText   = text?.AltText,
-                    Caption   = text?.Caption,
-                    Url       = $"/api/media/{logo.Id}/content"
-                }
+                // Every attached file with its role — the same shape the catalogue returns, so the
+                // dashboard draws branding's media with the very same component it draws a
+                // product's with.
+                Images = await AttachedFiles.DescribeAsync(owner, mediaText, ct),
+                // The logo on its own, for callers that only want to render it.
+                Logo = await LogoAsync(owner, mediaText, ct)
             });
         })
-        .WithSummary("Branding settings, with the logo file resolved");
+        .WithSummary("Branding text, and the logo resolved from its attachment");
+    }
 
-// A dedicated upload endpoint used to live here. It is gone: the picker uploads through the
-        // media library's own POST /api/media, which already streams, validates and records the
-        // file — and then the setting records nothing but the id it comes back with. One fewer
-        // endpoint for this application to own.
+    private static async Task<object?> LogoAsync(
+        IMediaAccessor owner,
+        MediaText mediaText,
+        CancellationToken ct)
+    {
+        var logo = await owner.GetByRoleAsync(BrandingSettings.LogoRole, ct);
+
+        return logo is null
+            ? null
+            : AttachedFiles.Describe(logo, BrandingSettings.LogoRole, 0, await mediaText.GetAsync(logo.Id, ct));
     }
 }

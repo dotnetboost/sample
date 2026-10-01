@@ -76,12 +76,12 @@ export function useApi() {
 
     // ── The composition: Settings × Media ─────────────────────────────────
     branding: {
-      // The logo comes back shaped like an attached file, so the dashboard can draw it with the
-      // same box as a category banner — though nothing is attached: the setting holds the id.
+      // `images` is the same shape the catalogue returns, so branding's media is drawn by the very
+      // same component — the logo is an attachment like any other, on an owner with no table.
       get: () => $fetch<{
         storeName: string
         accentColor: string
-        logoFileId: string
+        images: EntityImage[]
         logo: EntityImage | null
       }>('/api/branding')
     }

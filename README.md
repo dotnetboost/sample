@@ -126,53 +126,67 @@ public Task SetAsync(Guid mediaFileId, string languageCode, string propertyName,
 No new table, no schema change in either library, and swapping media storage from local disk to
 Azure or S3 does not touch this file.
 
-### 3. A setting whose value is a file — `src/DotNetBoostSample.Api/Settings/BrandingSettings.cs`
+### 3. Branding: text from one library, its logo from another — `src/.../Settings/BrandingSettings.cs`
 
-Settings and Media composed with no mechanism at all:
+The branding settings group holds text. Its logo is a **media attachment**, on an owner that has no
+table anywhere:
 
 ```csharp
 [SettingGroup("branding")]
+[MediaEntity("Branding")]          // pins the stored owner name against a class rename
+[MediaRole("logo")]                // declared on the class, not in Program.cs
 public class BrandingSettings
 {
-    public Guid LogoFileId { get; set; }
-    // ...
+    public const string MediaOwnerName = "Branding";
+    public const string MediaOwnerId   = "branding";
+    public const string LogoRole       = "logo";
+
+    public string StoreName   { get; set; } = "DotNetBoost Sample Store";
+    public string AccentColor { get; set; } = "#512BD4";
 }
-
-var branding = await settings.For<BrandingSettings>().GetAsync();
-var logo     = await media.FindAsync(branding.LogoFileId);
 ```
-
-The settings library stores a `Guid` as it would store any value. Only the application knows it
-means a file.
-
-The dashboard uses **the same role box and the same picker** here as for a product image — not a
-second, select-only one.
-
-That matters for more than consistency. A file referenced only by a setting is invisible to the
-media library: it shows up in no entity's attachments, its details panel says it is used by
-nothing, and deleting it warns about nothing — right until the site loses its logo. So saving
-branding also **attaches** the file, under the owner `("Branding", "branding")` and the role
-`logo`:
 
 ```csharp
-// Program.cs — an owner with no table behind it. An owner is only ever two strings.
-.DeclareRoles("Branding", roles => roles.One("logo"))
+// Program.cs — reads the [MediaRole] attributes off that one class.
+.DeclareRoles<BrandingSettings>()
 
-.AddSettings()
-    .UseEntityFrameworkCore<AppDbContext>()
-    .OnChanged<BrandingSettings, BrandingLogoAttachment>()
-    .Build();
+// Reading it back.
+var branding = await settings.For<BrandingSettings>().GetAsync();
+var logo     = await media.For("Branding", "branding").GetByRoleAsync("logo");
 ```
 
-`LogoFileId` stays the source of truth; the attachment is a derived index the change handler
-maintains, so the file's own details now list **Branding branding · logo** under "Used by". The
-handler re-asserts it on any real change to the group, which also repairs a link detached by hand —
-though a save that changes nothing never reaches it, because the settings library writes no rows
-and returns first.
+**This is the sharpest demonstration of the attachment model in the sample.** Products show
+attaching to rows, which any schema can do with a foreign key. Branding has no row at all — it is a
+group of setting rows and there can only ever be one of it — and a foreign key could not express
+that. The media library does not care: an owner is two opaque strings it never tries to resolve. So
+the dashboard draws branding's logo with the *same* role box and the *same* picker it draws a
+product's primary image with, over the same `GET /api/media/roles/{entityName}`.
 
-There is no upload endpoint for the logo either. The picker uploads through the media library's own
-`POST /api/media`, which already streams, validates and records the file; the setting then records
-nothing but the id that comes back.
+The id `"branding"` is degenerate — there is only one branding, so it carries no information, the
+way a config table with a single row conventionally uses `Id = 1`. It has to be *something*,
+because the library requires both halves of an address, and that uniformity is exactly what lets
+one table serve every owner with no column per owner type.
+
+#### Why the logo is not a `Guid` on the settings class
+
+It was, and that is a perfectly ordinary way to reference a file. Two problems surfaced, in order:
+
+1. A file referenced only by a setting's value is **invisible to the media library** — it appears in
+   no entity's attachments, its details panel says it is used by nothing, and deleting it warns
+   about nothing, right up until the site loses its logo.
+2. Attaching it *as well* fixed the reading but left **two records of one fact**. A settings change
+   handler kept them in step one way; nothing could keep them in step the other way, because
+   `DotNetBoost.Media` ships no change hook at all. Detaching the logo from the Media page removed
+   the attachment and left the setting pointing at the file.
+
+So the attachment is now the only record. Nothing can drift, because detaching the logo and the
+site having no logo are the same statement.
+
+**What that costs, honestly.** The logo is no longer part of the settings group, so it is absent
+from `GET /api/settings/branding`, from that group's ETag, and from its audit trail. Those three
+things are what storing an id in a setting buys, and they were given up deliberately for a single
+source of truth. If you need a file reference inside a settings group's versioning and audit, keep
+the id — and know that you are choosing to maintain the second record yourself.
 
 ---
 
@@ -214,7 +228,7 @@ src/DotNetBoostSample.Api/
   Data/AppDbContext.cs          one database, three Apply* calls
   Data/Seed.cs                  schema + languages + catalogue on first run
   Entities/                     Category, Product — the app's own two entities
-  Settings/BrandingSettings.cs  Settings × Media
+  Settings/BrandingSettings.cs  text in Settings, logo attached in Media
   Integration/MediaText.cs      Media × MultiLingual  ← the composition
   Endpoints/                    catalogue, media-text, branding
   Program.cs                    three independent registrations
@@ -251,9 +265,12 @@ Attachments are the media library's: `POST /api/media/{id}/attachments`,
 ```csharp
 .DeclareRoles("Product",  roles => roles.One("primary").Many("gallery"))
 .DeclareRoles("Category", roles => roles.One("banner"))
+.DeclareRoles<BrandingSettings>()   // reads [MediaRole] off the class
 ```
 
-Add a role there and the editor grows a box for it, with no change to the dashboard.
+Add a role there — or one more `[MediaRole]` attribute — and the editor grows a box for it, with no
+change to the dashboard. `DeclareRolesFrom(assembly)` scans a whole assembly if you would rather
+every entity carried its own.
 
 Full reference at `/scalar` on the API.
 

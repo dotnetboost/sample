@@ -44,10 +44,6 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 builder.Services
     .AddSettings()
     .UseEntityFrameworkCore<AppDbContext>()
-    // Keeps the branding logo attached in the media library whenever the setting changes, so a
-    // file used as the logo shows up under "Used by" and cannot be deleted unnoticed. See
-    // Integration/BrandingLogoAttachment.cs.
-    .OnChanged<BrandingSettings, BrandingLogoAttachment>()
     .Build();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
@@ -61,10 +57,12 @@ builder.Services
     .AllowContentTypes("image/*", "application/pdf")
     .DeclareRoles("Product",  roles => roles.One("primary").Many("gallery"))
     .DeclareRoles("Category", roles => roles.One("banner"))
-    // An owner with no table behind it: the branding settings group. An owner is only ever two
-    // strings, so the library does not care whether a row exists — which is what lets the
-    // dashboard use the same role box and picker for the logo as it does for a product image.
-    .DeclareRoles("Branding", roles => roles.One("logo"))
+    // Branding declares its roles on the class instead, with [MediaRole] — so they sit next to
+    // the thing that has them rather than in this file. The owner it files them under comes from
+    // that class's [MediaEntity], and it has no table behind it at all: an owner is only ever two
+    // strings, so the library does not care whether a row exists. That is what lets the dashboard
+    // draw branding's media with the same component it draws a product's with.
+    .DeclareRoles<BrandingSettings>()
     .UseEntityFrameworkCore<AppDbContext>()
     .UseFileSystem(Path.GetFullPath(mediaRoot), isDefault: true)
     .Build();

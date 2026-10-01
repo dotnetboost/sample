@@ -62,7 +62,7 @@ public static class CatalogEndpoints
                     category.Description,
                     category.Slug,
                     Products = await db.Products.CountAsync(p => p.CategoryId == category.Id, ct),
-                    Banner = await DescribeAsync(banner, mediaText, ct)
+                    Banner = await ThumbnailAsync(banner, BannerRole, mediaText, ct)
                 });
             }
 
@@ -90,7 +90,7 @@ public static class CatalogEndpoints
                 // Every attached file WITH the role it is attached under, which is what the
                 // editor's role boxes are drawn from. The roles themselves come from the media
                 // library's own GET /api/media/roles/Category — declared at startup, not here.
-                Images = await DescribeAttachedAsync(media.For(category), mediaText, ct)
+                Images = await AttachedFiles.DescribeAsync(media.For(category), mediaText, ct)
             });
         })
         .WithSummary("One category with every language's text and its banner");
@@ -191,8 +191,8 @@ public static class CatalogEndpoints
                     product.Sku,
                     product.Price,
                     product.CategoryId,
-                    Primary = primary is null ? null : Describe(primary, text.GetValueOrDefault(primary.Id)),
-                    Images = files.Select(f => Describe(f, text.GetValueOrDefault(f.Id)))
+                    Primary = await ThumbnailAsync(primary, PrimaryRole, mediaText, ct),
+                    Images = files.Select(f => AttachedFiles.Describe(f, string.Empty, 0, text.GetValueOrDefault(f.Id)))
                 });
             }
 
@@ -218,7 +218,7 @@ public static class CatalogEndpoints
                 product.Price,
                 product.CategoryId,
                 Translations = await multiLingual.For(product).GetAllAsync(ct),
-                Images = await DescribeAttachedAsync(media.For(product), mediaText, ct)
+                Images = await AttachedFiles.DescribeAsync(media.For(product), mediaText, ct)
             });
         })
         .WithSummary("One product with every language's text and its images");
@@ -344,62 +344,18 @@ public static class CatalogEndpoints
             accessor.Set(language, values);
     }
 
-    private static async Task<object?> DescribeAsync(
+    /// <summary>
+    /// One file for a list thumbnail, with its alt text resolved. The role is passed in because a
+    /// thumbnail is fetched by role — a category's banner, a product's primary image.
+    /// </summary>
+    private static async Task<object?> ThumbnailAsync(
         MediaFileInfo? file,
+        string role,
         MediaText mediaText,
         CancellationToken ct) =>
-        file is null ? null : Describe(file, await mediaText.GetAsync(file.Id, ct));
-
-    /// <summary>
-    /// Every file attached to one entity, each with the role it is attached under and its position
-    /// in that role — what the dashboard's role boxes are drawn from.
-    /// <para>
-    /// <c>ListWithRolesAsync</c> rather than a call per role: a file attached under two roles comes
-    /// back once per role, which is exactly right for boxes, and the alt text for the whole set is
-    /// resolved in one query.
-    /// </para>
-    /// </summary>
-    private static async Task<IReadOnlyList<object>> DescribeAttachedAsync(
-        IMediaAccessor accessor,
-        MediaText mediaText,
-        CancellationToken ct)
-    {
-        var attached = await accessor.ListWithRolesAsync(ct);
-
-        if (attached.Count == 0) return [];
-
-        var text = await mediaText.GetManyAsync([.. attached.Select(a => a.File.Id)], ct);
-
-        return
-        [
-            .. attached
-                .OrderBy(a => a.Role)
-                .ThenBy(a => a.SortOrder)
-                .Select(a => new
-                {
-                    a.File.Id,
-                    a.File.FileName,
-                    a.File.ContentType,
-                    a.File.Size,
-                    a.Role,
-                    a.SortOrder,
-                    AltText = text.GetValueOrDefault(a.File.Id)?.AltText,
-                    Caption = text.GetValueOrDefault(a.File.Id)?.Caption,
-                    Url     = $"/api/media/{a.File.Id}/content"
-                })
-        ];
-    }
-
-    private static object Describe(MediaFileInfo file, MediaTextValues? text) => new
-    {
-        file.Id,
-        file.FileName,
-        file.ContentType,
-        file.Size,
-        AltText = text?.AltText,
-        Caption = text?.Caption,
-        Url     = $"/api/media/{file.Id}/content"
-    };
+        file is null
+            ? null
+            : AttachedFiles.Describe(file, role, 0, await mediaText.GetAsync(file.Id, ct));
 }
 
 /// <summary>Picking an existing library file for a role. A null id clears the role.</summary>
