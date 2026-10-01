@@ -145,12 +145,32 @@ var logo     = await media.FindAsync(branding.LogoFileId);
 The settings library stores a `Guid` as it would store any value. Only the application knows it
 means a file.
 
-In the dashboard this uses **the same box as a category banner**, and the same library browser to
-pick from — but nothing is attached. There is no owner and no role: the setting holds the id, and
-the media library never learns the logo is in use. The picker's action therefore reads **Choose**
-rather than *Attach*, and clearing the box is just emptying a field.
+The dashboard uses **the same role box and the same picker** here as for a product image — not a
+second, select-only one.
 
-There is no upload endpoint for it either. The picker uploads through the media library's own
+That matters for more than consistency. A file referenced only by a setting is invisible to the
+media library: it shows up in no entity's attachments, its details panel says it is used by
+nothing, and deleting it warns about nothing — right until the site loses its logo. So saving
+branding also **attaches** the file, under the owner `("Branding", "branding")` and the role
+`logo`:
+
+```csharp
+// Program.cs — an owner with no table behind it. An owner is only ever two strings.
+.DeclareRoles("Branding", roles => roles.One("logo"))
+
+.AddSettings()
+    .UseEntityFrameworkCore<AppDbContext>()
+    .OnChanged<BrandingSettings, BrandingLogoAttachment>()
+    .Build();
+```
+
+`LogoFileId` stays the source of truth; the attachment is a derived index the change handler
+maintains, so the file's own details now list **Branding branding · logo** under "Used by". The
+handler re-asserts it on any real change to the group, which also repairs a link detached by hand —
+though a save that changes nothing never reaches it, because the settings library writes no rows
+and returns first.
+
+There is no upload endpoint for the logo either. The picker uploads through the media library's own
 `POST /api/media`, which already streams, validates and records the file; the setting then records
 nothing but the id that comes back.
 

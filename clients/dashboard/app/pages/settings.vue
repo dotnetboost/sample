@@ -23,13 +23,23 @@ watch(resolved, value => logo.value = value?.logo ?? null, { immediate: true })
 
 const choosing = ref(false)
 
+/** Bumped after a save lands, so the open picker re-reads what is attached. */
+const logoVersion = ref(0)
+
 /**
- * A picked file, shaped like an attached one so the same box can draw it.
+ * The owner the logo is attached to — two strings, with no table behind them. That is all the
+ * media library ever needs, and it is what lets this page use the same role box and the same
+ * picker as a product's primary image rather than a second, select-only one of its own.
+ */
+const logoOwner = { entityName: 'Branding', entityId: 'branding' }
+
+/**
+ * Picking only fills the form; **Save** writes the setting, and the API's change handler attaches
+ * the file in the same step (Integration/BrandingLogoAttachment.cs).
  *
- * `role` is the box's label, not a media role: nothing is attached here. The logo belongs to the
- * application rather than to a row, so the setting stores the id and the media library never
- * learns it is being used — which is also why clearing the box is just emptying a field, with no
- * detach to make.
+ * The attach is deliberately NOT made here, even though the picker offers to: the setting is the
+ * source of truth for which file is the logo, and store name and accent colour are not saved until
+ * Save either. One write path, one Save, nothing half-applied.
  *
  * Alt text is resolved in the same step, because a logo needs one as much as any other image.
  */
@@ -47,6 +57,8 @@ async function chooseLogo(file: MediaFile) {
     caption: text[file.id]?.caption ?? null,
     url: contentUrl(file.id)
   }
+
+  choosing.value = false
 }
 
 const saving = ref(false)
@@ -62,6 +74,8 @@ async function saveBranding() {
       logoFileId: logo.value?.id ?? '00000000-0000-0000-0000-000000000000'
     })
     await Promise.all([refreshBranding(), refreshResolved()])
+    // The change handler has attached the file by now; let the picker see it.
+    logoVersion.value++
     toast.add({ title: 'Branding saved — no restart, no redeploy', color: 'success' })
   } catch (error) {
     toast.add({ title: 'Save failed', description: String(error), color: 'error' })
@@ -136,7 +150,7 @@ async function saveCatalog() {
 
           <UFormField
             label="Logo"
-            help="The same box the Catalog editor uses for a banner — but nothing is attached here. Only the GUID goes into the setting; the media library never learns the logo is in use."
+            help="The same box and the same picker the Catalog editor uses. The setting stores the GUID; saving also attaches the file under Branding/logo, so it shows up in the file's own details under &quot;Used by&quot; and cannot be deleted unnoticed."
           >
             <EntityRoleBox
               :image="logo"
@@ -148,7 +162,15 @@ async function saveCatalog() {
             />
           </UFormField>
 
-          <MediaSelectModal v-model:open="choosing" title="Choose a logo" @select="chooseLogo" />
+          <!-- The very same picker the product and category editors open. -->
+          <MediaPickerModal
+            v-model:open="choosing"
+            :owner="logoOwner"
+            fixed-role="logo"
+            title="Choose a logo"
+            :version="logoVersion"
+            @attach="chooseLogo"
+          />
 
           <div class="rounded bg-elevated p-3 font-mono text-xs">
             LogoFileId = {{ logo?.id ?? '00000000-0000-0000-0000-000000000000' }}

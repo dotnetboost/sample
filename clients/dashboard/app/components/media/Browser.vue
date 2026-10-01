@@ -22,8 +22,6 @@ const props = withDefaults(defineProps<{
   uploadRole?: string
   /** Shows an "Attach" action on each file instead of opening its details. */
   selectable?: boolean
-  /** Renames that action — see MediaCard's `selectLabel`. */
-  selectLabel?: string
   /** Ids already attached, shown as such rather than offered again. */
   attachedIds?: string[]
   /** Fewer columns and a tighter filter bar, for the modal. */
@@ -300,7 +298,6 @@ onMounted(load)
           :key="file.id"
           :file="file"
           :selectable="selectable"
-          :select-label="selectLabel"
           :attached="attached(file)"
           :busy="busy === file.id"
           @open="selected = file"
