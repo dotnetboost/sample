@@ -14,7 +14,18 @@ import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
  */
 export function useSettingsGroup(group: SettingGroup) {
   const toast = useToast()
+  const language = useLanguage()
   const endpoint = `/api/settings/${group.route}`
+
+  /**
+   * The reading language, sent on every call to this group.
+   *
+   * The settings library does not read it — but `UseMultiLingual()` is global middleware, so it
+   * resolves the language for these requests too, and the API's language-aware cache keys each
+   * group's entry by it. Without the header every request would resolve to the default and share
+   * one entry.
+   */
+  const languageHeaders = () => ({ 'Accept-Language': language.value })
 
   /** Last known server state — the baseline for dirty checking and the save payload. */
   const values = shallowRef<SettingValues>({})
@@ -43,7 +54,7 @@ export function useSettingsGroup(group: SettingGroup) {
 
     try {
       // `.raw` rather than `$fetch` so the ETag header is reachable, not just the body.
-      const response = await $fetch.raw<SettingValues>(endpoint)
+      const response = await $fetch.raw<SettingValues>(endpoint, { headers: languageHeaders() })
       const next = response._data ?? {}
 
       etag.value = response.headers.get('etag')
@@ -69,9 +80,12 @@ export function useSettingsGroup(group: SettingGroup) {
       await $fetch(endpoint, {
         method: 'POST',
         body: { ...values.value, ...state },
-        // Omitted on the very first save of a group that has never been read successfully;
-        // the API then writes unconditionally, which is the same behaviour as before.
-        headers: etag.value ? { 'If-Match': etag.value } : undefined
+        headers: {
+          ...languageHeaders(),
+          // Omitted on the very first save of a group that has never been read successfully;
+          // the API then writes unconditionally, which is the same behaviour as before.
+          ...(etag.value ? { 'If-Match': etag.value } : {})
+        }
       })
       await load()
 
@@ -122,7 +136,7 @@ export function useSettingsGroup(group: SettingGroup) {
     saving.value = true
 
     try {
-      const response = await $fetch.raw<SettingValues>(endpoint)
+      const response = await $fetch.raw<SettingValues>(endpoint, { headers: languageHeaders() })
       const latest = response._data ?? {}
 
       etag.value = response.headers.get('etag')

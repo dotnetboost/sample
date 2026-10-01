@@ -1,4 +1,5 @@
 using DotNetBoost.Media.Core.Attributes;
+using DotNetBoost.MultiLingual.Core.Attributes;
 using DotNetBoost.Settings.Core.Attributes;
 
 namespace DotNetBoostSample.Api.Settings;
@@ -54,7 +55,15 @@ public class BrandingSettings
     /// <summary>The role the logo is attached under. Exactly one per owner.</summary>
     public const string LogoRole = "logo";
 
-    /// <summary>Shown in the dashboard header.</summary>
+    /// <summary>
+    /// Shown in the dashboard header.
+    /// <para>
+    /// The attribute goes BELOW the doc comment: a <c>///</c> block between an attribute and its
+    /// member is CS1587, and is dropped from IntelliSense even where documentation generation is
+    /// off and the warning never fires.
+    /// </para>
+    /// </summary>
+    [MultiLingual]
     public string StoreName { get; set; } = "DotNetBoost Sample Store";
 
     /// <summary>Accent colour, as a CSS hex value.</summary>

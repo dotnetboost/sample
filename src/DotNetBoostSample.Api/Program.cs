@@ -41,9 +41,16 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 
 // ── DotNetBoost.Settings ─────────────────────────────────────────────────────
 // Runtime-editable configuration, stored in the Settings table of the same database.
+// The language-aware settings cache resolves the request's language per call, so it needs the
+// accessor to reach the current request's scope from a singleton.
+builder.Services.AddHttpContextAccessor();
+
 builder.Services
     .AddSettings()
     .UseEntityFrameworkCore<AppDbContext>()
+    // Keys each group's cache entry by the request's language as well as the group, and evicts
+    // every language on a write. See Settings/LanguageAwareSettingCache.cs.
+    .UseCustomCache<LanguageAwareSettingCache>()
     .Build();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
