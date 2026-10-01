@@ -82,3 +82,66 @@ public class BrandingOwnerTests
         Assert.True(BrandingSettings.MediaOwnerId.Length <= EntityKey.MaxLength);
     }
 }
+
+/// <summary>
+/// What <c>[MultiLingual]</c> on <c>BrandingSettings.StoreName</c> does and does not achieve.
+/// </summary>
+public class BrandingTranslatableMetadataTests
+{
+    [Fact]
+    public void The_attribute_is_valid_metadata_and_is_read()
+    {
+        // The attribute is not malformed and not ignored: MultiLingual's own metadata reports
+        // StoreName as translatable. Nothing is wrong with it — there is simply no consumer.
+        var translatable = DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
+            .For(typeof(BrandingSettings))
+            .Select(p => p.Name)
+            .ToList();
+
+        Assert.Contains("StoreName", translatable);
+        Assert.DoesNotContain("AccentColor", translatable);
+    }
+
+    [Fact]
+    public void But_the_type_is_not_an_entity_so_nothing_ever_sees_it()
+    {
+        // The SaveChanges interceptor iterates ChangeTracker.Entries() and keys off
+        // entry.Metadata.ClrType. BrandingSettings is never added to a DbContext — SettingManager
+        // decomposes it into Setting rows — so it never appears there, and the interceptor's first
+        // guard returns before it looks at anything.
+        //
+        // The entity that IS tracked when settings are written is Setting, which declares nothing.
+        Assert.False(
+            DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
+                .IsMultiLingual(typeof(DotNetBoost.Settings.Core.Models.Setting)),
+            "Setting declares no translatable properties, so the interceptor skips the save entirely.");
+    }
+}
+
+/// <summary>
+/// What <c>[MultiLingualEntity]</c> changes, and what it does not.
+/// </summary>
+public class BrandingTranslationSubjectTests
+{
+    [Fact]
+    public void The_translation_subject_is_the_name_the_attribute_fixes()
+    {
+        Assert.Equal(
+            BrandingSettings.MediaOwnerName,
+            DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
+                .EntityNameFor(typeof(BrandingSettings)));
+    }
+
+    [Fact]
+    public void Both_libraries_now_address_branding_as_the_same_subject()
+    {
+        // Media's owner name and MultiLingual's entity name agree — so one (name, id) pair would
+        // carry the logo attachment and StoreName's translations. They agree only because the same
+        // word is written twice: the libraries share no registry, and this test is the only thing
+        // that would report it if one of the two attributes changed.
+        Assert.Equal(
+            DotNetBoost.Media.Core.Metadata.MediaEntityNames.For(typeof(BrandingSettings)),
+            DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
+                .EntityNameFor(typeof(BrandingSettings)));
+    }
+}

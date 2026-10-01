@@ -34,6 +34,11 @@ namespace DotNetBoostSample.Api.Settings;
 // Without it the stored name would follow the class — "BrandingSettings" today, whatever it is
 // called tomorrow, and every existing row addressing the old one.
 [MediaEntity(MediaOwnerName)]
+// The same name on the MultiLingual side, so both libraries address branding as the same subject:
+// ("Branding", "branding") would then carry the logo attachment AND StoreName's translations.
+// Two independent attributes from two libraries that share no registry — they agree because the
+// same word is written twice, and nothing reports it if one changes.
+[MultiLingualEntity(MediaOwnerName)]
 // Declared on the class rather than in Program.cs, so the roles live next to the thing that has
 // them: open this file and you can see what branding holds. Read by DeclareRoles<BrandingSettings>().
 // A second, multi-valued role is one more line — [MediaRole("banners", Multiple = true)].
