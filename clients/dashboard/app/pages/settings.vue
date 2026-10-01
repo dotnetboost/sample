@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MediaFile } from '~/types'
+import type { EntityImage, MediaFile } from '~/types'
 
 useHead({ title: 'Settings — DotNetBoost Sample' })
 
@@ -18,13 +18,35 @@ const { data: catalog, refresh: refreshCatalog }
 const { data: resolved, refresh: refreshResolved }
   = await useAsyncData('settings-resolved', () => api.branding.get())
 
-const logo = ref<{ id: string, fileName: string } | null>(null)
+const logo = ref<EntityImage | null>(null)
 watch(resolved, value => logo.value = value?.logo ?? null, { immediate: true })
 
 const choosing = ref(false)
 
-function chooseLogo(file: MediaFile) {
-  logo.value = { id: file.id, fileName: file.fileName }
+/**
+ * A picked file, shaped like an attached one so the same box can draw it.
+ *
+ * `role` is the box's label, not a media role: nothing is attached here. The logo belongs to the
+ * application rather than to a row, so the setting stores the id and the media library never
+ * learns it is being used — which is also why clearing the box is just emptying a field, with no
+ * detach to make.
+ *
+ * Alt text is resolved in the same step, because a logo needs one as much as any other image.
+ */
+async function chooseLogo(file: MediaFile) {
+  const text = await api.mediaText.resolve([file.id])
+
+  logo.value = {
+    id: file.id,
+    fileName: file.fileName,
+    contentType: file.contentType,
+    size: file.size,
+    role: 'logo',
+    sortOrder: 0,
+    altText: text[file.id]?.altText ?? null,
+    caption: text[file.id]?.caption ?? null,
+    url: contentUrl(file.id)
+  }
 }
 
 const saving = ref(false)
@@ -85,7 +107,7 @@ async function saveCatalog() {
         variant="naked"
       />
 
-      <UCard v-if="branding">
+      <UCard v-if="branding" class="shrink-0">
         <template #header>
           <div class="flex items-center justify-between">
             <h2 class="font-semibold">
@@ -114,47 +136,16 @@ async function saveCatalog() {
 
           <UFormField
             label="Logo"
-            help="Picked from the media library. Only the GUID is stored in the setting — the whole integration between the two libraries, and no attachment is involved: the logo belongs to the application, not to a row."
+            help="The same box the Catalog editor uses for a banner — but nothing is attached here. Only the GUID goes into the setting; the media library never learns the logo is in use."
           >
-            <div class="flex items-start gap-3">
-              <div class="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-accented bg-elevated/40">
-                <img
-                  v-if="logo"
-                  :src="contentUrl(logo.id)"
-                  :alt="logo.fileName"
-                  class="size-full object-cover"
-                >
-                <UIcon v-else name="i-lucide-image-plus" class="size-7 text-dimmed" />
-              </div>
-
-              <div class="min-w-0 flex-1 space-y-2">
-                <p v-if="logo" class="truncate text-sm font-medium">
-                  {{ logo.fileName }}
-                </p>
-                <p v-else class="text-sm text-muted">
-                  Nothing selected.
-                </p>
-
-                <div class="flex flex-wrap gap-2">
-                  <UButton
-                    icon="i-lucide-images"
-                    size="sm"
-                    variant="subtle"
-                    :label="logo ? 'Change' : 'Choose from library'"
-                    @click="choosing = true"
-                  />
-                  <UButton
-                    v-if="logo"
-                    icon="i-lucide-x"
-                    size="sm"
-                    variant="ghost"
-                    color="neutral"
-                    label="Clear"
-                    @click="logo = null"
-                  />
-                </div>
-              </div>
-            </div>
+            <EntityRoleBox
+              :image="logo"
+              role="logo"
+              highlight
+              replaceable
+              @pick="choosing = true"
+              @detach="logo = null"
+            />
           </UFormField>
 
           <MediaSelectModal v-model:open="choosing" title="Choose a logo" @select="chooseLogo" />
@@ -175,7 +166,7 @@ async function saveCatalog() {
         </template>
       </UCard>
 
-      <UCard v-if="catalog">
+      <UCard v-if="catalog" class="shrink-0">
         <template #header>
           <h2 class="font-semibold">
             Catalog

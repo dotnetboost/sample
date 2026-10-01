@@ -67,7 +67,7 @@ const imageCount = computed(() =>
         />
       </div>
 
-      <UCard>
+      <UCard class="shrink-0">
         <template #header>
           <h2 class="font-semibold">
             Where the composition happens

@@ -145,6 +145,15 @@ var logo     = await media.FindAsync(branding.LogoFileId);
 The settings library stores a `Guid` as it would store any value. Only the application knows it
 means a file.
 
+In the dashboard this uses **the same box as a category banner**, and the same library browser to
+pick from — but nothing is attached. There is no owner and no role: the setting holds the id, and
+the media library never learns the logo is in use. The picker's action therefore reads **Choose**
+rather than *Attach*, and clearing the box is just emptying a field.
+
+There is no upload endpoint for it either. The picker uploads through the media library's own
+`POST /api/media`, which already streams, validates and records the file; the setting then records
+nothing but the id that comes back.
+
 ---
 
 ## What this costs

@@ -45,7 +45,7 @@ async function add() {
         variant="naked"
       />
 
-      <UCard>
+      <UCard class="shrink-0">
         <div class="divide-y divide-default">
           <div
             v-for="language in languages"
@@ -81,7 +81,7 @@ async function add() {
         </div>
       </UCard>
 
-      <UCard>
+      <UCard class="shrink-0">
         <template #header>
           <h2 class="font-semibold">
             Add a language

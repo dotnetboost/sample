@@ -36,6 +36,7 @@ function choose(file: MediaFile) {
       <MediaBrowser
         selectable
         compact
+        select-label="Choose"
         :page-size="8"
         @select="choose"
       />

@@ -1,5 +1,6 @@
 import type {
-  Category, CategoryDetail, Language, MediaTextValues, Product, ProductDetail, Translations
+  Category, CategoryDetail, EntityImage, Language, MediaTextValues, Product, ProductDetail,
+  Translations
 } from '~/types'
 
 /**
@@ -75,11 +76,13 @@ export function useApi() {
 
     // ── The composition: Settings × Media ─────────────────────────────────
     branding: {
+      // The logo comes back shaped like an attached file, so the dashboard can draw it with the
+      // same box as a category banner — though nothing is attached: the setting holds the id.
       get: () => $fetch<{
         storeName: string
         accentColor: string
         logoFileId: string
-        logo: { id: string, fileName: string, url: string } | null
+        logo: EntityImage | null
       }>('/api/branding')
     }
   }

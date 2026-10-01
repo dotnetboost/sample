@@ -8,6 +8,11 @@ defineProps<{
   selectable?: boolean
   /** Already attached to the entity the picker was opened for. */
   attached?: boolean
+  /**
+   * What the action is called. "Attach" is right when a link is being made; a host that only
+   * records the file's id — the branding logo — says "Choose", because no attachment exists.
+   */
+  selectLabel?: string
   busy?: boolean
 }>()
 
@@ -90,7 +95,7 @@ const emit = defineEmits<{
           block
           size="sm"
           icon="i-lucide-link"
-          label="Attach"
+          :label="selectLabel ?? 'Attach'"
           :loading="busy"
           @click="emit('select')"
         />

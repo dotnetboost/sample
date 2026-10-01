@@ -146,6 +146,7 @@ const items = [
         <UCard
           v-for="category in categories"
           :key="category.id"
+          class="shrink-0"
           :ui="{ body: 'flex items-center gap-4' }"
         >
           <div
@@ -193,6 +194,7 @@ const items = [
         <UCard
           v-for="product in products"
           :key="product.id"
+          class="shrink-0"
           :ui="{ body: 'flex items-center gap-4' }"
         >
           <div
