@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MediaPage } from '~/types'
+
 useHead({ title: 'Overview — DotNetBoost Sample' })
 
 const api = useApi()
@@ -6,7 +8,9 @@ const api = useApi()
 const { data: categories } = await useAsyncData('overview-categories', () => api.categories.list())
 const { data: products } = await useAsyncData('overview-products', () => api.products.list())
 const { data: languages } = await useAsyncData('overview-languages', () => api.multiLingual.languages())
-const { data: library } = await useAsyncData('overview-media', () => api.media.list())
+// The media library's own endpoint, called directly — exactly as useMediaLibrary does.
+const { data: library } = await useAsyncData('overview-media', () =>
+  $fetch<MediaPage>('/api/media', { query: { take: 1 } }))
 
 const withAltText = computed(() =>
   (products.value ?? []).flatMap(p => p.images).filter(i => i.altText).length)

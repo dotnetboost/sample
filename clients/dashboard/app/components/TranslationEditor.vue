@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Language } from '~/types'
+
 /**
  * Per-language text for one entity: a button per available language, and the fields for whichever
  * is selected.

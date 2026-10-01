@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import type { Category, Product } from '~/types'
 
 useHead({ title: 'Catalog — DotNetBoost Sample' })
 
@@ -152,7 +153,7 @@ const items = [
           >
             <img
               v-if="category.banner"
-              :src="mediaUrl(category.banner)"
+              :src="contentUrl(category.banner.id)"
               :alt="category.banner.altText ?? category.name"
               class="size-full object-cover"
             >
@@ -199,7 +200,7 @@ const items = [
           >
             <img
               v-if="product.primary"
-              :src="mediaUrl(product.primary)"
+              :src="contentUrl(product.primary.id)"
               :alt="product.primary.altText ?? product.name"
               class="size-full object-cover"
             >

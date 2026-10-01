@@ -81,15 +81,16 @@ public static class CatalogEndpoints
             var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
             if (category is null) return Results.NotFound();
 
-            var banner = await media.For(category).GetByRoleAsync(BannerRole, ct);
-
             return Results.Ok(new
             {
                 category.Id,
                 category.Slug,
                 // Every language at once — what an editor needs, as languageCode → property → value.
                 Translations = await multiLingual.For(category).GetAllAsync(ct),
-                Banner = await DescribeAsync(banner, mediaText, ct)
+                // Every attached file WITH the role it is attached under, which is what the
+                // editor's role boxes are drawn from. The roles themselves come from the media
+                // library's own GET /api/media/roles/Category — declared at startup, not here.
+                Images = await DescribeAttachedAsync(media.For(category), mediaText, ct)
             });
         })
         .WithSummary("One category with every language's text and its banner");
@@ -130,35 +131,6 @@ public static class CatalogEndpoints
             return Results.NoContent();
         })
         .WithSummary("Updates a category's slug and any language's text");
-
-        categories.MapPut("/{id:int}/banner", async (
-            int id,
-            MediaSelection body,
-            AppDbContext db,
-            IMediaManager media,
-            CancellationToken ct) =>
-        {
-            var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
-            if (category is null) return Results.NotFound();
-
-            var accessor = media.For(category);
-
-            if (body.MediaFileId is null)
-            {
-                // Clearing the banner detaches the file; the file itself stays in the library,
-                // because another entity may be using it.
-                var current = await accessor.GetByRoleAsync(BannerRole, ct);
-                if (current is not null) await accessor.DetachAsync(current.Id, BannerRole, ct);
-                return Results.NoContent();
-            }
-
-            // SetAsync replaces whatever was under the role — a category has exactly one banner,
-            // which is what DeclareRoles("Category", r => r.One("banner")) declared at startup.
-            await accessor.SetAsync(BannerRole, body.MediaFileId.Value, ct);
-
-            return Results.NoContent();
-        })
-        .WithSummary("Picks an existing media file as the category's banner, or clears it");
 
         categories.MapDelete("/{id:int}", async (
             int id,
@@ -239,12 +211,6 @@ public static class CatalogEndpoints
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
             if (product is null) return Results.NotFound();
 
-            var accessor = media.For(product);
-            var primary = await accessor.GetByRoleAsync(PrimaryRole, ct);
-            var gallery = await accessor.ListByRoleAsync(GalleryRole, ct);
-            var text = await mediaText.GetManyAsync(
-                [.. gallery.Select(f => f.Id).Append(primary?.Id ?? Guid.Empty).Where(g => g != Guid.Empty)], ct);
-
             return Results.Ok(new
             {
                 product.Id,
@@ -252,8 +218,7 @@ public static class CatalogEndpoints
                 product.Price,
                 product.CategoryId,
                 Translations = await multiLingual.For(product).GetAllAsync(ct),
-                Primary = primary is null ? null : Describe(primary, text.GetValueOrDefault(primary.Id)),
-                Gallery = gallery.Select(f => Describe(f, text.GetValueOrDefault(f.Id)))
+                Images = await DescribeAttachedAsync(media.For(product), mediaText, ct)
             });
         })
         .WithSummary("One product with every language's text and its images");
@@ -302,65 +267,6 @@ public static class CatalogEndpoints
             return Results.NoContent();
         })
         .WithSummary("Updates a product and any language's text");
-
-        products.MapPut("/{id:int}/primary", async (
-            int id,
-            MediaSelection body,
-            AppDbContext db,
-            IMediaManager media,
-            CancellationToken ct) =>
-        {
-            var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
-
-            var accessor = media.For(product);
-
-            if (body.MediaFileId is null)
-            {
-                var current = await accessor.GetByRoleAsync(PrimaryRole, ct);
-                if (current is not null) await accessor.DetachAsync(current.Id, PrimaryRole, ct);
-                return Results.NoContent();
-            }
-
-            await accessor.SetAsync(PrimaryRole, body.MediaFileId.Value, ct);
-
-            return Results.NoContent();
-        })
-        .WithSummary("Picks an existing media file as the product's primary image, or clears it");
-
-        products.MapPost("/{id:int}/gallery", async (
-            int id,
-            MediaSelection body,
-            AppDbContext db,
-            IMediaManager media,
-            CancellationToken ct) =>
-        {
-            var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
-            if (body.MediaFileId is null) return Results.BadRequest(new { message = "mediaFileId is required." });
-
-            // AddAsync appends within the role — a product may have many gallery images.
-            await media.For(product).AddAsync(body.MediaFileId.Value, GalleryRole, ct);
-
-            return Results.NoContent();
-        })
-        .WithSummary("Adds an existing media file to the product's gallery");
-
-        products.MapDelete("/{id:int}/gallery/{mediaFileId:guid}", async (
-            int id,
-            Guid mediaFileId,
-            AppDbContext db,
-            IMediaManager media,
-            CancellationToken ct) =>
-        {
-            var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
-
-            await media.For(product).DetachAsync(mediaFileId, GalleryRole, ct);
-
-            return Results.NoContent();
-        })
-        .WithSummary("Removes an image from the gallery, leaving the file in the library");
 
         products.MapPost("/{id:int}/images", async (
             int id,
@@ -443,6 +349,46 @@ public static class CatalogEndpoints
         MediaText mediaText,
         CancellationToken ct) =>
         file is null ? null : Describe(file, await mediaText.GetAsync(file.Id, ct));
+
+    /// <summary>
+    /// Every file attached to one entity, each with the role it is attached under and its position
+    /// in that role — what the dashboard's role boxes are drawn from.
+    /// <para>
+    /// <c>ListWithRolesAsync</c> rather than a call per role: a file attached under two roles comes
+    /// back once per role, which is exactly right for boxes, and the alt text for the whole set is
+    /// resolved in one query.
+    /// </para>
+    /// </summary>
+    private static async Task<IReadOnlyList<object>> DescribeAttachedAsync(
+        IMediaAccessor accessor,
+        MediaText mediaText,
+        CancellationToken ct)
+    {
+        var attached = await accessor.ListWithRolesAsync(ct);
+
+        if (attached.Count == 0) return [];
+
+        var text = await mediaText.GetManyAsync([.. attached.Select(a => a.File.Id)], ct);
+
+        return
+        [
+            .. attached
+                .OrderBy(a => a.Role)
+                .ThenBy(a => a.SortOrder)
+                .Select(a => new
+                {
+                    a.File.Id,
+                    a.File.FileName,
+                    a.File.ContentType,
+                    a.File.Size,
+                    a.Role,
+                    a.SortOrder,
+                    AltText = text.GetValueOrDefault(a.File.Id)?.AltText,
+                    Caption = text.GetValueOrDefault(a.File.Id)?.Caption,
+                    Url     = $"/api/media/{a.File.Id}/content"
+                })
+        ];
+    }
 
     private static object Describe(MediaFileInfo file, MediaTextValues? text) => new
     {

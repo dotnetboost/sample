@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { EntityImage, Language, Translations } from '~/types'
+
 /**
  * Editing one category: its slug, its text in every language, and its banner.
  *
@@ -19,7 +21,7 @@ const toast = useToast()
 
 const slug = ref('')
 const translations = ref<Translations>({})
-const banner = ref<MediaFile | null>(null)
+const images = ref<EntityImage[]>([])
 const saving = ref(false)
 const loading = ref(false)
 
@@ -29,35 +31,46 @@ watch(() => [open.value, props.categoryId] as const, async ([isOpen, id]) => {
   if (id === null) {
     slug.value = ''
     translations.value = Object.fromEntries(props.languages.map(l => [l.code, {}]))
-    banner.value = null
+    images.value = []
     return
   }
 
+  await reload(id)
+}, { immediate: true })
+
+async function reload(id: number) {
   loading.value = true
   try {
     const detail = await api.categories.get(id)
     slug.value = detail.slug
-    // Start from every language, so one with nothing stored still gets a tab.
+    // Start from every language, so one with nothing stored still gets a button.
     translations.value = Object.fromEntries(
       props.languages.map(l => [l.code, { ...(detail.translations[l.code] ?? {}) }]))
-    banner.value = detail.banner
+    images.value = detail.images
   } finally {
     loading.value = false
   }
-}, { immediate: true })
+}
+
+/** The attachments landed in the media library already; just re-read what is there. */
+async function refreshImages() {
+  if (props.categoryId !== null) await reload(props.categoryId)
+  emit('saved')
+}
 
 async function save() {
   saving.value = true
   try {
     const body = { slug: slug.value, translations: translations.value }
 
-    const id = props.categoryId
-      ?? (await api.categories.create(body) as { id: number }).id
-
-    if (props.categoryId !== null) await api.categories.update(id, body)
-
-    // The banner is a separate call: it is the media library's data, not the category's.
-    await api.categories.setBanner(id, banner.value?.id ?? null)
+    // Media is NOT saved here: an attach or a detach landed as its own request when it was made,
+    // against the media library's own endpoints. Saving a category cannot touch its files, because
+    // they are attachment rows pointing at it rather than columns on it.
+    if (props.categoryId === null) {
+      await api.categories.create(body)
+    } else {
+      await api.categories.update(props.categoryId, body)
+    }
 
     toast.add({ title: props.categoryId === null ? 'Category created' : 'Category saved', color: 'success' })
     emit('saved')
@@ -104,10 +117,25 @@ async function save() {
           />
         </div>
 
-        <MediaPicker
-          v-model="banner"
-          label="Banner"
-          hint="Attached under the role 'banner', declared at startup as exactly one per category."
+        <div v-if="categoryId !== null">
+          <p class="mb-2 text-sm font-medium">
+            Media
+          </p>
+          <EntityAttachments
+            entity-name="Category"
+            :entity-id="String(categoryId)"
+            :images="images"
+            @changed="refreshImages"
+          />
+        </div>
+
+        <UAlert
+          v-else
+          icon="i-lucide-info"
+          variant="subtle"
+          color="neutral"
+          title="Save first to attach media"
+          description="An attachment needs the category's key, which it does not have until it is saved."
         />
       </div>
     </template>

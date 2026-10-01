@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Category, EntityImage, Language, Translations } from '~/types'
+
 /**
  * Editing one product: its own columns, its text in every language, its primary image, and its
  * gallery. Same three-library shape as CategoryEditor, with a gallery on top — a product declares
@@ -18,29 +20,28 @@ const toast = useToast()
 
 const sku = ref('')
 const price = ref(0)
-const categoryId = ref<number | null>(null)
+const categoryId = ref<number | undefined>()
 const translations = ref<Translations>({})
-const primary = ref<MediaFile | null>(null)
-const gallery = ref<MediaFile[]>([])
-const pending = ref<MediaFile | null>(null)
+const images = ref<EntityImage[]>([])
 const saving = ref(false)
 const loading = ref(false)
 
 watch(() => [open.value, props.productId] as const, async ([isOpen, id]) => {
   if (!isOpen) return
 
-  pending.value = null
-
   if (id === null) {
     sku.value = ''
     price.value = 0
-    categoryId.value = props.categories[0]?.id ?? null
+    categoryId.value = props.categories[0]?.id
     translations.value = Object.fromEntries(props.languages.map(l => [l.code, {}]))
-    primary.value = null
-    gallery.value = []
+    images.value = []
     return
   }
 
+  await reload(id)
+}, { immediate: true })
+
+async function reload(id: number) {
   loading.value = true
   try {
     const detail = await api.products.get(id)
@@ -49,33 +50,23 @@ watch(() => [open.value, props.productId] as const, async ([isOpen, id]) => {
     categoryId.value = detail.categoryId
     translations.value = Object.fromEntries(
       props.languages.map(l => [l.code, { ...(detail.translations[l.code] ?? {}) }]))
-    primary.value = detail.primary
-    gallery.value = detail.gallery
+    images.value = detail.images
   } finally {
     loading.value = false
   }
-}, { immediate: true })
+}
+
+/** The attachments landed in the media library already; just re-read what is there. */
+async function refreshImages() {
+  if (props.productId !== null) await reload(props.productId)
+  emit('saved')
+}
 
 const categoryItems = computed(() =>
   props.categories.map(c => ({ label: c.name, value: c.id })))
 
-async function addToGallery() {
-  if (!pending.value || props.productId === null) return
-
-  await api.products.addToGallery(props.productId, pending.value.id)
-  gallery.value = [...gallery.value, pending.value]
-  pending.value = null
-}
-
-async function removeFromGallery(file: MediaFile) {
-  if (props.productId === null) return
-
-  await api.products.removeFromGallery(props.productId, file.id)
-  gallery.value = gallery.value.filter(f => f.id !== file.id)
-}
-
 async function save() {
-  if (categoryId.value === null) {
+  if (categoryId.value === undefined) {
     toast.add({ title: 'Pick a category', color: 'error' })
     return
   }
@@ -89,12 +80,14 @@ async function save() {
       translations: translations.value
     }
 
-    const id = props.productId
-      ?? (await api.products.create(body) as { id: number }).id
-
-    if (props.productId !== null) await api.products.update(id, body)
-
-    await api.products.setPrimary(id, primary.value?.id ?? null)
+    // Media is NOT saved here: an attach, detach or reorder landed as its own request when it was
+    // made, against the media library's own endpoints. A product's files are attachment rows
+    // pointing at it, not columns on it.
+    if (props.productId === null) {
+      await api.products.create(body)
+    } else {
+      await api.products.update(props.productId, body)
+    }
 
     toast.add({ title: props.productId === null ? 'Product created' : 'Product saved', color: 'success' })
     emit('saved')
@@ -158,59 +151,16 @@ async function save() {
           />
         </div>
 
-        <MediaPicker
-          v-model="primary"
-          label="Primary image"
-          hint="Role 'primary' — exactly one per product, so picking replaces."
-        />
-
-        <div v-if="productId !== null" class="space-y-3">
-          <p class="text-sm font-medium">
-            Gallery
+        <div v-if="productId !== null">
+          <p class="mb-2 text-sm font-medium">
+            Media
           </p>
-
-          <div v-if="gallery.length" class="flex flex-wrap gap-2">
-            <div
-              v-for="file in gallery"
-              :key="file.id"
-              class="relative"
-            >
-              <img
-                :src="mediaUrl(file)"
-                :alt="file.altText ?? file.fileName"
-                class="size-20 rounded border border-default object-cover"
-              >
-              <UButton
-                icon="i-lucide-x"
-                size="xs"
-                color="error"
-                variant="solid"
-                class="absolute -end-1.5 -top-1.5 rounded-full"
-                @click="removeFromGallery(file)"
-              />
-            </div>
-          </div>
-
-          <p v-else class="text-sm text-muted">
-            No gallery images.
-          </p>
-
-          <div class="flex items-end gap-2">
-            <div class="flex-1">
-              <MediaPicker v-model="pending" label="Add to gallery" />
-            </div>
-            <UButton
-              :disabled="!pending"
-              size="sm"
-              label="Add"
-              @click="addToGallery"
-            />
-          </div>
-
-          <p class="text-xs text-muted">
-            Role 'gallery' — many per product, appended in order. Removing detaches the
-            attachment; the file stays in the library because another entity may be using it.
-          </p>
+          <EntityAttachments
+            entity-name="Product"
+            :entity-id="String(productId)"
+            :images="images"
+            @changed="refreshImages"
+          />
         </div>
 
         <UAlert
@@ -218,8 +168,8 @@ async function save() {
           icon="i-lucide-info"
           variant="subtle"
           color="neutral"
-          title="Save first to add gallery images"
-          description="A gallery attachment needs the product's key, which it does not have until it is saved."
+          title="Save first to attach media"
+          description="An attachment needs the product's key, which it does not have until it is saved."
         />
       </div>
     </template>

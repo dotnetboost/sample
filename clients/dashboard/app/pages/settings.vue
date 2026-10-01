@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MediaFile } from '~/types'
+
 useHead({ title: 'Settings — DotNetBoost Sample' })
 
 interface Branding { logoFileId: string, storeName: string, accentColor: string }
@@ -16,8 +18,14 @@ const { data: catalog, refresh: refreshCatalog }
 const { data: resolved, refresh: refreshResolved }
   = await useAsyncData('settings-resolved', () => api.branding.get())
 
-const logo = ref<MediaFile | null>(null)
+const logo = ref<{ id: string, fileName: string } | null>(null)
 watch(resolved, value => logo.value = value?.logo ?? null, { immediate: true })
+
+const choosing = ref(false)
+
+function chooseLogo(file: MediaFile) {
+  logo.value = { id: file.id, fileName: file.fileName }
+}
 
 const saving = ref(false)
 
@@ -104,11 +112,52 @@ async function saveCatalog() {
             </div>
           </UFormField>
 
-          <MediaPicker
-            v-model="logo"
+          <UFormField
             label="Logo"
-            hint="Picked from the media library. Only the GUID is stored in the setting — the whole integration between the two libraries."
-          />
+            help="Picked from the media library. Only the GUID is stored in the setting — the whole integration between the two libraries, and no attachment is involved: the logo belongs to the application, not to a row."
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-accented bg-elevated/40">
+                <img
+                  v-if="logo"
+                  :src="contentUrl(logo.id)"
+                  :alt="logo.fileName"
+                  class="size-full object-cover"
+                >
+                <UIcon v-else name="i-lucide-image-plus" class="size-7 text-dimmed" />
+              </div>
+
+              <div class="min-w-0 flex-1 space-y-2">
+                <p v-if="logo" class="truncate text-sm font-medium">
+                  {{ logo.fileName }}
+                </p>
+                <p v-else class="text-sm text-muted">
+                  Nothing selected.
+                </p>
+
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                    icon="i-lucide-images"
+                    size="sm"
+                    variant="subtle"
+                    :label="logo ? 'Change' : 'Choose from library'"
+                    @click="choosing = true"
+                  />
+                  <UButton
+                    v-if="logo"
+                    icon="i-lucide-x"
+                    size="sm"
+                    variant="ghost"
+                    color="neutral"
+                    label="Clear"
+                    @click="logo = null"
+                  />
+                </div>
+              </div>
+            </div>
+          </UFormField>
+
+          <MediaSelectModal v-model:open="choosing" title="Choose a logo" @select="chooseLogo" />
 
           <div class="rounded bg-elevated p-3 font-mono text-xs">
             LogoFileId = {{ logo?.id ?? '00000000-0000-0000-0000-000000000000' }}

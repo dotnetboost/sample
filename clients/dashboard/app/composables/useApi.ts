@@ -1,68 +1,14 @@
+import type {
+  Category, CategoryDetail, Language, MediaTextValues, Product, ProductDetail, Translations
+} from '~/types'
+
 /**
- * Every call the dashboard makes, grouped by which library answers it.
+ * This application's own endpoints, plus the two library endpoints the catalogue pages need.
  *
- * Worth reading as documentation of the composition: `media`, `multiLingual` and `settings` talk
- * to three libraries that know nothing about each other; `catalog`, `mediaText` and `branding`
- * talk to this application's own endpoints, which are where the joining happens.
+ * The media library is NOT wrapped here: `useMediaLibrary` talks to `/api/media` directly, exactly
+ * as the DotNetBoost.Media dashboard does, so searching, filtering, sorting, paging, uploading,
+ * attaching and detaching are that library's own behaviour rather than a second implementation.
  */
-export interface Language {
-  code: string
-  name: string
-  direction: number | string
-  isDefault: boolean
-  isActive: boolean
-}
-
-export interface MediaFile {
-  id: string
-  fileName: string
-  contentType: string
-  size: number
-  altText?: string | null
-  caption?: string | null
-  /** Signed link; null on the FileSystem backend. Use mediaUrl(file) instead. */
-  url?: string | null
-}
-
-/** languageCode → (propertyName → value) — the shape both the API and the editor use. */
-export type Translations = Record<string, Record<string, string | null>>
-
-export interface Category {
-  id: number
-  name: string
-  description: string
-  slug: string
-  products: number
-  banner: MediaFile | null
-}
-
-export interface CategoryDetail {
-  id: number
-  slug: string
-  translations: Translations
-  banner: MediaFile | null
-}
-
-export interface Product {
-  id: number
-  name: string
-  description: string
-  sku: string
-  price: number
-  categoryId: number
-  primary: MediaFile | null
-  images: MediaFile[]
-}
-
-export interface ProductDetail {
-  id: number
-  sku: string
-  price: number
-  categoryId: number
-  translations: Translations
-  primary: MediaFile | null
-  gallery: MediaFile[]
-}
 
 /** The language the dashboard reads in. Sent as Accept-Language on every call. */
 export const useLanguage = () => useState<string>('language', () => 'en')
@@ -76,26 +22,15 @@ export function useApi() {
     multiLingual: {
       languages: () => $fetch<Language[]>('/api/languages'),
       create: (body: { code: string, name: string, direction?: string }) =>
-        $fetch('/api/languages', { method: 'POST', body }),
-      remove: (code: string) => $fetch(`/api/languages/${code}`, { method: 'DELETE' })
-    },
-
-    // ── DotNetBoost.Media ─────────────────────────────────────────────────
-    media: {
-      list: () => $fetch<{ items: MediaFile[], total: number }>('/api/media?take=100'),
-      remove: (id: string) => $fetch(`/api/media/${id}`, { method: 'DELETE' }),
-      upload: (file: File) => {
-        const form = new FormData()
-        form.append('file', file)
-        return $fetch<MediaFile>('/api/media', { method: 'POST', body: form })
-      }
+        $fetch('/api/languages', { method: 'POST', body })
     },
 
     // ── DotNetBoost.Settings ──────────────────────────────────────────────
     settings: {
       get: <T>(group: string) => $fetch<T>(`/api/settings/${group}`),
-      set: <T>(group: string, body: T) =>
-        $fetch(`/api/settings/${group}`, { method: 'POST', body })
+      /** The group's model, posted whole — the settings library validates it server side. */
+      set: <T extends object>(group: string, body: T) =>
+        $fetch(`/api/settings/${group}`, { method: 'POST', body: body as Record<string, unknown> })
     },
 
     // ── This application: the catalogue ───────────────────────────────────
@@ -103,28 +38,20 @@ export function useApi() {
       list: () => $fetch<Category[]>('/api/categories', { headers: headers() }),
       get: (id: number) => $fetch<CategoryDetail>(`/api/categories/${id}`),
       create: (body: { slug: string, translations: Translations }) =>
-        $fetch('/api/categories', { method: 'POST', body }),
+        $fetch<{ id: number }>('/api/categories', { method: 'POST', body }),
       update: (id: number, body: { slug: string, translations: Translations }) =>
         $fetch(`/api/categories/${id}`, { method: 'PUT', body }),
-      remove: (id: number) => $fetch(`/api/categories/${id}`, { method: 'DELETE' }),
-      setBanner: (id: number, mediaFileId: string | null) =>
-        $fetch(`/api/categories/${id}/banner`, { method: 'PUT', body: { mediaFileId } })
+      remove: (id: number) => $fetch(`/api/categories/${id}`, { method: 'DELETE' })
     },
 
     products: {
       list: () => $fetch<Product[]>('/api/products', { headers: headers() }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
-        $fetch('/api/products', { method: 'POST', body }),
+        $fetch<{ id: number }>('/api/products', { method: 'POST', body }),
       update: (id: number, body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
         $fetch(`/api/products/${id}`, { method: 'PUT', body }),
-      remove: (id: number) => $fetch(`/api/products/${id}`, { method: 'DELETE' }),
-      setPrimary: (id: number, mediaFileId: string | null) =>
-        $fetch(`/api/products/${id}/primary`, { method: 'PUT', body: { mediaFileId } }),
-      addToGallery: (id: number, mediaFileId: string) =>
-        $fetch(`/api/products/${id}/gallery`, { method: 'POST', body: { mediaFileId } }),
-      removeFromGallery: (id: number, mediaFileId: string) =>
-        $fetch(`/api/products/${id}/gallery/${mediaFileId}`, { method: 'DELETE' })
+      remove: (id: number) => $fetch(`/api/products/${id}`, { method: 'DELETE' })
     },
 
     // ── The composition: Media × MultiLingual ─────────────────────────────
@@ -133,16 +60,16 @@ export function useApi() {
         $fetch<{
           mediaFileId: string
           fileName: string
-          current: { altText: string | null, caption: string | null }
+          current: MediaTextValues
           byLanguage: Record<string, Record<string, string | null>>
         }>(`/api/media-text/${mediaFileId}`, { headers: headers() }),
 
-      set: (mediaFileId: string, values: Record<string, { altText: string | null, caption: string | null }>) =>
+      set: (mediaFileId: string, values: Record<string, MediaTextValues>) =>
         $fetch(`/api/media-text/${mediaFileId}`, { method: 'POST', body: { values } }),
 
       /** Alt text for many files in one call, in the current language. */
       resolve: (ids: string[]) =>
-        $fetch<Record<string, { altText: string | null, caption: string | null }>>(
+        $fetch<Record<string, MediaTextValues>>(
           '/api/media-text/resolve', { method: 'POST', body: { ids }, headers: headers() })
     },
 
@@ -152,14 +79,43 @@ export function useApi() {
         storeName: string
         accentColor: string
         logoFileId: string
-        logo: MediaFile | null
-      }>('/api/branding'),
-
-      uploadLogo: (file: File) => {
-        const form = new FormData()
-        form.append('file', file)
-        return $fetch('/api/branding/logo', { method: 'POST', body: form })
-      }
+        logo: { id: string, fileName: string, url: string } | null
+      }>('/api/branding')
     }
   }
+}
+
+/**
+ * Attaching and detaching, through DotNetBoost.Media's OWN endpoints.
+ *
+ * Deliberately not routed through this application: the role lives on the attachment, the library
+ * owns attachments, and it already exposes exactly these operations. Every entity in the
+ * application gets attachment handling without a single endpoint of its own.
+ */
+export function useAttachments() {
+  const attach = (
+    mediaFileId: string,
+    owner: { entityName: string, entityId: string },
+    role: string,
+    replace: boolean
+  ) => $fetch(`/api/media/${mediaFileId}/attachments`, {
+    method: 'POST',
+    body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, replace }
+  })
+
+  /** Needs the ATTACHMENT's id, not the file's — `GET /api/media/{id}` carries them. */
+  const detach = (mediaFileId: string, attachmentId: string) =>
+    $fetch(`/api/media/${mediaFileId}/attachments/${attachmentId}`, { method: 'DELETE' })
+
+  /** Every id in the role: a partial order has no meaning, and the API refuses one. */
+  const reorder = (
+    owner: { entityName: string, entityId: string },
+    role: string,
+    mediaFileIds: string[]
+  ) => $fetch('/api/media/attachments/order', {
+    method: 'PUT',
+    body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, mediaFileIds }
+  })
+
+  return { attach, detach, reorder }
 }

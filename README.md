@@ -26,16 +26,25 @@ so the claim cannot quietly stop being true.
 A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
 **Languages**, **Settings**, with the reading-language selector in every page header.
 
+**Media** is DotNetBoost.Media's own browser, lifted wholesale — search, category and tag filters,
+content-type filter, sorting, paging, upload, file details, attachments and delete, all of it in
+the query the API is asked rather than applied to the rows already on screen. The one addition is
+**alt text**, which appears in a file's details below "Used by": it is not media data at all, but
+DotNetBoost.MultiLingual rows filed under the subject `MediaFile`.
+
 **Catalog** has two tabs. Each lists, edits and deletes, and each editor is the composition on one
 form:
 
 - a **button per available language**, ticked when that language has content, with the fields for
   whichever is selected — right-aligned automatically for Arabic
-- a **media picker box** choosing from the library: a banner for a category, a primary image and a
-  gallery for a product
+- **a box per media role**, read from `GET /api/media/roles/{entityName}`: one box for a category's
+  `banner`, one for a product's `primary`, and a box per file plus a trailing empty one for its
+  `gallery`. Clicking a box opens the same browser in a modal, already committed to that role.
 
 Nothing on those forms knows it is touching three libraries. The slug and SKU are columns; the
-name and description are translation rows; the images are attachment rows.
+name and description are translation rows; the images are attachment rows — and attaching,
+detaching and reordering go straight to **the media library's own endpoints**, so this application
+has no attachment endpoints of its own.
 
 ## Run it
 
@@ -205,6 +214,17 @@ Each library maps its own, with no coordination between them:
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages` |
 | This application | `/api/categories`, `/api/products`, `/api/media-text/{id}`, `/api/media-text/resolve`, `/api/branding` |
+
+Attachments are the media library's: `POST /api/media/{id}/attachments`,
+`DELETE /api/media/{id}/attachments/{attachmentId}`, `PUT /api/media/attachments/order` and
+`GET /api/media/roles/{entityName}`. The roles themselves are declared once, in `Program.cs`:
+
+```csharp
+.DeclareRoles("Product",  roles => roles.One("primary").Many("gallery"))
+.DeclareRoles("Category", roles => roles.One("banner"))
+```
+
+Add a role there and the editor grows a box for it, with no change to the dashboard.
 
 Full reference at `/scalar` on the API.
 
