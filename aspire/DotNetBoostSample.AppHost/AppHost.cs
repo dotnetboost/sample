@@ -16,8 +16,22 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 // ── PostgreSQL ───────────────────────────────────────────────────────────────
+// A FIXED password, deliberately, because of the data volume below.
+//
+// Left to itself Aspire generates a random password per run. PostgreSQL only applies
+// POSTGRES_PASSWORD when it first initialises its data directory, so a named volume keeps the
+// password from the run that created it — and the next run, with a freshly generated password,
+// is refused with "password authentication failed for user postgres". Pinning the value is what
+// makes "stop it and start it again tomorrow" work.
+//
+// Safe here and ONLY here: this is a throwaway container on a local dev machine, reachable on a
+// mapped localhost port, holding seed data that is recreated on every startup. Never do this for
+// anything that outlives the sample — use `builder.AddParameter("postgres-password", secret: true)`
+// with a value in user secrets instead.
+var postgresPassword = builder.AddParameter("postgres-password", "dotnetboost-sample-dev", secret: true);
+
 // Named volume, so what you create in one session is still there in the next.
-var postgres = builder.AddPostgres("postgres")
+var postgres = builder.AddPostgres("postgres", password: postgresPassword)
     .WithDataVolume("dotnetboost-sample-pgdata")
     .WithPgAdmin();
 
