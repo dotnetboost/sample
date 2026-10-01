@@ -64,6 +64,20 @@ public static class MediaTextEndpoints
         })
         .WithSummary("Sets alt text and caption for one or more languages");
 
+        group.MapPost("/resolve", async (
+            ResolveMediaText body,
+            MediaText mediaText,
+            CancellationToken ct) =>
+        {
+            // One query for every file, not one per file — which is why MediaText exposes
+            // GetManyAsync at all. The media library's own list endpoint cannot do this: it has
+            // no alt-text field, and no idea the translation rows exist.
+            var resolved = await mediaText.GetManyAsync(body.Ids, ct);
+
+            return Results.Ok(resolved.ToDictionary(pair => pair.Key, pair => pair.Value));
+        })
+        .WithSummary("Alt text and caption for many files at once, in the request's language");
+
         group.MapDelete("/{mediaFileId:guid}", async (
             Guid mediaFileId,
             MediaText mediaText,
@@ -78,3 +92,6 @@ public static class MediaTextEndpoints
 
 /// <summary>Alt text and caption, keyed by language code.</summary>
 public sealed record MediaTextWrite(Dictionary<string, MediaTextValues> Values);
+
+/// <summary>The files to resolve text for, in the request's language.</summary>
+public sealed record ResolveMediaText(Guid[] Ids);

@@ -21,6 +21,22 @@ so the claim cannot quietly stop being true.
 
 ---
 
+## The dashboard
+
+A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
+**Languages**, **Settings**, with the reading-language selector in every page header.
+
+**Catalog** has two tabs. Each lists, edits and deletes, and each editor is the composition on one
+form:
+
+- a **button per available language**, ticked when that language has content, with the fields for
+  whichever is selected — right-aligned automatically for Arabic
+- a **media picker box** choosing from the library: a banner for a category, a primary image and a
+  gallery for a product
+
+Nothing on those forms knows it is touching three libraries. The slug and SKU are columns; the
+name and description are translation rows; the images are attachment rows.
+
 ## Run it
 
 Needs **.NET 10 SDK**, **Node 20+**, and a **container runtime** (Docker Desktop, OrbStack or
@@ -167,7 +183,12 @@ src/DotNetBoostSample.Api/
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
-clients/dashboard/                       Nuxt 4 + Nuxt UI, RTL-aware
+clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
+  app/pages/catalog.vue                  Categories | Products tabs — list, edit, delete
+  app/components/CategoryEditor.vue      slug + per-language text + banner picker
+  app/components/ProductEditor.vue       columns + per-language text + primary & gallery
+  app/components/TranslationEditor.vue   a button per language, fields for the selected one
+  app/components/MediaPicker.vue         pick an existing file from the library, or upload
 tests/DotNetBoostSample.Tests/           the claim, as tests
 media/                                   file bytes at runtime (gitignored)
 ```
@@ -183,14 +204,20 @@ Each library maps its own, with no coordination between them:
 | `DotNetBoost.Settings.API` | `GET/POST /api/settings/{group}` |
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages` |
-| This application | `/api/categories`, `/api/products`, `/api/media-text/{id}`, `/api/branding` |
+| This application | `/api/categories`, `/api/products`, `/api/media-text/{id}`, `/api/media-text/resolve`, `/api/branding` |
 
 Full reference at `/scalar` on the API.
 
-> **Note.** `DotNetBoost.MultiLingual.API` ships `MapLanguageEndpoints` but no translation-editing
+> **Two gaps this sample surfaced.**
+>
+> `DotNetBoost.MultiLingual.API` ships `MapLanguageEndpoints` but no translation-editing
 > endpoints, so writing translations over HTTP is the application's job —
-> `Endpoints/MediaTextEndpoints.cs` and `Endpoints/CatalogEndpoints.cs` do it. That is a genuine
-> gap this sample surfaced.
+> `Endpoints/MediaTextEndpoints.cs` and `Endpoints/CatalogEndpoints.cs` do it.
+>
+> `DotNetBoost.Media.API`'s list endpoint returns `url` as a *signed, expiring* link, which is
+> null on the FileSystem backend. The dashboard therefore derives every URL from the file's id
+> (`app/utils/media.ts`) rather than reading the field — which also means switching to Azure or S3
+> changes no client code.
 
 ---
 

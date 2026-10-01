@@ -1,24 +1,52 @@
 <script setup lang="ts">
-import type { MediaTextValues } from '~/composables/useApi'
+useHead({ title: 'Media — DotNetBoost Sample' })
 
 const api = useApi()
 const toast = useToast()
+const config = useRuntimeConfig()
 
-const { data: products, refresh } = await useAsyncData('media-products', () => api.catalog.products())
+/**
+ * The library listing joined to its alt text.
+ *
+ * Two calls, deliberately: `GET /api/media` is the media library's own endpoint and knows nothing
+ * about translations, so the text comes from this application's `/api/media-text/resolve`, which
+ * resolves every file in one query. That join is the composition, at list scale.
+ */
+const { data: library, refresh } = await useAsyncData('media-page', async () => {
+  const page = await api.media.list()
+  if (!page.items.length) return page
+
+  const text = await api.mediaText.resolve(page.items.map(f => f.id))
+
+  return {
+    ...page,
+    items: page.items.map(file => ({
+      ...file,
+      altText: text[file.id]?.altText ?? null,
+      caption: text[file.id]?.caption ?? null
+    }))
+  }
+})
 const { data: languages } = await useAsyncData('media-languages', () => api.multiLingual.languages())
 
-const images = computed(() =>
-  (products.value ?? []).flatMap(p => p.images.map(image => ({ ...image, product: p.name }))))
+const language = useLanguage()
+watch(language, () => refresh())
 
-const editing = ref<string | null>(null)
-const draft = ref<Record<string, MediaTextValues>>({})
+const editing = ref<MediaFile | null>(null)
+const draft = ref<Record<string, { altText: string | null, caption: string | null }>>({})
+const activeLanguage = ref('en')
 const saving = ref(false)
+const uploading = ref(false)
 
-async function open(mediaFileId: string) {
-  editing.value = mediaFileId
+const confirming = ref<MediaFile | null>(null)
+const deleting = ref(false)
+
+async function open(file: MediaFile) {
+  editing.value = file
   draft.value = {}
+  activeLanguage.value = languages.value?.[0]?.code ?? 'en'
 
-  const detail = await api.mediaText.get(mediaFileId)
+  const detail = await api.mediaText.get(file.id)
 
   for (const language of languages.value ?? []) {
     const stored = detail.byLanguage[language.code] ?? {}
@@ -34,7 +62,7 @@ async function save() {
 
   saving.value = true
   try {
-    await api.mediaText.set(editing.value, draft.value)
+    await api.mediaText.set(editing.value.id, draft.value)
     await refresh()
     toast.add({ title: 'Saved', color: 'success' })
     editing.value = null
@@ -45,147 +73,229 @@ async function save() {
   }
 }
 
-const isRtlLanguage = (code: string) =>
-  isRtl(languages.value?.find(l => l.code === code)?.direction)
+async function upload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (file.size > Number(config.public.maxUploadBytes)) {
+    toast.add({ title: 'File too large', color: 'error' })
+    input.value = ''
+    return
+  }
+
+  uploading.value = true
+  try {
+    await api.media.upload(file)
+    await refresh()
+    toast.add({ title: 'Uploaded', color: 'success' })
+  } catch (error) {
+    toast.add({ title: 'Upload failed', description: String(error), color: 'error' })
+  } finally {
+    uploading.value = false
+    input.value = ''
+  }
+}
+
+async function confirmDelete() {
+  if (!confirming.value) return
+
+  deleting.value = true
+  try {
+    await api.media.remove(confirming.value.id)
+    await refresh()
+    toast.add({ title: 'Deleted', color: 'success' })
+    confirming.value = null
+  } catch (error) {
+    toast.add({ title: 'Could not delete', description: String(error), color: 'error' })
+  } finally {
+    deleting.value = false
+  }
+}
+
+const hasText = (code: string) => {
+  const values = draft.value[code]
+  return Boolean(values?.altText?.trim() || values?.caption?.trim())
+}
+
+const activeIsRtl = computed(() =>
+  isRtl(languages.value?.find(l => l.code === activeLanguage.value)?.direction))
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold">
-        Media & alt text
-      </h1>
-      <p class="mt-1 max-w-3xl text-muted">
-        The composition, editable. Each file is a row in DotNetBoost.Media; its alt text and
-        caption are rows in DotNetBoost.MultiLingual, filed under the subject
-        <code>"MediaFile"</code> and the file's own GUID. Neither library knows the other exists.
-      </p>
-    </div>
-
-    <UAlert
-      icon="i-lucide-accessibility"
-      variant="subtle"
-      color="neutral"
-      title="Why alt text is the natural pairing"
-      description="Alt text is required for accessibility and is inherently per-language — so it belongs to the translations store, not to a new column on the media table. MediaFile ships with no alt-text field at all, which is what makes this worth demonstrating."
-    />
-
-    <UCard v-if="!images.length">
-      <p class="text-muted">
-        No images yet. Upload one from the Catalog page.
-      </p>
-    </UCard>
-
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <UCard
-        v-for="image in images"
-        :key="image.id"
-        class="overflow-hidden"
-      >
-        <img
-          :src="image.url"
-          :alt="image.altText ?? ''"
-          class="-mx-6 -mt-6 mb-4 h-40 w-[calc(100%+3rem)] object-cover"
-        >
-
-        <p class="truncate text-sm font-medium">
-          {{ image.fileName }}
-        </p>
-        <p class="text-xs text-muted">
-          {{ image.product }}
-        </p>
-
-        <div class="mt-3 space-y-1 text-xs">
-          <p v-if="image.altText" class="text-muted">
-            <span class="font-medium text-default">alt:</span> {{ image.altText }}
-          </p>
-          <p v-else class="text-warning">
-            no alt text in this language
-          </p>
-          <p v-if="image.caption" class="text-muted">
-            <span class="font-medium text-default">caption:</span> {{ image.caption }}
-          </p>
-        </div>
-
-        <template #footer>
-          <UButton
-            icon="i-lucide-pencil"
-            size="sm"
-            variant="subtle"
-            block
-            label="Edit all languages"
-            @click="open(image.id)"
-          />
+  <UDashboardPanel id="media">
+    <template #header>
+      <UDashboardNavbar title="Media">
+        <template #leading>
+          <UDashboardSidebarCollapse />
         </template>
-      </UCard>
-    </div>
 
-    <UModal
-      :open="editing !== null"
-      title="Alt text and caption"
-      description="One row per language, written straight to the translations store."
-      @update:open="editing = null"
-    >
-      <template #body>
-        <div class="space-y-5">
-          <div
-            v-for="language in languages"
-            :key="language.code"
-            class="space-y-2"
+        <template #right>
+          <LanguageSelect />
+        </template>
+      </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #right>
+          <UButton
+            as="label"
+            icon="i-lucide-upload"
+            size="sm"
+            :loading="uploading"
+            label="Upload"
           >
-            <div class="flex items-center gap-2">
-              <UBadge variant="subtle" size="sm">
-                {{ language.code }}
-              </UBadge>
-              <span class="text-sm font-medium">{{ language.name }}</span>
-              <UBadge
-                v-if="isRtlLanguage(language.code)"
-                color="neutral"
-                variant="subtle"
-                size="sm"
-              >
-                RTL
-              </UBadge>
-            </div>
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="upload"
+            >
+          </UButton>
+        </template>
+      </UDashboardToolbar>
+    </template>
 
-            <UInput
-              v-if="draft[language.code]"
-              v-model="draft[language.code]!.altText"
-              :dir="isRtlLanguage(language.code) ? 'rtl' : 'ltr'"
-              placeholder="Alt text"
-              class="w-full"
-            />
-            <UInput
-              v-if="draft[language.code]"
-              v-model="draft[language.code]!.caption"
-              :dir="isRtlLanguage(language.code) ? 'rtl' : 'ltr'"
-              placeholder="Caption"
-              class="w-full"
-            />
+    <template #body>
+      <UPageCard
+        title="The library, and its alt text"
+        description="Each file is a row in DotNetBoost.Media; its alt text and caption are rows in DotNetBoost.MultiLingual, filed under the subject &quot;MediaFile&quot; and the file's own GUID. MediaFile ships with no alt-text field at all — which is exactly why this pairing is worth demonstrating, and why it needs no schema change in either library."
+        variant="naked"
+      />
+
+      <UCard v-if="!library?.items?.length">
+        <p class="text-muted">
+          No files yet. Upload one, or add an image from the Catalog editor.
+        </p>
+      </UCard>
+
+      <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <UCard
+          v-for="file in library.items"
+          :key="file.id"
+          :ui="{ body: 'p-0', footer: 'p-3' }"
+        >
+          <img
+            :src="mediaUrl(file)"
+            :alt="file.altText ?? ''"
+            class="h-36 w-full object-cover"
+          >
+
+          <div class="space-y-1 p-3">
+            <p class="truncate text-sm font-medium">
+              {{ file.fileName }}
+            </p>
+            <p v-if="file.altText" class="truncate text-xs text-muted">
+              {{ file.altText }}
+            </p>
+            <p v-else class="text-xs text-warning">
+              no alt text in this language
+            </p>
           </div>
 
-          <p class="text-xs text-muted">
-            Leaving a field empty removes the stored row rather than storing an empty string —
-            that is the translation store's own contract.
-          </p>
-        </div>
-      </template>
+          <template #footer>
+            <div class="flex gap-2">
+              <UButton
+                icon="i-lucide-pencil"
+                size="sm"
+                variant="subtle"
+                class="flex-1"
+                label="Alt text"
+                @click="open(file)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                size="sm"
+                variant="ghost"
+                color="error"
+                @click="confirming = file"
+              />
+            </div>
+          </template>
+        </UCard>
+      </div>
 
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            label="Cancel"
-            @click="editing = null"
-          />
-          <UButton
-            :loading="saving"
-            label="Save"
-            @click="save"
-          />
-        </div>
-      </template>
-    </UModal>
-  </div>
+      <USlideover
+        :open="editing !== null"
+        title="Alt text and caption"
+        description="One row per language, written straight to the translations store."
+        @update:open="editing = null"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <img
+              v-if="editing"
+              :src="mediaUrl(editing)"
+              :alt="editing.fileName"
+              class="h-40 w-full rounded-lg border border-default object-cover"
+            >
+
+            <!-- A button per available language, as in the Catalog editor. -->
+            <div class="flex flex-wrap gap-1.5">
+              <UButton
+                v-for="option in languages"
+                :key="option.code"
+                :label="option.name"
+                :color="activeLanguage === option.code ? 'primary' : 'neutral'"
+                :variant="activeLanguage === option.code ? 'solid' : 'outline'"
+                size="sm"
+                @click="activeLanguage = option.code"
+              >
+                <template #trailing>
+                  <span class="flex items-center gap-1">
+                    <UIcon v-if="hasText(option.code)" name="i-lucide-circle-check" class="size-3.5" />
+                    <span class="font-mono text-[10px] opacity-60">{{ option.code }}</span>
+                  </span>
+                </template>
+              </UButton>
+            </div>
+
+            <div v-if="draft[activeLanguage]" class="space-y-3 rounded-lg border border-default p-4">
+              <UFormField label="Alt text" help="Required for accessibility, and different in every language.">
+                <UInput
+                  v-model="draft[activeLanguage]!.altText as string"
+                  :dir="activeIsRtl ? 'rtl' : 'ltr'"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="Caption">
+                <UInput
+                  v-model="draft[activeLanguage]!.caption as string"
+                  :dir="activeIsRtl ? 'rtl' : 'ltr'"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <p class="text-xs text-muted">
+                Leaving a field empty removes the stored row rather than storing an empty string —
+                that is the translation store's own contract.
+              </p>
+            </div>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton
+              label="Cancel"
+              color="neutral"
+              variant="ghost"
+              @click="editing = null"
+            />
+            <UButton :loading="saving" label="Save" @click="save" />
+          </div>
+        </template>
+      </USlideover>
+
+      <ConfirmModal
+        :open="confirming !== null"
+        :title="`Delete ${confirming?.fileName ?? ''}?`"
+        description="The file is removed from the library. Its alt text is NOT removed automatically — the media library has no idea the translation rows exist. That is the honest cost of having no integration package."
+        confirm-label="Delete"
+        :loading="deleting"
+        @update:open="confirming = null"
+        @confirm="confirmDelete"
+      />
+    </template>
+  </UDashboardPanel>
 </template>

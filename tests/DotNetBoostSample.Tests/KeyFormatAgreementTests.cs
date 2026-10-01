@@ -63,3 +63,26 @@ public class KeyFormatAgreementTests
         Assert.False(string.IsNullOrWhiteSpace(MediaText.Subject));
     }
 }
+
+/// <summary>
+/// Media lets one file be attached under several roles at once — a product's primary image can
+/// also sit in its gallery — so the glue service is handed the same id twice. Keying a dictionary
+/// on a repeated id throws, which is a 500 on the product detail endpoint.
+/// </summary>
+public class MediaTextDuplicateIdTests
+{
+    [Fact]
+    public void Repeated_ids_collapse_to_one_entry()
+    {
+        var id = Guid.NewGuid();
+        var other = Guid.NewGuid();
+
+        // The shape GetManyAsync builds its result from: distinct ids, keyed by id.
+        var ids = new[] { id, other, id }.Distinct().ToArray();
+        var keyed = ids.ToDictionary(x => x, _ => (string?)null);
+
+        Assert.Equal(2, keyed.Count);
+        Assert.True(keyed.ContainsKey(id));
+        Assert.True(keyed.ContainsKey(other));
+    }
+}

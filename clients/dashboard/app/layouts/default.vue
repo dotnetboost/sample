@@ -1,84 +1,105 @@
 <script setup lang="ts">
+import type { NavigationMenuItem } from '@nuxt/ui'
+
+const { apiReferenceUrl } = useRuntimeConfig().public
+
 const api = useApi()
 const language = useLanguage()
 
-const { data: languages } = await useAsyncData('languages', () => api.multiLingual.languages())
-const { data: branding } = await useAsyncData('branding', () => api.branding.get())
+const { data: languages } = await useAsyncData('layout-languages', () => api.multiLingual.languages())
 
-const config = useRuntimeConfig()
+const open = ref(false)
+const close = () => {
+  open.value = false
+}
 
-const links = [
-  { label: 'Overview', icon: 'i-lucide-layout-dashboard', to: '/' },
-  { label: 'Catalog', icon: 'i-lucide-package', to: '/catalog' },
-  { label: 'Media & alt text', icon: 'i-lucide-image', to: '/media' },
-  { label: 'Languages', icon: 'i-lucide-languages', to: '/languages' },
-  { label: 'Settings', icon: 'i-lucide-settings', to: '/settings' }
-]
+const links = [[{
+  label: 'Catalog',
+  icon: 'i-lucide-package',
+  to: '/catalog',
+  onSelect: close
+}, {
+  label: 'Media',
+  icon: 'i-lucide-images',
+  to: '/media',
+  onSelect: close
+}, {
+  label: 'Languages',
+  icon: 'i-lucide-languages',
+  to: '/languages',
+  onSelect: close
+}, {
+  label: 'Settings',
+  icon: 'i-lucide-settings',
+  to: '/settings',
+  onSelect: close
+}], [{
+  label: 'API reference',
+  icon: 'i-lucide-book-open',
+  to: apiReferenceUrl,
+  target: '_blank'
+}, {
+  label: 'DotNetBoost on GitHub',
+  icon: 'i-simple-icons-github',
+  to: 'https://github.com/dotnetboost',
+  target: '_blank'
+}]] satisfies NavigationMenuItem[][]
 
-// Arabic is right-to-left; the whole shell flips, which is the point of storing direction
-// alongside the language rather than hardcoding a list of RTL codes in the client.
-const direction = computed(() => {
-  const current = languages.value?.find(l => l.code === language.value)
-  return isRtl(current?.direction) ? 'rtl' : 'ltr'
-})
+const groups = computed(() => [{
+  id: 'links',
+  label: 'Go to',
+  items: links.flat()
+}])
 
-const languageItems = computed(() =>
-  (languages.value ?? []).filter(l => l.isActive).map(l => ({
-    label: l.name,
-    value: l.code
-  }))
-)
+// The whole shell flips for a right-to-left language — which is why direction is stored
+// alongside the language rather than hardcoded as a list of RTL codes in the client.
+const direction = computed(() =>
+  isRtl(languages.value?.find(l => l.code === language.value)?.direction) ? 'rtl' : 'ltr')
 </script>
 
 <template>
-  <div :dir="direction" class="min-h-screen bg-default">
-    <header class="border-b border-default">
-      <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <div class="flex items-center gap-3">
-          <img
-            v-if="branding?.logo"
-            :src="branding.logo.url"
-            :alt="branding.storeName"
-            class="size-8 rounded object-cover"
-          >
-          <UIcon v-else name="i-lucide-boxes" class="size-7 text-primary" />
-          <div>
-            <p class="font-semibold leading-tight">
-              {{ branding?.storeName ?? 'DotNetBoost Sample' }}
-            </p>
-            <p class="text-xs text-muted">
-              Settings · Media · MultiLingual
-            </p>
-          </div>
-        </div>
+  <div :dir="direction">
+    <UDashboardGroup unit="rem">
+      <UDashboardSidebar
+        id="default"
+        v-model:open="open"
+        collapsible
+        resizable
+        class="bg-elevated/25"
+        :ui="{ footer: 'lg:border-t lg:border-default' }"
+      >
+        <template #header="{ collapsed }">
+          <AppBrand :collapsed="collapsed" />
+        </template>
 
-        <div class="flex-1" />
+        <template #default="{ collapsed }">
+          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
 
-        <USelect
-          v-model="language"
-          :items="languageItems"
-          value-key="value"
-          icon="i-lucide-languages"
-          class="w-40"
-        />
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="links[0]"
+            orientation="vertical"
+            tooltip
+            popover
+          />
 
-        <UButton
-          :to="config.public.apiReferenceUrl"
-          target="_blank"
-          icon="i-lucide-book-open"
-          variant="ghost"
-          color="neutral"
-          label="API"
-        />
-      </div>
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="links[1]"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+          />
+        </template>
 
-      <nav class="mx-auto max-w-7xl px-4">
-        <UNavigationMenu :items="links" />
-      </nav>
-    </header>
+        <template #footer="{ collapsed }">
+          <AppearanceMenu :collapsed="collapsed" />
+        </template>
+      </UDashboardSidebar>
 
-    <main class="mx-auto max-w-7xl px-4 py-6">
+      <UDashboardSearch :groups="groups" />
+
       <slot />
-    </main>
+    </UDashboardGroup>
   </div>
 </template>

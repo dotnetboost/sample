@@ -97,7 +97,12 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
         IReadOnlyCollection<Guid> mediaFileIds,
         CancellationToken ct = default)
     {
-        if (mediaFileIds.Count == 0)
+        // Distinct, because the caller may legitimately pass the same file twice: Media lets one
+        // file be attached under several roles at once, so a product's primary image can also sit
+        // in its gallery. Keying a dictionary on a repeated id would throw.
+        var ids = mediaFileIds.Distinct().ToArray();
+
+        if (ids.Length == 0)
             return new Dictionary<Guid, MediaTextValues>();
 
         var current  = multiLingual.CurrentLanguage.Code;
@@ -106,11 +111,11 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
         var languages = current == fallback ? new[] { current } : [current, fallback];
 
         var rows = await translations.GetAsync(
-            Subject, [.. mediaFileIds.Select(Key)], languages, ct);
+            Subject, [.. ids.Select(Key)], languages, ct);
 
         var byEntity = rows.GroupBy(r => r.EntityId).ToDictionary(g => g.Key, g => g.ToList());
 
-        return mediaFileIds.ToDictionary(
+        return ids.ToDictionary(
             id => id,
             id =>
             {

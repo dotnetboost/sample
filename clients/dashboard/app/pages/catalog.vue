@@ -1,190 +1,272 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
+
+useHead({ title: 'Catalog — DotNetBoost Sample' })
+
 const api = useApi()
 const toast = useToast()
 const language = useLanguage()
-const config = useRuntimeConfig()
 
-const { data: categories, refresh: refreshCategories }
-  = await useAsyncData('catalog-categories', () => api.catalog.categories())
+const tab = ref('categories')
 
-const { data: products, refresh: refreshProducts }
-  = await useAsyncData('catalog-products', () => api.catalog.products())
+const { data: languages } = await useAsyncData('catalog-languages', () => api.multiLingual.languages())
+const { data: categories, refresh: refreshCategories } = await useAsyncData('catalog-categories', () => api.categories.list())
+const { data: products, refresh: refreshProducts } = await useAsyncData('catalog-products', () => api.products.list())
 
-// Re-read everything when the header's language changes: these are the same rows, translated.
+// Re-read when the header language changes: these are the same rows, translated.
 watch(language, async () => {
   await Promise.all([refreshCategories(), refreshProducts()])
 })
 
-const uploading = ref<number | null>(null)
+const editingCategory = ref<number | null>(null)
+const categoryOpen = ref(false)
+const editingProduct = ref<number | null>(null)
+const productOpen = ref(false)
 
-async function upload(productId: number, event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+const confirming = ref<{ kind: 'category' | 'product', id: number, name: string } | null>(null)
+const deleting = ref(false)
 
-  if (file.size > Number(config.public.maxUploadBytes)) {
-    toast.add({ title: 'File too large', color: 'error' })
-    input.value = ''
-    return
-  }
+function editCategory(id: number | null) {
+  editingCategory.value = id
+  categoryOpen.value = true
+}
 
-  uploading.value = productId
+function editProduct(id: number | null) {
+  editingProduct.value = id
+  productOpen.value = true
+}
+
+async function confirmDelete() {
+  if (!confirming.value) return
+
+  deleting.value = true
   try {
-    await api.catalog.uploadImage(productId, file, 'gallery')
-    await refreshProducts()
-    toast.add({
-      title: 'Uploaded',
-      description: 'Add alt text per language on the Media page.',
-      color: 'success'
-    })
-  } catch (error) {
-    toast.add({ title: 'Upload failed', description: String(error), color: 'error' })
+    if (confirming.value.kind === 'category') {
+      await api.categories.remove(confirming.value.id)
+      await refreshCategories()
+    } else {
+      await api.products.remove(confirming.value.id)
+      await Promise.all([refreshProducts(), refreshCategories()])
+    }
+    toast.add({ title: 'Deleted', color: 'success' })
+    confirming.value = null
+  } catch (error: unknown) {
+    const message = (error as { data?: { message?: string } })?.data?.message ?? String(error)
+    toast.add({ title: 'Could not delete', description: message, color: 'error' })
   } finally {
-    uploading.value = null
-    input.value = ''
+    deleting.value = false
   }
 }
 
-const categoryName = (id: number) =>
-  categories.value?.find(c => c.id === id)?.name ?? '—'
+const categoryActions = (category: Category): DropdownMenuItem[][] => [[{
+  label: 'Edit',
+  icon: 'i-lucide-pencil',
+  onSelect: () => editCategory(category.id)
+}], [{
+  label: 'Delete',
+  icon: 'i-lucide-trash-2',
+  color: 'error',
+  disabled: category.products > 0,
+  onSelect: () => confirming.value = { kind: 'category', id: category.id, name: category.name }
+}]]
+
+const productActions = (product: Product): DropdownMenuItem[][] => [[{
+  label: 'Edit',
+  icon: 'i-lucide-pencil',
+  onSelect: () => editProduct(product.id)
+}], [{
+  label: 'Delete',
+  icon: 'i-lucide-trash-2',
+  color: 'error',
+  onSelect: () => confirming.value = { kind: 'product', id: product.id, name: product.name }
+}]]
+
+const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.name ?? '—'
+
+const items = [
+  { label: 'Categories', value: 'categories', icon: 'i-lucide-folder-tree' },
+  { label: 'Products', value: 'products', icon: 'i-lucide-package' }
+]
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold">
-        Catalog
-      </h1>
-      <p class="mt-1 text-muted">
-        Categories and products — the application's own two entities. Their names and descriptions
-        are not columns on those tables: they are translation rows, and
-        <code>db.Products.ToListAsync()</code> returns them already filled in for
-        <strong>{{ language }}</strong>.
-      </p>
-    </div>
+  <UDashboardPanel id="catalog">
+    <template #header>
+      <UDashboardNavbar title="Catalog">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
 
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Categories
-        </h2>
-      </template>
+        <template #right>
+          <LanguageSelect />
+        </template>
+      </UDashboardNavbar>
 
-      <div class="divide-y divide-default">
-        <div
+      <UDashboardToolbar>
+        <template #left>
+          <UTabs
+            v-model="tab"
+            :items="items"
+            :content="false"
+            size="sm"
+          />
+        </template>
+
+        <template #right>
+          <UButton
+            v-if="tab === 'categories'"
+            icon="i-lucide-plus"
+            size="sm"
+            label="New category"
+            @click="editCategory(null)"
+          />
+          <UButton
+            v-else
+            icon="i-lucide-plus"
+            size="sm"
+            label="New product"
+            @click="editProduct(null)"
+          />
+        </template>
+      </UDashboardToolbar>
+    </template>
+
+    <template #body>
+      <UPageCard
+        :title="tab === 'categories' ? 'Categories' : 'Products'"
+        :description="tab === 'categories'
+          ? 'The application\'s own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.'
+          : 'Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.'"
+        variant="naked"
+      />
+
+      <!-- ── Categories ───────────────────────────────────────────────── -->
+      <div v-if="tab === 'categories'" class="space-y-3">
+        <UCard
           v-for="category in categories"
           :key="category.id"
-          class="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
+          :ui="{ body: 'flex items-center gap-4' }"
         >
-          <div class="flex-1">
-            <p class="font-medium">
+          <div
+            class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-default bg-elevated/40"
+          >
+            <img
+              v-if="category.banner"
+              :src="mediaUrl(category.banner)"
+              :alt="category.banner.altText ?? category.name"
+              class="size-full object-cover"
+            >
+            <UIcon v-else name="i-lucide-image-off" class="size-5 text-dimmed" />
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">
               {{ category.name }}
             </p>
-            <p class="text-sm text-muted">
+            <p class="truncate text-sm text-muted">
               {{ category.description }}
             </p>
           </div>
-          <UBadge variant="subtle" color="neutral">
+
+          <UBadge variant="subtle" color="neutral" size="sm">
             {{ category.slug }}
           </UBadge>
-          <UBadge variant="subtle">
+          <UBadge variant="subtle" size="sm">
             {{ category.products }} products
           </UBadge>
-        </div>
+
+          <UDropdownMenu :items="categoryActions(category)">
+            <UButton icon="i-lucide-ellipsis-vertical" color="neutral" variant="ghost" />
+          </UDropdownMenu>
+        </UCard>
+
+        <UCard v-if="!categories?.length">
+          <p class="text-muted">
+            No categories yet.
+          </p>
+        </UCard>
       </div>
 
-      <template #footer>
-        <p class="text-xs text-muted">
-          <code>slug</code> carries <code>[NotMultiLingual]</code> — a URL segment should be the
-          same string in every language.
-        </p>
-      </template>
-    </UCard>
-
-    <UCard>
-      <template #header>
-        <h2 class="font-semibold">
-          Products
-        </h2>
-      </template>
-
-      <div class="space-y-5 divide-y divide-default">
-        <div
+      <!-- ── Products ─────────────────────────────────────────────────── -->
+      <div v-else class="space-y-3">
+        <UCard
           v-for="product in products"
           :key="product.id"
-          class="pt-5 first:pt-0"
+          :ui="{ body: 'flex items-center gap-4' }"
         >
-          <div class="flex flex-wrap items-start gap-4">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <p class="font-medium">
-                  {{ product.name }}
-                </p>
-                <UBadge variant="subtle" color="neutral" size="sm">
-                  {{ product.sku }}
-                </UBadge>
-              </div>
-              <p class="mt-0.5 text-sm text-muted">
-                {{ product.description }}
-              </p>
-              <p class="mt-1 text-sm">
-                {{ product.price }} · {{ categoryName(product.categoryId) }}
-              </p>
-            </div>
-
-            <UButton
-              as="label"
-              icon="i-lucide-upload"
-              variant="subtle"
-              size="sm"
-              :loading="uploading === product.id"
-              label="Add image"
+          <div
+            class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-default bg-elevated/40"
+          >
+            <img
+              v-if="product.primary"
+              :src="mediaUrl(product.primary)"
+              :alt="product.primary.altText ?? product.name"
+              class="size-full object-cover"
             >
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="upload(product.id, $event)"
-              >
-            </UButton>
+            <UIcon v-else name="i-lucide-image-off" class="size-5 text-dimmed" />
           </div>
 
-          <div v-if="product.images.length" class="mt-3 flex flex-wrap gap-3">
-            <div
-              v-for="image in product.images"
-              :key="image.id"
-              class="w-44 space-y-1"
-            >
-              <img
-                :src="image.url"
-                :alt="image.altText ?? ''"
-                class="h-28 w-44 rounded border border-default object-cover"
-              >
-              <p v-if="image.altText" class="text-xs text-muted">
-                <UIcon name="i-lucide-check" class="text-success" />
-                {{ image.altText }}
-              </p>
-              <p v-else class="text-xs text-warning">
-                <UIcon name="i-lucide-triangle-alert" />
-                no alt text in {{ language }}
-              </p>
-            </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">
+              {{ product.name }}
+            </p>
+            <p class="truncate text-sm text-muted">
+              {{ product.description }}
+            </p>
           </div>
 
-          <p v-else class="mt-3 text-sm text-muted">
-            No images yet.
+          <UBadge variant="subtle" color="neutral" size="sm">
+            {{ product.sku }}
+          </UBadge>
+          <span class="text-sm">{{ product.price }}</span>
+          <UBadge variant="subtle" size="sm">
+            {{ categoryName(product.categoryId) }}
+          </UBadge>
+          <UBadge
+            v-if="product.images.length"
+            variant="subtle"
+            color="neutral"
+            size="sm"
+          >
+            {{ product.images.length }} images
+          </UBadge>
+
+          <UDropdownMenu :items="productActions(product)">
+            <UButton icon="i-lucide-ellipsis-vertical" color="neutral" variant="ghost" />
+          </UDropdownMenu>
+        </UCard>
+
+        <UCard v-if="!products?.length">
+          <p class="text-muted">
+            No products yet.
           </p>
-        </div>
+        </UCard>
       </div>
 
-      <template #footer>
-        <p class="text-xs text-muted">
-          Images come from DotNetBoost.Media, addressed by
-          <code>("Product", id)</code>. The alt text next to each one comes from
-          DotNetBoost.MultiLingual, addressed by <code>("MediaFile", fileId)</code>. The two were
-          joined in <code>Integration/MediaText.cs</code>.
-        </p>
-      </template>
-    </UCard>
-  </div>
+      <CategoryEditor
+        v-model:open="categoryOpen"
+        :category-id="editingCategory"
+        :languages="languages ?? []"
+        @saved="refreshCategories"
+      />
+
+      <ProductEditor
+        v-model:open="productOpen"
+        :product-id="editingProduct"
+        :languages="languages ?? []"
+        :categories="categories ?? []"
+        @saved="() => { refreshProducts(); refreshCategories() }"
+      />
+
+      <ConfirmModal
+        :open="confirming !== null"
+        :title="`Delete ${confirming?.name ?? ''}?`"
+        description="This cannot be undone. A product's images and their alt text go with it — written out by hand, because nothing cascades across library boundaries."
+        confirm-label="Delete"
+        :loading="deleting"
+        @update:open="confirming = null"
+        @confirm="confirmDelete"
+      />
+    </template>
+  </UDashboardPanel>
 </template>
