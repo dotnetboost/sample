@@ -33,7 +33,7 @@ var postgresPassword = builder.AddParameter("postgres-password", "dotnetboost-sa
 // Named volume, so what you create in one session is still there in the next.
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
     .WithDataVolume("dotnetboost-sample-pgdata")
-    .WithPgAdmin();
+    .WithPgWeb();
 
 var database = postgres.AddDatabase("catalog");
 
