@@ -26,6 +26,16 @@ so the claim cannot quietly stop being true.
 A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
 **Languages**, **Settings**, with the reading-language selector in every page header.
 
+**Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
+*generated from whatever the group returns* rather than written out — a `bool` becomes a switch, an
+`int` a number spinner, a `string` an input. Add a property to the C# class and the field appears;
+remove one and it goes, which is exactly what happened when `LogoFileId` left `BrandingSettings`.
+
+Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it back as `If-Match`, and a
+save that would overwrite someone else's is refused with `412`. The form then offers to re-apply
+only the fields *you* edited on top of the latest values, so neither writer clobbers the other.
+Verified by changing a group out-of-band mid-edit.
+
 **Media** is DotNetBoost.Media's own browser, lifted wholesale — search, category and tag filters,
 content-type filter, sorting, paging, upload, file details, attachments and delete, all of it in
 the query the API is asked rather than applied to the rows already on screen. The one addition is
@@ -236,6 +246,12 @@ src/DotNetBoostSample.Api/
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
 clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
+  app/pages/settings.vue                 tabbed shell — one tab per settings group
+  app/pages/settings/index.vue           Branding tab: the group form plus its media
+  app/pages/settings/catalog.vue         Catalog tab
+  app/components/settings/GroupForm.vue  form generated from whatever the group returns
+  app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
+  app/utils/settings.ts                  the group registry — one entry per tab
   app/pages/catalog.vue                  Categories | Products tabs — list, edit, delete
   app/components/CategoryEditor.vue      slug + per-language text + banner picker
   app/components/ProductEditor.vue       columns + per-language text + primary & gallery
