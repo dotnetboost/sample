@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Turns this project into an Aspire AppHost: generates the strongly typed
+       `Projects.*` handles used by AddProject<T>() and the `aspire run` entry point. -->
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.5.3" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <IsPackable>false</IsPackable>
+    <UserSecretsId>dotnetboost-sample-apphost</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <!-- The one database, holding the app's two tables and all six library tables. -->
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <!-- Runs the Nuxt dashboard in clients/dashboard as an orchestrated resource. -->
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/DotNetBoostSample.Api/DotNetBoostSample.Api.csproj" />
+  </ItemGroup>
+
+</Project>

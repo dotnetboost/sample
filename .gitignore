@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+*.user
+.vs/
+.idea/
+
+# Media bytes written by the FileSystem backend at runtime
+media/*
+!media/.gitkeep
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+.data/
+clients/dashboard/.env
+
+# macOS
+.DS_Store

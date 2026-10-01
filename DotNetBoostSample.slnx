@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/aspire/">
+    <Project Path="aspire/DotNetBoostSample.AppHost/DotNetBoostSample.AppHost.csproj" />
+    <Project Path="aspire/DotNetBoostSample.ServiceDefaults/DotNetBoostSample.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DotNetBoostSample.Api/DotNetBoostSample.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DotNetBoostSample.Tests/DotNetBoostSample.Tests.csproj" />
+  </Folder>
+</Solution>
