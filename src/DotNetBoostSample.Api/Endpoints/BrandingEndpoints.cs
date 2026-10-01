@@ -36,6 +36,7 @@ public static class BrandingEndpoints
             {
                 branding.StoreName,
                 branding.AccentColor,
+                branding.HeaderLogoSize,
                 // Every attached file with its role — the same shape the catalogue returns, so the
                 // dashboard draws branding's media with the very same component it draws a
                 // product's with.

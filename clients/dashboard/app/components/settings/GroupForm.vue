@@ -5,10 +5,24 @@ const props = defineProps<{
   group: SettingGroup
 }>()
 
+const emit = defineEmits<{
+  /** The group was written. Lets a tab react to its own values changing — the branding tab
+      refreshes the header, which shows the store name and the logo size. */
+  saved: []
+}>()
+
 const {
   keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
   load, save, reset, retryOnLatest
 } = useSettingsGroup(props.group)
+
+async function submit() {
+  if (await save()) emit('saved')
+}
+
+async function reapply() {
+  if (await retryOnLatest()) emit('saved')
+}
 
 const revealed = reactive<Record<string, boolean>>({})
 
@@ -25,7 +39,7 @@ function label(key: string) {
   <UForm
     :id="`settings-${group.route}`"
     :state="state"
-    @submit="save"
+    @submit="submit"
   >
     <UPageCard
       :title="group.label"
@@ -84,7 +98,7 @@ function label(key: string) {
       :description="problem"
       class="mb-4"
       :actions="[
-        { label: 'Re-apply my changes', color: 'warning', variant: 'solid', loading: saving, onClick: retryOnLatest },
+        { label: 'Re-apply my changes', color: 'warning', variant: 'solid', loading: saving, onClick: reapply },
         { label: 'Discard mine and reload', color: 'neutral', variant: 'outline', onClick: load }
       ]"
     />

@@ -59,6 +59,22 @@ public class BrandingSettings
 
     /// <summary>Accent colour, as a CSS hex value.</summary>
     public string AccentColor { get; set; } = "#512BD4";
+
+    /// <summary>
+    /// How large the logo is drawn in the dashboard header, in pixels.
+    /// <para>
+    /// A setting rather than a constant in the client because it is exactly the kind of thing
+    /// someone wants to nudge after seeing their own logo in place — which is what this library is
+    /// for: change it, reload, done, with no redeploy. The logo it sizes is not stored here, and
+    /// the two are independent: this is a number whether or not a logo is attached.
+    /// </para>
+    /// <para>
+    /// The API accepts any <c>int</c>; the dashboard offers a sensible range and clamps what it
+    /// renders, so a careless value cannot break the layout. Enforcing it server-side would mean
+    /// adding <c>DotNetBoost.Settings.FluentValidation</c>, which this sample does not install.
+    /// </para>
+    /// </summary>
+    public int HeaderLogoSize { get; set; } = 28;
 }
 
 /// <summary>

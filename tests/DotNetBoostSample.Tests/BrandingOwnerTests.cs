@@ -16,15 +16,23 @@ public class BrandingOwnerTests
     [Fact]
     public void BrandingSettings_holds_no_reference_to_a_file()
     {
-        // A Guid or a string id on this class would be a second record of "which file is the
-        // logo", and nothing can keep two records in step: DotNetBoost.Media ships no change hook,
-        // so a detach on the media page could never write back here.
+        // What is banned is a second record of WHICH FILE is the logo — nothing can keep two in
+        // step, because DotNetBoost.Media ships no change hook, so a detach on the media page
+        // could never write back here.
+        //
+        // A property merely named after the logo is fine: HeaderLogoSize is an int describing how
+        // the logo is drawn, not which file it is. So this looks at the type, and only treats a
+        // name as evidence when it is a type that could hold an identifier.
+        static bool CouldIdentifyAFile(PropertyInfo p) =>
+            p.PropertyType == typeof(Guid)
+            || p.PropertyType == typeof(Guid?)
+            || (p.PropertyType == typeof(string)
+                && (p.Name.EndsWith("Id", StringComparison.Ordinal)
+                    || p.Name.Contains("File", StringComparison.OrdinalIgnoreCase)));
+
         var suspicious = typeof(BrandingSettings)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.PropertyType == typeof(Guid)
-                     || p.PropertyType == typeof(Guid?)
-                     || p.Name.Contains("File", StringComparison.OrdinalIgnoreCase)
-                     || p.Name.Contains("Logo", StringComparison.OrdinalIgnoreCase))
+            .Where(CouldIdentifyAFile)
             .Select(p => $"{p.PropertyType.Name} {p.Name}")
             .ToList();
 

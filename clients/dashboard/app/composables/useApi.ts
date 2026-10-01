@@ -1,6 +1,5 @@
 import type {
-  Category, CategoryDetail, EntityImage, Language, MediaTextValues, Product, ProductDetail,
-  Translations
+  Category, CategoryDetail, Language, MediaTextValues, Product, ProductDetail, Translations
 } from '~/types'
 
 /**
@@ -78,12 +77,8 @@ export function useApi() {
     branding: {
       // `images` is the same shape the catalogue returns, so branding's media is drawn by the very
       // same component — the logo is an attachment like any other, on an owner with no table.
-      get: () => $fetch<{
-        storeName: string
-        accentColor: string
-        images: EntityImage[]
-        logo: EntityImage | null
-      }>('/api/branding')
+      // Prefer useBranding(), which shares one fetch between the header and the settings page.
+      get: () => $fetch<Branding>('/api/branding')
     }
   }
 }

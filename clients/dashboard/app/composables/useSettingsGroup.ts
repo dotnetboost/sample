@@ -60,6 +60,7 @@ export function useSettingsGroup(group: SettingGroup) {
     }
   }
 
+  /** True when the group was written; false when it was refused or failed. */
   async function save() {
     saving.value = true
     clearErrors()
@@ -80,6 +81,8 @@ export function useSettingsGroup(group: SettingGroup) {
         icon: 'i-lucide-check',
         color: 'success'
       })
+
+      return true
     } catch (error) {
       if (statusOf(error) === 412) {
         conflict.value = true
@@ -105,6 +108,8 @@ export function useSettingsGroup(group: SettingGroup) {
     } finally {
       saving.value = false
     }
+
+    return false
   }
 
   /**
@@ -136,7 +141,7 @@ export function useSettingsGroup(group: SettingGroup) {
     }
 
     saving.value = false
-    await save()
+    return save()
   }
 
   function reset() {

@@ -26,6 +26,11 @@ so the claim cannot quietly stop being true.
 A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
 **Languages**, **Settings**, with the reading-language selector in every page header.
 
+The sidebar header is the whole sample in miniature: the store's **name** is a
+DotNetBoost.Settings value, its **logo** is a DotNetBoost.Media attachment, the **size** that logo
+is drawn at is another setting, and nothing but `BrandingEndpoints.cs` knows all three exist. Change
+any of them on the Settings page and the header follows on the next read — no restart, no redeploy.
+
 **Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
 *generated from whatever the group returns* rather than written out — a `bool` becomes a switch, an
 `int` a number spinner, a `string` an input. Add a property to the C# class and the field appears;
