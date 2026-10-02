@@ -51,6 +51,32 @@ export default defineNuxtConfig({
     }
   },
 
+  // Tajawal, the dashboard's typeface — see `--font-sans` in app/assets/css/main.css.
+  //
+  // `@nuxt/fonts` comes with @nuxt/ui and already self-hosts whatever the CSS asks for: it fetches
+  // the files at build time and serves them from this origin, which is why no <link> to
+  // fonts.googleapis.com appears anywhere in this app. Adding one would fetch the same typeface a
+  // second time, from a third party, on the critical path.
+  //
+  // Both settings below are here because the defaults are wrong for this font:
+  //
+  //   • it downloads weights 400 and 700 only, and the family is installed here with the full set
+  //     Tajawal publishes. A browser is only ever sent the weights a page actually draws — 400,
+  //     500 and 700 as the dashboard stands — so the rest cost build time and disk, not load time;
+  //   • its default subsets are the Latin, Cyrillic and Greek ones. `arabic` is not among them,
+  //     and without it the Arabic UI renders in a system fallback while the Latin one does not —
+  //     which looks like a styling bug and is actually a missing download.
+  fonts: {
+    families: [
+      {
+        name: 'Tajawal',
+        provider: 'google',
+        weights: [200, 300, 400, 500, 700, 800, 900],
+        subsets: ['arabic', 'latin']
+      }
+    ]
+  },
+
   // The dashboard's own chrome, in the three languages the sample seeds.
   //
   // This is NOT the same mechanism as the content languages on the Languages page. Those are rows
