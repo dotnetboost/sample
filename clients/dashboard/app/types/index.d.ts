@@ -245,6 +245,16 @@ export interface SettingField {
   description?: string
   /** Renders a masked input with a reveal toggle. Mirrors `[Sensitive]` on the C# property. */
   sensitive?: boolean
+  /**
+   * Mirrors `[MultiLingual]` on the C# property: the value is translated, and the settings row
+   * holds the DEFAULT language's version of it.
+   *
+   * The generated form still edits that row — it is a setting like any other — but the field is
+   * badged so it is unmistakable that the box edits the default language, not whatever language
+   * you happen to be reading in. Other languages are edited separately, against the translations
+   * store, so there is never more than one writer for a value.
+   */
+  translated?: boolean
   /** Input type for string properties. */
   type?: 'text' | 'url' | 'email'
   min?: number

@@ -186,3 +186,20 @@ public class BrandingIdTests
         Assert.Equal("branding", id);
     }
 }
+
+/// <summary>
+/// The <c>Id</c> must stay out of both the store and the API response. Being get-only handles the
+/// first; only <c>[JsonIgnore]</c> handles the second, and the difference is easy to miss because
+/// the table stays clean either way.
+/// </summary>
+public class BrandingIdIsNotGroupDataTests
+{
+    [Fact]
+    public void It_is_not_serialised_with_the_group()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new BrandingSettings());
+
+        Assert.DoesNotContain("\"id\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("storeName", json, StringComparison.OrdinalIgnoreCase);
+    }
+}

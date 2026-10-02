@@ -21,7 +21,11 @@ export const settingsGroups: SettingGroup[] = [
     icon: 'i-lucide-palette',
     to: '/settings',
     fields: {
-      storeName: { label: 'Store name', description: 'Shown in the sidebar header, in place of the sample\'s own name.' },
+      storeName: {
+        label: 'Store name',
+        description: 'Shown in the sidebar header, in place of the sample\'s own name.',
+        translated: true
+      },
       accentColor: { label: 'Accent colour', description: 'A CSS hex value, e.g. #512BD4.' },
       headerLogoSize: {
         label: 'Header logo size',

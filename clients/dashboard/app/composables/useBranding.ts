@@ -27,6 +27,10 @@ export const BRANDING_KEY = 'branding'
  */
 export function useBranding() {
   const api = useApi()
+  const language = useLanguage()
 
-  return useAsyncData<Branding>(BRANDING_KEY, () => api.branding.get())
+  // Re-fetch when the reading language changes. The call sends Accept-Language, but useAsyncData
+  // caches by key alone — without this the header keeps whatever language it was first loaded in,
+  // which is exactly wrong for the one value on screen that is supposed to follow the language.
+  return useAsyncData<Branding>(BRANDING_KEY, () => api.branding.get(), { watch: [language] })
 }

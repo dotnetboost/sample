@@ -84,7 +84,15 @@ export function useApi() {
       // `images` is the same shape the catalogue returns, so branding's media is drawn by the very
       // same component — the logo is an attachment like any other, on an owner with no table.
       // Prefer useBranding(), which shares one fetch between the header and the settings page.
-      get: () => $fetch<Branding>('/api/branding', { headers: headers() })
+      get: () => $fetch<Branding>('/api/branding', { headers: headers() }),
+
+      /** Every stored language for the branding group's translated text. */
+      text: () => $fetch<Translations>('/api/branding/text'),
+
+      /** Writes one or more languages. The default language is NOT written here — it is a
+          setting, and lives in the settings row that the group form edits. */
+      setText: (values: Record<string, string | null>) =>
+        $fetch<Translations>('/api/branding/text', { method: 'PUT', body: { values } })
     }
   }
 }

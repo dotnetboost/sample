@@ -11,6 +11,15 @@ const emit = defineEmits<{
   saved: []
 }>()
 
+const { defaultLanguage } = useLanguages()
+
+/**
+ * What a translated field's badge says. The settings row holds the default language's value, so
+ * the badge names it — otherwise the box looks like it edits whatever you are reading in.
+ */
+const defaultLanguageLabel = computed(() =>
+  defaultLanguage.value ? `default · ${defaultLanguage.value.code}` : 'default language')
+
 const {
   keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
   load, save, reset, retryOnLatest
@@ -136,6 +145,13 @@ function label(key: string) {
                   variant="subtle"
                   size="sm"
                   label="sensitive"
+                />
+                <UBadge
+                  v-if="field(key).translated"
+                  color="info"
+                  variant="subtle"
+                  size="sm"
+                  :label="defaultLanguageLabel"
                 />
               </span>
             </template>

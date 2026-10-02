@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DotNetBoost.Media.Core.Attributes;
 using DotNetBoost.MultiLingual.Core.Attributes;
 using DotNetBoost.Settings.Core.Attributes;
@@ -76,7 +77,14 @@ public class BrandingSettings
     /// <para>The same degenerate constant the media owner uses, so one subject —
     /// <c>("Branding", "branding")</c> — carries the logo attachment and this group's translations
     /// alike.</para>
+    ///
+    /// <para><b>And ignored on the wire.</b> Being get-only keeps it out of the STORE, because
+    /// SettingManager maps only read-write properties — but it does not keep it out of the
+    /// RESPONSE: System.Text.Json serialises read-only properties, so <c>GET
+    /// /api/settings/branding</c> was returning it and the dashboard's generated form grew a
+    /// pointless "Id" box for it. It is an addressing detail, not one of the group's values.</para>
     /// </summary>
+    [JsonIgnore]
     public string Id => MediaOwnerId;
 
     /// <summary>

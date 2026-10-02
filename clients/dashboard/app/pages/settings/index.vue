@@ -23,6 +23,8 @@ const ownerEntityId = 'branding'
 <template>
   <SettingsGroupForm :group="group" @saved="refreshBranding">
     <template #extra>
+      <SettingsBrandingText @saved="refreshBranding" />
+
       <UPageCard
         variant="subtle"
         class="mt-4 sm:mt-6"
