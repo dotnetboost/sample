@@ -1,4 +1,4 @@
-import type { MediaFile, MediaPage, MediaQuery, MediaSortBy, MediaUpdate } from '~/types'
+import type { MediaFile, MediaPage, MediaQuery, MediaUpdate } from '~/types'
 
 export interface MediaLibraryOptions {
   /** Restricts every listing to one entity's files. Used by the picker's "attached" tab. */
@@ -17,9 +17,15 @@ export interface MediaLibraryOptions {
  * Every filter lives in the query sent to the API rather than being applied to the rows already
  * loaded. That is the whole reason the API grew `search` and `sortBy`: filtering a page in the
  * browser searches one page, which is wrong the moment there is a second one.
+ *
+ * **Attaching is not here.** This composable is one listing and the calls that change what is in
+ * it; a file's links to entities belong to whoever is editing the entity, and
+ * `useAttachments` — used by `entity/Attachments.vue` — is where they live. There were copies of
+ * `attach` and `reorder` here too, calling the same endpoints with their own toasts and called by
+ * nothing, which is one implementation too many of a thing that has role semantics to get right.
  */
 export function useMediaLibrary(options: MediaLibraryOptions = {}) {
-  const toast = useToast()
+  const { notifySuccess, notifyFailure } = useNotify()
   const { t } = useI18n()
 
   const query = reactive<MediaQuery>({
@@ -109,15 +115,10 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
 
     try {
       const result = await call()
-      toast.add({ title: success(result), icon: 'i-lucide-check', color: 'success' })
+      notifySuccess(success(result))
       return result
     } catch (error) {
-      toast.add({
-        title: failure,
-        description: problemMessage(error),
-        icon: 'i-lucide-triangle-alert',
-        color: 'error'
-      })
+      notifyFailure(failure, error)
       return undefined
     } finally {
       busy.value = null
@@ -170,28 +171,6 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
   )
 
   /**
-   * Attaches a file to an entity. A link of its own, not a field on the file — so this adds the
-   * entity to whoever is already using the file rather than taking it off them.
-   *
-   * `replace` takes a single-valued role over from whatever held it; without it the file is
-   * appended, as a gallery image is.
-   */
-  const attach = (
-    id: string,
-    owner: { entityName: string, entityId: string },
-    role?: string,
-    replace = false
-  ) => run(
-    id,
-    () => $fetch<MediaFile>(`/api/media/${id}/attachments`, {
-      method: 'POST',
-      body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, replace }
-    }),
-    attached => t('media.toast.attached', { fileName: attached.fileName }),
-    t('media.toast.attachFailed')
-  )
-
-  /**
    * Removes one link, addressed by its own id — which `GET api/media/{id}` hands back with the file.
    * The file stays in the library, and stays attached to every other entity using it: this is "take
    * it off this product", not "delete it".
@@ -210,21 +189,6 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
    */
   const readOne = (id: string) => $fetch<MediaFile>(`/api/media/${id}`)
 
-  /** Saves the order one entity put a role's files in. */
-  const reorder = (
-    owner: { entityName: string, entityId: string },
-    role: string,
-    mediaFileIds: string[]
-  ) => run(
-    null,
-    () => $fetch('/api/media/attachments/order', {
-      method: 'PUT',
-      body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, mediaFileIds }
-    }),
-    () => t('media.toast.orderSaved'),
-    t('media.toast.orderFailed')
-  )
-
   const remove = (file: MediaFile) => run(
     file.id,
     () => $fetch(`/api/media/${file.id}`, { method: 'DELETE' }),
@@ -238,17 +202,6 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
     query.tag = ''
     query.contentType = ''
     query.page = 1
-  }
-
-  function sortBy(column: MediaSortBy) {
-    // Clicking the column already sorted on reverses it; a different column starts descending,
-    // which is what "newest", "largest" and "Z first" all mean.
-    if (query.sortBy === column) {
-      query.descending = !query.descending
-    } else {
-      query.sortBy = column
-      query.descending = true
-    }
   }
 
   // Changing the filter or the sort returns to page one and reloads.
@@ -277,6 +230,6 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
   return {
     query, items, total, pending, loadError, busy,
     pageCount, isFiltered, categoryOptions, tagOptions,
-    load, upload, update, attach, detach, readOne, reorder, remove, reset, sortBy
+    load, upload, update, detach, readOne, remove, reset
   }
 }

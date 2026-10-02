@@ -415,12 +415,8 @@
       "uploadRefused": "Upload refused",
       "saved": "Saved {fileName}",
       "saveFailed": "Could not save the file",
-      "attached": "Attached {fileName}",
-      "attachFailed": "Could not attach the file",
       "detached": "Detached {fileName}",
       "detachFailed": "Could not detach the file",
-      "orderSaved": "Order saved",
-      "orderFailed": "Could not save the order",
       "deleted": "Deleted {fileName}",
       "deleteFailed": "Could not delete the file"
     }

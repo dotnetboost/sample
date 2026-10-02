@@ -415,12 +415,8 @@
       "uploadRefused": "Téléversement refusé",
       "saved": "{fileName} enregistré",
       "saveFailed": "Impossible d'enregistrer le fichier",
-      "attached": "{fileName} attaché",
-      "attachFailed": "Impossible d'attacher le fichier",
       "detached": "{fileName} détaché",
       "detachFailed": "Impossible de détacher le fichier",
-      "orderSaved": "Ordre enregistré",
-      "orderFailed": "Impossible d'enregistrer l'ordre",
       "deleted": "{fileName} supprimé",
       "deleteFailed": "Impossible de supprimer le fichier"
     }

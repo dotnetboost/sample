@@ -17,6 +17,7 @@ const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
 const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
 const sku = ref('')
@@ -68,6 +69,7 @@ const categoryItems = computed(() =>
 
 async function save() {
   if (categoryId.value === undefined) {
+    // Not an API failure — nothing has been sent yet — so this one is raised directly.
     toast.add({ title: t('productEditor.toast.pickCategory'), color: 'error' })
     return
   }
@@ -90,20 +92,14 @@ async function save() {
       await api.products.update(props.productId, body)
     }
 
-    toast.add({
-      title: props.productId === null
-        ? t('productEditor.toast.created')
-        : t('productEditor.toast.saved'),
-      color: 'success'
-    })
+    notifySuccess(props.productId === null
+      ? t('productEditor.toast.created')
+      : t('productEditor.toast.saved'))
+
     emit('saved')
     open.value = false
   } catch (error) {
-    toast.add({
-      title: t('productEditor.toast.failed'),
-      description: problemMessage(error),
-      color: 'error'
-    })
+    notifyFailure(t('productEditor.toast.failed'), error)
   } finally {
     saving.value = false
   }

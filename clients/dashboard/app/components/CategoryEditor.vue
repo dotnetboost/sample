@@ -17,7 +17,7 @@ const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
-const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
 const slug = ref('')
@@ -73,20 +73,14 @@ async function save() {
       await api.categories.update(props.categoryId, body)
     }
 
-    toast.add({
-      title: props.categoryId === null
-        ? t('categoryEditor.toast.created')
-        : t('categoryEditor.toast.saved'),
-      color: 'success'
-    })
+    notifySuccess(props.categoryId === null
+      ? t('categoryEditor.toast.created')
+      : t('categoryEditor.toast.saved'))
+
     emit('saved')
     open.value = false
   } catch (error) {
-    toast.add({
-      title: t('categoryEditor.toast.failed'),
-      description: problemMessage(error),
-      color: 'error'
-    })
+    notifyFailure(t('categoryEditor.toast.failed'), error)
   } finally {
     saving.value = false
   }

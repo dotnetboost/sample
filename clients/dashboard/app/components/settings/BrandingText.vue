@@ -15,7 +15,7 @@ import type { Translations } from '~/types'
 const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
-const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
 const { languages, defaultLanguage, ensureLoaded } = useLanguages()
@@ -52,12 +52,7 @@ async function load() {
 
     original.value = JSON.stringify(draft.value)
   } catch (error) {
-    toast.add({
-      title: t('settings.brandingText.toast.readFailed'),
-      description: problemMessage(error),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
+    notifyFailure(t('settings.brandingText.toast.readFailed'), error)
   } finally {
     loading.value = false
   }
@@ -82,21 +77,14 @@ async function save() {
     await api.branding.setText(values)
     await load()
 
-    toast.add({
-      title: t('settings.brandingText.toast.saved'),
-      description: t('settings.brandingText.toast.savedDescription'),
-      icon: 'i-lucide-check',
-      color: 'success'
-    })
+    notifySuccess(
+      t('settings.brandingText.toast.saved'),
+      t('settings.brandingText.toast.savedDescription')
+    )
 
     emit('saved')
   } catch (error) {
-    toast.add({
-      title: t('settings.brandingText.toast.saveFailed'),
-      description: problemMessage(error),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
+    notifyFailure(t('settings.brandingText.toast.saveFailed'), error)
   } finally {
     saving.value = false
   }

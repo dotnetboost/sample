@@ -19,7 +19,7 @@ const props = defineProps<{
 }>()
 
 const api = useApi()
-const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
 const { data: languages } = await useAsyncData('alt-text-languages', () => api.multiLingual.languages())
@@ -50,12 +50,7 @@ async function load() {
     original.value = JSON.stringify(next)
     active.value = languages.value?.[0]?.code ?? ''
   } catch (error) {
-    toast.add({
-      title: t('media.altText.toast.readFailed'),
-      description: problemMessage(error),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
+    notifyFailure(t('media.altText.toast.readFailed'), error)
   } finally {
     loading.value = false
   }
@@ -82,14 +77,9 @@ async function save() {
   try {
     await api.mediaText.set(props.mediaFileId, draft.value)
     original.value = JSON.stringify(draft.value)
-    toast.add({ title: t('media.altText.toast.saved'), icon: 'i-lucide-check', color: 'success' })
+    notifySuccess(t('media.altText.toast.saved'))
   } catch (error) {
-    toast.add({
-      title: t('media.altText.toast.saveFailed'),
-      description: problemMessage(error),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
+    notifyFailure(t('media.altText.toast.saveFailed'), error)
   } finally {
     saving.value = false
   }

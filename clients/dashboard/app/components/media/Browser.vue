@@ -137,6 +137,16 @@ const deleteWarning = computed(() => {
 
 const attached = (file: MediaFile) => props.attachedIds.includes(file.id)
 
+/**
+ * The card grid, shared by the skeletons and the cards they stand in for — two copies of the
+ * breakpoints is two chances for the placeholders to be laid out unlike the thing they replace.
+ * Compact only drops the widest column; the narrower ones are the same in the modal and the page.
+ */
+const gridClass = computed(() => [
+  'grid gap-4 sm:grid-cols-2 lg:grid-cols-3',
+  props.compact ? '' : 'xl:grid-cols-4'
+])
+
 const range = computed(() => {
   if (!total.value) {
     return ''
@@ -270,7 +280,7 @@ onMounted(load)
         <span v-if="isFiltered" class="text-dimmed">· {{ $t('common.filtered') }}</span>
       </div>
 
-      <div v-if="pending && !items.length" :class="['grid gap-4', compact ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4']">
+      <div v-if="pending && !items.length" :class="gridClass">
         <USkeleton v-for="n in pageSize" :key="n" class="h-56 rounded-lg" />
       </div>
 
@@ -307,10 +317,7 @@ onMounted(load)
         />
       </div>
 
-      <div
-        v-else
-        :class="['grid gap-4', compact ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4']"
-      >
+      <div v-else :class="gridClass">
         <MediaCard
           v-for="file in items"
           :key="file.id"

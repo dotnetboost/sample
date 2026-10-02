@@ -68,10 +68,21 @@ public static class CatalogEndpoints
             CancellationToken ct) =>
         {
             var rows = await db.Categories.OrderBy(c => c.Id).ToListAsync(ct);
+
+            // Every category's product count in one grouped query rather than a COUNT per row. A
+            // category with no products is absent from the grouping, hence the lookup's default.
+            var productCounts = await db.Products
+                .GroupBy(p => p.CategoryId)
+                .Select(group => new { CategoryId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(row => row.CategoryId, row => row.Count, ct);
+
             var result = new List<object>(rows.Count);
 
             foreach (var category in rows)
             {
+                // Still per category: the banner is an attachment, and the media library addresses
+                // one owner at a time. Nothing joins the two tables, which is the point — so the
+                // cost of that is paid here, in the open.
                 var banner = await media.For(category).GetByRoleAsync(BannerRole, ct);
 
                 result.Add(new
@@ -80,7 +91,7 @@ public static class CatalogEndpoints
                     category.Name,
                     category.Description,
                     category.Slug,
-                    Products = await db.Products.CountAsync(p => p.CategoryId == category.Id, ct),
+                    Products = productCounts.GetValueOrDefault(category.Id),
                     Banner = await ThumbnailAsync(banner, BannerRole, mediaText, ct)
                 });
             }
@@ -205,9 +216,11 @@ public static class CatalogEndpoints
 
             foreach (var product in rows)
             {
-                var files = await media.For(product).ListAsync(ct);
+                var attachments = media.For(product);
+
+                var files = await attachments.ListAsync(ct);
                 var text = await mediaText.GetManyAsync([.. files.Select(f => f.Id)], ct);
-                var primary = await media.For(product).GetByRoleAsync(PrimaryRole, ct);
+                var primary = await attachments.GetByRoleAsync(PrimaryRole, ct);
 
                 result.Add(new
                 {
@@ -387,9 +400,6 @@ public static class CatalogEndpoints
             ? null
             : AttachedFiles.Describe(file, role, 0, await mediaText.GetAsync(file.Id, ct));
 }
-
-/// <summary>Picking an existing library file for a role. A null id clears the role.</summary>
-public sealed record MediaSelection(Guid? MediaFileId);
 
 /// <summary>Translations as languageCode → (propertyName → value), straight from the editor.</summary>
 public sealed record CategoryWrite(

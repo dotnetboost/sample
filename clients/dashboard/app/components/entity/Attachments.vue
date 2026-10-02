@@ -22,7 +22,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ changed: [] }>()
 
-const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 const { attach, detach, reorder } = useAttachments()
 
@@ -69,16 +69,11 @@ async function act(key: string | null, call: () => Promise<unknown>, success: st
 
   try {
     await call()
-    toast.add({ title: success, icon: 'i-lucide-check', color: 'success' })
+    notifySuccess(success)
     mediaVersion.value++
     emit('changed')
   } catch (error) {
-    toast.add({
-      title: failure,
-      description: problemMessage(error),
-      icon: 'i-lucide-triangle-alert',
-      color: 'error'
-    })
+    notifyFailure(failure, error)
   } finally {
     busy.value = null
   }

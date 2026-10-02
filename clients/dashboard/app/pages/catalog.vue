@@ -7,7 +7,7 @@ const { t } = useI18n()
 useHead({ title: () => t('nav.documentTitle', { page: t('nav.catalog') }) })
 
 const api = useApi()
-const toast = useToast()
+const { notifySuccess, notifyFailure } = useNotify()
 const language = useLanguage()
 
 const tab = ref('categories')
@@ -51,18 +51,14 @@ async function confirmDelete() {
       await api.products.remove(confirming.value.id)
       await Promise.all([refreshProducts(), refreshCategories()])
     }
-    toast.add({ title: t('catalog.toast.deleted'), color: 'success' })
+    notifySuccess(t('catalog.toast.deleted'))
     confirming.value = null
   } catch (error) {
-    // `problemMessage`, which reads the problem details the API actually sends. Reading
-    // `data.message` was left over from the ad-hoc shape this endpoint used to answer with: it
-    // has matched nothing since that moved to RFC 7807, so every refused delete fell through to
-    // `String(error)` and showed a raw FetchError where the API had sent a sentence.
-    toast.add({
-      title: t('catalog.toast.deleteFailed'),
-      description: problemMessage(error),
-      color: 'error'
-    })
+    // The refusal that matters here is "this category still has products", which the API sends as
+    // problem details with a localized `detail`. Reading `data.message` was left over from the
+    // ad-hoc shape that endpoint used to answer with, and matched nothing any more: every delete
+    // that was refused fell through to `String(error)` and showed a raw FetchError.
+    notifyFailure(t('catalog.toast.deleteFailed'), error)
   } finally {
     deleting.value = false
   }

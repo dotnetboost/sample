@@ -73,20 +73,15 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
     /// <summary>
     /// Alt text and caption for one file in the language this request resolved to, falling back
     /// to the default language for anything missing.
+    /// <para>
+    /// One id through <see cref="GetManyAsync"/> rather than a read of its own: the fallback rule is
+    /// the thing here most worth having exactly one copy of, because a single file resolving it
+    /// differently from the list it sits in shows two alt texts for one image.
+    /// <see cref="GetManyAsync"/> answers for every id it is given, so the lookup cannot miss.
+    /// </para>
     /// </summary>
-    public async Task<MediaTextValues> GetAsync(Guid mediaFileId, CancellationToken ct = default)
-    {
-        var current = multiLingual.CurrentLanguage.Code;
-        var fallback = multiLingual.DefaultLanguage.Code;
-
-        var languages = current == fallback ? new[] { current } : [current, fallback];
-
-        var rows = await translations.GetAsync(Subject, [Key(mediaFileId)], languages, ct);
-
-        return new MediaTextValues(
-            Pick(rows, AltText, current, fallback),
-            Pick(rows, Caption, current, fallback));
-    }
+    public async Task<MediaTextValues> GetAsync(Guid mediaFileId, CancellationToken ct = default) =>
+        (await GetManyAsync([mediaFileId], ct))[mediaFileId];
 
     /// <summary>
     /// Alt text and captions for many files at once, in the current language — one query, not one
@@ -108,6 +103,8 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
         var current  = multiLingual.CurrentLanguage.Code;
         var fallback = multiLingual.DefaultLanguage.Code;
 
+        // Collapsed to one code when they are the same, so the query does not ask for a language
+        // twice. This is the only place the fallback pair is resolved — GetAsync comes through here.
         var languages = current == fallback ? new[] { current } : [current, fallback];
 
         var rows = await translations.GetAsync(

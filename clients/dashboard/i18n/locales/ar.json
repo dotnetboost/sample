@@ -415,12 +415,8 @@
       "uploadRefused": "رُفض الرفع",
       "saved": "تم حفظ {fileName}",
       "saveFailed": "تعذّر حفظ الملف",
-      "attached": "تم إرفاق {fileName}",
-      "attachFailed": "تعذّر إرفاق الملف",
       "detached": "تم فصل {fileName}",
       "detachFailed": "تعذّر فصل الملف",
-      "orderSaved": "تم حفظ الترتيب",
-      "orderFailed": "تعذّر حفظ الترتيب",
       "deleted": "تم حذف {fileName}",
       "deleteFailed": "تعذّر حذف الملف"
     }

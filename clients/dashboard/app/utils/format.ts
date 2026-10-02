@@ -8,6 +8,25 @@
  * see "28 sept. 2026", not "28. Sept. 2026".
  */
 
+/** What is shown in place of a value that is missing or unreadable. */
+const NO_VALUE = '—'
+
+/**
+ * A timestamp from the API as a `Date`, or null for anything that is not one.
+ *
+ * Both cases reach here: the API sends null for a date it has no value for, and `new Date` answers
+ * an Invalid Date — which formats as "Invalid Date", in English, on the page — for a string it
+ * cannot read. Neither is worth telling the user about, and both show as {@link NO_VALUE}.
+ */
+function parseTimestamp(iso: string | null | undefined): Date | null {
+  if (!iso) {
+    return null
+  }
+
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 /**
  * A size in bytes as a short human string: `1.4MB`, `1,4Mo`, `1.4 م.ب`.
  *
@@ -19,7 +38,7 @@
  */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return '—'
+    return NO_VALUE
   }
 
   // Intl's own unit identifiers, which is why they are spelled out rather than abbreviated.
@@ -48,41 +67,39 @@ export function formatBytes(bytes: number): string {
 
 /** A UTC timestamp from the API as a local date and time, written for the UI locale. */
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) {
-    return '—'
-  }
+  const date = parseTimestamp(iso)
 
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? '—'
-    : date.toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
+  return date
+    ? date.toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
+    : NO_VALUE
 }
 
 /** A UTC timestamp as "3 hours ago", falling back to the date once it is old. */
 export function formatRelative(iso: string | null | undefined): string {
-  if (!iso) {
-    return '—'
+  const date = parseTimestamp(iso)
+
+  if (!date) {
+    return NO_VALUE
   }
 
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
-    return '—'
-  }
+  const relative = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' })
 
-  const seconds = (Date.now() - date.getTime()) / 1000
+  // Each size is how many of that unit make up the next one, so dividing through the list carries
+  // the value up until one of them can hold it. Years are the end of the list, not a unit in it.
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['second', 60], ['minute', 60], ['hour', 24], ['day', 7], ['week', 4.348], ['month', 12]
   ]
 
-  let value = seconds
+  let value = (Date.now() - date.getTime()) / 1000
+
   for (const [unit, size] of units) {
     if (Math.abs(value) < size) {
-      return new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' }).format(-Math.round(value), unit)
+      return relative.format(-Math.round(value), unit)
     }
     value /= size
   }
 
-  return new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' }).format(-Math.round(value), 'year')
+  return relative.format(-Math.round(value), 'year')
 }
 
 /** Whether a media type is one a browser will render as an image. */
@@ -118,12 +135,4 @@ export function iconFor(contentType: string): string {
 /** The dashboard's own route to a file's bytes, which is proxied through to the API. */
 export function contentUrl(id: string, download = false): string {
   return `/api/media/${id}/content${download ? '?download=true' : ''}`
-}
-
-/** The short form of a media type, for a badge: `image/png` → `PNG`. */
-export function contentTypeLabel(contentType: string): string {
-  const subtype = contentType.split('/')[1] ?? contentType
-  // "vnd.openxmlformats-officedocument.wordprocessingml.document" → "DOCUMENT"
-  const last = subtype.split(/[.+]/).pop() ?? subtype
-  return last.toUpperCase()
 }

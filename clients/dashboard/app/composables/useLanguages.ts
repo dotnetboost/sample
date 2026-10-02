@@ -19,7 +19,7 @@ import type { Language, LanguageUpdate, NewLanguage, PurgeResult } from '~/types
  * something vaguer here.
  */
 const _useLanguages = () => {
-  const toast = useToast()
+  const { notifySuccess, notifyFailure } = useNotify()
   const { t } = useI18n()
   const { baseLanguage } = useRuntimeConfig().public
 
@@ -79,15 +79,11 @@ const _useLanguages = () => {
 
     try {
       const result = await call()
-      toast.add({ ...success(result), icon: 'i-lucide-check', color: 'success' })
+      const { title, description } = success(result)
+      notifySuccess(title, description)
       return result
     } catch (error) {
-      toast.add({
-        title: t('api.refused'),
-        description: problemMessage(error),
-        icon: 'i-lucide-triangle-alert',
-        color: 'error'
-      })
+      notifyFailure(t('api.refused'), error)
       return undefined
     } finally {
       busy.value = null

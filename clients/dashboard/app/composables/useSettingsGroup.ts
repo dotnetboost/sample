@@ -14,6 +14,7 @@ import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
  */
 export function useSettingsGroup(group: SettingGroup) {
   const toast = useToast()
+  const { notifySuccess, notifyProblem } = useNotify()
   const { t } = useI18n()
   const language = useLanguage()
   const endpoint = `/api/settings/${group.route}`
@@ -49,22 +50,38 @@ export function useSettingsGroup(group: SettingGroup) {
   const changedKeys = () => keys.value.filter(key => state[key] !== values.value[key])
   const dirty = computed(() => changedKeys().length > 0)
 
+  /**
+   * Reads the group and adopts it as the baseline: its values, its revision, and its property list,
+   * which is what the form draws its fields from.
+   *
+   * `keep` names the fields to leave as the user has them. Empty on a plain load, where the server
+   * is the only thing on screen worth showing; on the retry after a conflict it is the fields this
+   * user actually edited, so the other writer's changes survive and this one's are re-applied over
+   * them.
+   */
+  async function adoptServerState(keep: string[] = []) {
+    // `.raw` rather than `$fetch` so the ETag header is reachable, not just the body.
+    const response = await $fetch.raw<SettingValues>(endpoint, { headers: languageHeaders() })
+    const next = response._data ?? {}
+
+    etag.value = response.headers.get('etag')
+    values.value = next
+    keys.value = Object.keys(next)
+
+    for (const key of keys.value) {
+      if (!keep.includes(key)) {
+        state[key] = next[key]
+      }
+    }
+  }
+
   async function load() {
     pending.value = true
     loadError.value = ''
 
     try {
-      // `.raw` rather than `$fetch` so the ETag header is reachable, not just the body.
-      const response = await $fetch.raw<SettingValues>(endpoint, { headers: languageHeaders() })
-      const next = response._data ?? {}
-
-      etag.value = response.headers.get('etag')
+      await adoptServerState()
       conflict.value = false
-      values.value = next
-      keys.value = Object.keys(next)
-      for (const key of keys.value) {
-        state[key] = next[key]
-      }
     } catch (error) {
       loadError.value = problemMessage(error)
     } finally {
@@ -90,12 +107,10 @@ export function useSettingsGroup(group: SettingGroup) {
       })
       await load()
 
-      toast.add({
-        title: t('settings.form.toast.saved', { group: groupLabel(group) }),
-        description: t('settings.form.toast.savedDescription'),
-        icon: 'i-lucide-check',
-        color: 'success'
-      })
+      notifySuccess(
+        t('settings.form.toast.saved', { group: groupLabel(group) }),
+        t('settings.form.toast.savedDescription')
+      )
 
       return true
     } catch (error) {
@@ -112,12 +127,9 @@ export function useSettingsGroup(group: SettingGroup) {
       } else {
         applyProblem(error)
 
-        toast.add({
-          title: t('settings.form.toast.saveFailed'),
-          description: problem.value,
-          icon: 'i-lucide-triangle-alert',
-          color: 'error'
-        })
+        // `problem.value` rather than the error: applyProblem has just split the rejection into
+        // per-field messages and whatever was left over, and the leftovers are what to show here.
+        notifyProblem(t('settings.form.toast.saveFailed'), problem.value)
       }
     } finally {
       saving.value = false
@@ -132,29 +144,19 @@ export function useSettingsGroup(group: SettingGroup) {
    * writer changed and this user did not are kept, rather than being clobbered.
    */
   async function retryOnLatest() {
+    // Read before the fetch: adopting the server's state is what makes them stop being "changed".
     const mine = changedKeys()
     saving.value = true
 
     try {
-      const response = await $fetch.raw<SettingValues>(endpoint, { headers: languageHeaders() })
-      const latest = response._data ?? {}
-
-      etag.value = response.headers.get('etag')
-      values.value = latest
-      keys.value = Object.keys(latest)
-
-      for (const key of keys.value) {
-        if (!mine.includes(key)) {
-          state[key] = latest[key]
-        }
-      }
+      await adoptServerState(mine)
     } catch (error) {
       applyProblem(error)
-      saving.value = false
       return
+    } finally {
+      saving.value = false
     }
 
-    saving.value = false
     return save()
   }
 
