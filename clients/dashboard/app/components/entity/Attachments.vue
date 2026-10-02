@@ -23,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{ changed: [] }>()
 
 const toast = useToast()
+const { t } = useI18n()
 const { attach, detach, reorder } = useAttachments()
 
 const owner = computed(() => ({ entityName: props.entityName, entityId: props.entityId }))
@@ -92,8 +93,12 @@ function onAttach(file: MediaFile, role: string, replace: boolean) {
   return act(
     file.id,
     () => attach(file.id, owner.value, role, replace),
-    `${file.fileName} is now this ${props.entityName.toLowerCase()}'s ${role}`,
-    'Could not attach the file'
+    t('entity.attachments.toast.attached', {
+      fileName: file.fileName,
+      entity: props.entityName.toLowerCase(),
+      role
+    }),
+    t('entity.attachments.toast.attachFailed')
   )
 }
 
@@ -112,12 +117,12 @@ function onDetach(image: EntityImage) {
         && a.ownerEntityId === props.entityId
         && a.role === image.role)
 
-      if (!link) throw new Error('That attachment no longer exists.')
+      if (!link) throw new Error(t('entity.attachments.toast.gone'))
 
       return detach(image.id, link.id)
     },
-    `Removed ${image.fileName} from ${image.role}`,
-    'Could not remove the image'
+    t('entity.attachments.toast.detached', { fileName: image.fileName, role: image.role }),
+    t('entity.attachments.toast.detachFailed')
   )
 }
 
@@ -138,8 +143,8 @@ function onMove(role: string, image: EntityImage, delta: -1 | 1) {
     // Every id in the role: the ones left out would have no defined position, and the API
     // refuses a partial order.
     () => reorder(owner.value, role, ids),
-    `${role} order saved`,
-    'Could not save the order'
+    t('entity.attachments.toast.orderSaved', { role }),
+    t('entity.attachments.toast.orderFailed')
   )
 }
 </script>
@@ -148,14 +153,15 @@ function onMove(role: string, image: EntityImage, delta: -1 | 1) {
   <div class="space-y-4">
     <div v-for="row in rows" :key="row.name" class="space-y-2">
       <div class="flex items-center gap-2">
-        <p class="text-sm font-medium capitalize">
+        <!-- `dir="ltr"`: a role is the entity's own vocabulary, declared in C#, never prose. -->
+        <p dir="ltr" class="text-sm font-medium capitalize">
           {{ row.name }}
         </p>
         <UBadge color="neutral" variant="subtle" size="sm">
-          {{ row.multiple ? 'many' : 'one' }}
+          {{ row.multiple ? $t('entity.attachments.many') : $t('entity.attachments.one') }}
         </UBadge>
         <span v-if="row.images.length" class="text-xs text-muted">
-          {{ row.images.length }} file{{ row.images.length === 1 ? '' : 's' }}
+          {{ $t('entity.attachments.fileCount', row.images.length) }}
         </span>
       </div>
 
@@ -187,19 +193,19 @@ function onMove(role: string, image: EntityImage, delta: -1 | 1) {
 
       <p v-if="row.images.some(i => !i.altText)" class="text-xs text-warning">
         <UIcon name="i-lucide-triangle-alert" class="size-3.5" />
-        Some of these have no alt text in this language — add it from the Media page.
+        {{ $t('entity.attachments.missingAltText') }}
       </p>
     </div>
 
     <p v-if="!rows.length" class="text-sm text-muted">
-      This entity declares no media roles.
+      {{ $t('entity.attachments.noRoles') }}
     </p>
 
     <MediaPickerModal
       :open="picking !== null"
       :owner="owner"
       :fixed-role="picking ?? undefined"
-      :title="`Attach as ${picking}`"
+      :title="$t('entity.attachments.pickerTitle', { role: picking ?? '' })"
       :version="mediaVersion"
       @update:open="picking = null"
       @attach="onAttach"

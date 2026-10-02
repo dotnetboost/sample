@@ -11,7 +11,8 @@ export function statusOf(error: unknown): number | undefined {
  *
  * The API answers with problem details, and its `detail` is written for the caller — "The upload
  * is 52,428,800 bytes; the limit is 26,214,400." — so it is shown as it is rather than replaced
- * with something vaguer of our own.
+ * with something vaguer of our own. That is also why only the last line here is translated: every
+ * line above it is the API talking, and the dashboard does not put words in its mouth.
  */
 export function problemMessage(error: unknown): string {
   const data = (error as { data?: ProblemDetails | string })?.data
@@ -33,5 +34,5 @@ export function problemMessage(error: unknown): string {
     }
   }
 
-  return (error as Error)?.message || 'The API could not be reached.'
+  return (error as Error)?.message || uiText('api.unreachable', 'The API could not be reached.')
 }

@@ -10,7 +10,13 @@ import type {
  * attaching and detaching are that library's own behaviour rather than a second implementation.
  */
 
-/** The language the dashboard reads in. Sent as Accept-Language on every call. */
+/**
+ * The language the dashboard reads in. Sent as Accept-Language on every call.
+ *
+ * Seeded with the default and then overwritten by `plugins/reading-language.ts` with whatever was
+ * chosen last time, before the app mounts. The state itself stays plain: one shared ref, eight
+ * readers, and exactly one place that knows it is remembered at all.
+ */
 export const useLanguage = () => useState<string>('language', () => 'en')
 
 export function useApi() {

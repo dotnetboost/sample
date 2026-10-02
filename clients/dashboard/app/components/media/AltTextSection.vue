@@ -20,6 +20,7 @@ const props = defineProps<{
 
 const api = useApi()
 const toast = useToast()
+const { t } = useI18n()
 
 const { data: languages } = await useAsyncData('alt-text-languages', () => api.multiLingual.languages())
 
@@ -50,7 +51,7 @@ async function load() {
     active.value = languages.value?.[0]?.code ?? ''
   } catch (error) {
     toast.add({
-      title: 'Could not read the alt text',
+      title: t('media.altText.toast.readFailed'),
       description: problemMessage(error),
       icon: 'i-lucide-triangle-alert',
       color: 'error'
@@ -81,10 +82,10 @@ async function save() {
   try {
     await api.mediaText.set(props.mediaFileId, draft.value)
     original.value = JSON.stringify(draft.value)
-    toast.add({ title: 'Alt text saved', icon: 'i-lucide-check', color: 'success' })
+    toast.add({ title: t('media.altText.toast.saved'), icon: 'i-lucide-check', color: 'success' })
   } catch (error) {
     toast.add({
-      title: 'Could not save the alt text',
+      title: t('media.altText.toast.saveFailed'),
       description: problemMessage(error),
       icon: 'i-lucide-triangle-alert',
       color: 'error'
@@ -100,10 +101,10 @@ async function save() {
     <div class="flex items-center justify-between gap-2">
       <div>
         <p class="text-sm font-medium text-highlighted">
-          Alt text and caption
+          {{ $t('media.altText.title') }}
         </p>
         <p class="text-xs text-muted">
-          Stored by DotNetBoost.MultiLingual, not by the media library.
+          {{ $t('media.altText.subtitle') }}
         </p>
       </div>
 
@@ -112,19 +113,19 @@ async function save() {
         color="warning"
         variant="subtle"
         size="sm"
-        :label="`${missing} language${missing === 1 ? '' : 's'} without alt text`"
+        :label="$t('media.altText.missing', missing)"
       />
       <UBadge
         v-else
         color="success"
         variant="subtle"
         size="sm"
-        label="Every language covered"
+        :label="$t('media.altText.covered')"
       />
     </div>
 
     <div v-if="loading" class="py-4 text-center text-sm text-muted">
-      Loading…
+      {{ $t('common.loading') }}
     </div>
 
     <template v-else>
@@ -148,7 +149,10 @@ async function save() {
       </div>
 
       <div v-if="draft[active]" class="space-y-3 rounded-lg border border-default p-3">
-        <UFormField label="Alt text" description="Required for accessibility, and different in every language.">
+        <UFormField
+          :label="$t('media.altText.altText.label')"
+          :description="$t('media.altText.altText.description')"
+        >
           <UInput
             v-model="draft[active]!.altText as string"
             :dir="activeIsRtl ? 'rtl' : 'ltr'"
@@ -156,7 +160,7 @@ async function save() {
           />
         </UFormField>
 
-        <UFormField label="Caption">
+        <UFormField :label="$t('media.altText.caption')">
           <UInput
             v-model="draft[active]!.caption as string"
             :dir="activeIsRtl ? 'rtl' : 'ltr'"
@@ -166,11 +170,11 @@ async function save() {
 
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs text-muted">
-            Clearing a field removes the stored row rather than storing an empty string.
+            {{ $t('media.altText.note') }}
           </p>
           <UButton
             size="xs"
-            label="Save alt text"
+            :label="$t('media.altText.save')"
             :disabled="!dirty"
             :loading="saving"
             @click="save"

@@ -1,0 +1,542 @@
+{
+  "common": {
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "done": "Done",
+    "reset": "Reset",
+    "tryAgain": "Try again",
+    "loading": "Loading…",
+    "upload": "Upload",
+    "open": "Open",
+    "download": "Download",
+    "clear": "Clear",
+    "refresh": "Refresh",
+    "none": "None",
+    "empty": "—",
+    "filtered": "filtered"
+  },
+
+
+  "nav": {
+    "overview": "Overview",
+    "catalog": "Catalog",
+    "media": "Media",
+    "languages": "Languages",
+    "settings": "Settings",
+    "apiReference": "API reference",
+    "github": "DotNetBoost on GitHub",
+    "goTo": "Go to",
+    "documentTitle": "{page} — DotNetBoost Sample"
+  },
+
+  "brand": {
+    "subtitle": "Sample"
+  },
+
+  "readingLanguage": {
+    "label": "Reading language"
+  },
+
+  "appearance": {
+    "trigger": "Appearance",
+    "theme": "Theme",
+    "primary": "Primary",
+    "neutral": "Neutral",
+    "mode": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "nuxtUiDocs": "Nuxt UI documentation",
+    "githubRepository": "GitHub repository"
+  },
+
+  "errorPage": {
+    "title": "Page not found",
+    "description": "We are sorry but this page could not be found."
+  },
+
+  "api": {
+    "unreachable": "The API could not be reached.",
+    "refused": "The API refused that"
+  },
+
+  "overview": {
+    "intro": {
+      "title": "Three libraries, zero references between them",
+      "description": "This application installs DotNetBoost.Settings, DotNetBoost.Media and DotNetBoost.MultiLingual from NuGet. None depends on another, there is no shared kernel package, and no integration package pairs any two of them. Everything here is produced by application code composing them."
+    },
+    "stats": {
+      "categories": "Categories",
+      "products": "Products",
+      "files": "Files in the library",
+      "languages": "Languages"
+    },
+    "composition": {
+      "title": "Where the composition happens",
+      "dbContext": "One PostgreSQL database, one DbContext implementing three independent interfaces, and three independent {apply} calls. Remove a library and you delete its interface, its DbSets and its one line.",
+      "mediaText": "Per-language alt text for an uploaded file. Both libraries address a subject by {pair}, so a media file's own GUID becomes the subject of translation rows. {withAltText} of {imageCount} attached images have alt text. No new table, no integration package.",
+      "branding": "A setting whose value is a media file id. The settings library stores a GUID like any other value; the application passes it to the media library on read."
+    },
+    "languageAlert": {
+      "title": "Switch the language in any page header",
+      "description": "Every product name, description and image alt text is re-read in that language — Arabic flips the whole shell to RTL. The API resolves it from Accept-Language. The dashboard's own labels follow the same selector."
+    }
+  },
+
+  "catalog": {
+    "tabs": {
+      "categories": "Categories",
+      "products": "Products"
+    },
+    "newCategory": "New category",
+    "newProduct": "New product",
+    "categories": {
+      "title": "Categories",
+      "description": "The application's own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.",
+      "empty": "No categories yet."
+    },
+    "products": {
+      "title": "Products",
+      "description": "Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.",
+      "empty": "No products yet."
+    },
+    "productCount": "{n} product | {n} products",
+    "imageCount": "{n} image | {n} images",
+    "confirmDelete": {
+      "title": "Delete {name}?",
+      "description": "This cannot be undone. A product's images and their alt text go with it — written out by hand, because nothing cascades across library boundaries."
+    },
+    "toast": {
+      "deleted": "Deleted",
+      "deleteFailed": "Could not delete"
+    }
+  },
+
+  "categoryEditor": {
+    "titleNew": "New category",
+    "titleEdit": "Edit category",
+    "description": "Slug is a column. Text is translation rows. The banner is a media attachment.",
+    "slug": {
+      "label": "Slug",
+      "help": "Not translated — a URL segment should be the same string in every language, which is what [NotMultiLingual] declares.",
+      "placeholder": "furniture"
+    },
+    "textPerLanguage": "Text, per language",
+    "media": "Media",
+    "saveFirst": {
+      "title": "Save first to attach media",
+      "description": "An attachment needs the category's key, which it does not have until it is saved."
+    },
+    "toast": {
+      "created": "Category created",
+      "saved": "Category saved",
+      "failed": "Save failed"
+    }
+  },
+
+  "productEditor": {
+    "titleNew": "New product",
+    "titleEdit": "Edit product",
+    "description": "SKU and price are columns. Name and description are translation rows. Images are media attachments.",
+    "sku": {
+      "label": "SKU",
+      "help": "Not translated.",
+      "placeholder": "DESK-001"
+    },
+    "price": "Price",
+    "category": "Category",
+    "textPerLanguage": "Text, per language",
+    "media": "Media",
+    "saveFirst": {
+      "title": "Save first to attach media",
+      "description": "An attachment needs the product's key, which it does not have until it is saved."
+    },
+    "toast": {
+      "pickCategory": "Pick a category",
+      "created": "Product created",
+      "saved": "Product saved",
+      "failed": "Save failed"
+    }
+  },
+
+  "translationFields": {
+    "name": "Name",
+    "description": "Description",
+    "note": "Stored as translation rows, not as columns on this entity. Clearing a field removes the row rather than storing an empty string."
+  },
+
+  "languages": {
+    "title": "Languages",
+    "add": "Add language",
+    "reload": "Reload the languages",
+    "card": {
+      "description": "Served by MapLanguageEndpoints() from DotNetBoost.MultiLingual.API — library endpoints, not ones this application wrote. Direction is stored alongside the language, which is what lets the shell flip to RTL without a hardcoded list of codes in the client."
+    },
+    "loadError": "Could not load the languages",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "direction": "Direction",
+      "role": "Role",
+      "active": "Active"
+    },
+    "empty": "No languages yet. Add one to start writing content.",
+    "badge": {
+      "default": "default",
+      "base": "base",
+      "baseTooltip": "The base language: its values live in the entities' own columns rather than in the translations table."
+    },
+    "activate": "Activate {name}",
+    "deactivate": "Deactivate {name}",
+    "actionsFor": "Actions for {name}",
+    "actions": {
+      "edit": "Edit",
+      "makeDefault": "Make default",
+      "purge": "Delete its translations",
+      "delete": "Delete"
+    },
+    "confirmPurge": {
+      "title": "Delete everything written in {name}?",
+      "description": "Every translation in {code} is removed, across every entity. The language itself stays, and content falls back to the default until it is filled in again.",
+      "baseNote": "This is the base language, so its values live in the entities' own columns and are not touched.",
+      "confirm": "Delete translations"
+    },
+    "confirmDelete": {
+      "title": "Delete {name}?",
+      "description": "The language and everything written in it go. The API refuses if it is the default."
+    },
+    "toast": {
+      "added": "{name} added",
+      "addedDefault": "{code} is now the default — content falls back to it.",
+      "addedOther": "Content can now be written in {code}.",
+      "saved": "{name} saved",
+      "savedInactive": "It is inactive, so content is no longer served in it.",
+      "promoted": "{name} is now the default",
+      "promotedDescription": "Missing translations fall back to it, and the language that held the role was demoted.",
+      "deleted": "{code} deleted",
+      "purged": "{n} translation removed | {n} translations removed",
+      "purgedDescription": "{code} still exists; everything written in it is gone."
+    },
+    "form": {
+      "titleAdd": "Add a language",
+      "titleEdit": "Edit {name}",
+      "descriptionAdd": "A new language starts with no translations. Existing content falls back to the default until each row is filled in.",
+      "descriptionEdit": "The code is the language's identity and cannot change; everything written in it is keyed by it.",
+      "code": {
+        "label": "Code",
+        "description": "ISO 639-1, optionally with a region: en, ar, pt-BR.",
+        "placeholder": "es"
+      },
+      "name": {
+        "label": "Name",
+        "description": "Shown in the language picker, written in the language itself.",
+        "placeholder": "Español"
+      },
+      "direction": {
+        "label": "Direction",
+        "descriptionNew": "Left as “from the code”, the API takes it from the runtime's culture data — ar, he, fa and ur come back right to left.",
+        "descriptionEdit": "Changing this flips the shell for everyone reading in this language.",
+        "auto": "From the code",
+        "ltr": "Left to right",
+        "rtl": "Right to left"
+      },
+      "active": {
+        "label": "Active",
+        "description": "When off, content is no longer served in it. The default language cannot be deactivated."
+      },
+      "makeDefault": {
+        "label": "Make it the default",
+        "descriptionFirst": "The first language created is always the default — there is nothing to fall back to otherwise.",
+        "descriptionOther": "Demotes whichever language holds the role now."
+      },
+      "validation": {
+        "required": "Required.",
+        "nameTooLong": "At most 128 characters."
+      }
+    }
+  },
+
+  "media": {
+    "page": {
+      "title": "Every uploaded file",
+      "description": "One row per upload, whatever it is attached to. Search by name, narrow by category or tag, sort, and page — all of it in the query the API is asked, not in the rows already on screen. This is DotNetBoost.Media's own browser, unchanged; the only addition is alt text, which comes from DotNetBoost.MultiLingual and is edited from a file's details."
+    },
+    "browser": {
+      "loadError": "Could not load the media library",
+      "range": "{from}–{to} of {total}",
+      "emptyFiltered": {
+        "title": "Nothing matches this filter",
+        "description": "Try a different search, category or tag."
+      },
+      "emptyNone": {
+        "title": "No files yet",
+        "description": "Upload one to get started."
+      },
+      "clearFilters": "Clear filters",
+      "uploadFirst": "Upload a file",
+      "confirmDelete": {
+        "title": "Delete {fileName}?",
+        "description": "The bytes are removed from the storage backend, and every link to the file goes with them. {usage} With soft delete on — the default — the row is kept as a record that the file existed, but the content is gone either way.",
+        "usedByNone": "Nothing is using it.",
+        "usedByOne": "It is attached to {entity}, which loses it.",
+        "usedByMany": "It is attached to {count} entities, and all of them lose it: {entities}."
+      }
+    },
+    "filters": {
+      "search": "Search file names…",
+      "clearSearch": "Clear search",
+      "anyCategory": "Any category",
+      "anyTag": "Any tag",
+      "kinds": {
+        "any": "Any kind",
+        "images": "Images",
+        "video": "Video",
+        "audio": "Audio",
+        "pdf": "PDF",
+        "text": "Text"
+      },
+      "sorts": {
+        "newest": "Newest first",
+        "oldest": "Oldest first",
+        "nameAsc": "Name A–Z",
+        "nameDesc": "Name Z–A",
+        "largest": "Largest first",
+        "smallest": "Smallest first"
+      }
+    },
+    "card": {
+      "openFile": "Open {fileName}",
+      "attached": "Attached",
+      "attach": "Attach"
+    },
+    "detail": {
+      "description": "Everything the media row records. The bytes, their size and where they live are fixed — replacing content means a new upload.",
+      "directLink": "Direct link",
+      "directLinkTitle": "A signed, expiring link straight to the storage backend",
+      "fileName": {
+        "label": "File name",
+        "description": "The name the file is offered under. The stored path does not change."
+      },
+      "category": {
+        "label": "Category",
+        "description": "A coarse bucket. Changing it does not move the stored bytes."
+      },
+      "tags": {
+        "label": "Tags",
+        "description": "Up to 32, each 64 characters, no commas.",
+        "placeholder": "Add a tag…"
+      },
+      "usedBy": {
+        "label": "Used by",
+        "descriptionOne": "Which entities this file is attached to, and what each uses it for. Click a role to remove that link — the file itself stays.",
+        "descriptionMany": "One file, several entities — nothing is copied, they all point at the same bytes. Click a role to remove that one link; deleting the file removes it from all of them.",
+        "none": "Nothing — it is in the library, waiting to be attached.",
+        "detach": "Detach {role} from {entity}"
+      },
+      "facts": {
+        "type": "Type",
+        "size": "Size",
+        "uploaded": "Uploaded",
+        "updated": "Updated",
+        "uploadedBy": "Uploaded by",
+        "checksum": "Checksum",
+        "id": "Id"
+      },
+      "storage": {
+        "title": "Where the bytes are",
+        "description": "Not shown by the API's own responses, on purpose — the storage layout is not a client's business. This dashboard talks to the API as an administrator would."
+      }
+    },
+    "upload": {
+      "title": "Upload a file",
+      "descriptionOwner": "Stored and attached to {entity} in one step.",
+      "descriptionPlain": "Stored through POST api/media. The name, size and type are recorded from the file itself.",
+      "file": "File",
+      "dropzone": "Drop a file here, or click to choose",
+      "limit": "Up to {size}",
+      "tooLarge": {
+        "title": "Too large to upload",
+        "description": "{fileName} is {size}; the limit is {limit}."
+      },
+      "category": {
+        "label": "Category",
+        "description": "A coarse bucket — avatars, invoices, product-images. It also leads the storage path."
+      },
+      "tags": {
+        "label": "Tags",
+        "description": "Up to 32, each 64 characters, no commas.",
+        "placeholder": "Add a tag…"
+      },
+      "checks": {
+        "title": "What the API checks",
+        "description": "The size is measured as the bytes arrive, the type is verified against the file's own leading bytes, and executables are refused. A file that fails any of those comes back as a problem detail rather than being stored."
+      }
+    },
+    "picker": {
+      "title": "Media for {entity}",
+      "descriptionFixedRole": "Pick the file this {entity} should use as its {role}, or upload one — it is stored and attached in one step. {shared}",
+      "descriptionPlain": "Attach a file that is already in the library, or upload a new one — it is stored and attached in one step. {shared}",
+      "shared": "A file may belong to several entities at once; attaching it here does not take it off anything else.",
+      "tabs": {
+        "all": "All files",
+        "attached": "As {role} ({count})"
+      },
+      "attachAs": "Attach as",
+      "rolePlaceholder": "default",
+      "hint": {
+        "undeclared": "This entity declares no roles, so any name will do.",
+        "multiple": "Appended to the end, in order.",
+        "single": "Becomes the one file in this role, replacing whatever held it."
+      }
+    },
+    "altText": {
+      "title": "Alt text and caption",
+      "subtitle": "Stored by DotNetBoost.MultiLingual, not by the media library.",
+      "missing": "{n} language without alt text | {n} languages without alt text",
+      "covered": "Every language covered",
+      "altText": {
+        "label": "Alt text",
+        "description": "Required for accessibility, and different in every language."
+      },
+      "caption": "Caption",
+      "note": "Clearing a field removes the stored row rather than storing an empty string.",
+      "save": "Save alt text",
+      "toast": {
+        "readFailed": "Could not read the alt text",
+        "saved": "Alt text saved",
+        "saveFailed": "Could not save the alt text"
+      }
+    },
+    "toast": {
+      "uploaded": "Uploaded {fileName}",
+      "uploadRefused": "Upload refused",
+      "saved": "Saved {fileName}",
+      "saveFailed": "Could not save the file",
+      "attached": "Attached {fileName}",
+      "attachFailed": "Could not attach the file",
+      "detached": "Detached {fileName}",
+      "detachFailed": "Could not detach the file",
+      "orderSaved": "Order saved",
+      "orderFailed": "Could not save the order",
+      "deleted": "Deleted {fileName}",
+      "deleteFailed": "Could not delete the file"
+    }
+  },
+
+  "entity": {
+    "attachments": {
+      "many": "many",
+      "one": "one",
+      "fileCount": "{n} file | {n} files",
+      "missingAltText": "Some of these have no alt text in this language — add it from the Media page.",
+      "noRoles": "This entity declares no media roles.",
+      "pickerTitle": "Attach as {role}",
+      "toast": {
+        "attached": "{fileName} is now this {entity}'s {role}",
+        "attachFailed": "Could not attach the file",
+        "detached": "Removed {fileName} from {role}",
+        "detachFailed": "Could not remove the image",
+        "gone": "That attachment no longer exists.",
+        "orderSaved": "{role} order saved",
+        "orderFailed": "Could not save the order"
+      }
+    },
+    "roleBox": {
+      "attach": "Attach a file as {role}",
+      "openInNewTab": "Open {fileName} in a new tab",
+      "replace": "Replace the {role} image",
+      "remove": "Remove {fileName} from this product's {role}",
+      "moveEarlier": "Move {fileName} earlier",
+      "moveLater": "Move {fileName} later"
+    }
+  },
+
+  "settings": {
+    "groups": {
+      "branding": {
+        "label": "Branding",
+        "description": "How the store presents itself. Saved changes take effect on the next read — no restart, no redeploy.",
+        "fields": {
+          "storeName": {
+            "label": "Store name",
+            "description": "Shown in the sidebar header, in place of the sample's own name."
+          },
+          "accentColor": {
+            "label": "Accent colour",
+            "description": "A CSS hex value, e.g. #512BD4."
+          },
+          "headerLogoSize": {
+            "label": "Header logo size",
+            "description": "How large the logo is drawn in the sidebar header, in pixels. The header clamps what it renders to 16–64."
+          }
+        }
+      },
+      "catalog": {
+        "label": "Catalog",
+        "description": "How the catalogue is presented. These are read on every listing, so a change is visible immediately.",
+        "fields": {
+          "pageSize": {
+            "label": "Page size",
+            "description": "Products returned per page."
+          },
+          "currencySymbol": {
+            "label": "Currency symbol",
+            "description": "Shown next to prices."
+          },
+          "showProductsWithoutImages": {
+            "label": "List products without images",
+            "description": "When off, a product with no attached image is left out of listings."
+          }
+        }
+      }
+    },
+    "form": {
+      "defaultLanguageBadge": "default · {code}",
+      "defaultLanguageBadgeUnknown": "default language",
+      "sensitiveBadge": "sensitive",
+      "notSet": "Not set",
+      "reveal": "Show {label}",
+      "hide": "Hide {label}",
+      "loadError": "Could not load {name}",
+      "conflict": {
+        "title": "These settings changed while you were editing",
+        "reapply": "Re-apply my changes",
+        "discard": "Discard mine and reload"
+      },
+      "toast": {
+        "saved": "{group} saved",
+        "savedDescription": "The new values are live — no redeploy needed.",
+        "conflictProblem": "Someone else changed these settings while you were editing. Nothing was saved, and your edits are still here.",
+        "conflictTitle": "Save refused — settings changed elsewhere",
+        "conflictDescription": "Reload the latest values, or re-apply your edits on top of them.",
+        "saveFailed": "Save failed"
+      },
+      "rejected": "The server rejected these values."
+    },
+    "media": {
+      "title": "Media",
+      "description": "Not a setting. The logo is a media attachment on an owner that has no table anywhere — which a foreign key could not express, and which the media library is perfectly happy with, because an owner is only ever two strings it never tries to resolve.",
+      "outsideSave": "Outside this form's Save, and outside the group's ETag and audit trail — the three things storing a file id in a setting would have bought. Given up for a single source of truth: detaching the logo and the store having no logo are the same statement.",
+      "sizedBySetting": "Attach one and it appears in the sidebar header immediately, at the size this group's {field} names — one value from DotNetBoost.Settings sizing one file from DotNetBoost.Media, joined by nothing but this application."
+    },
+    "brandingText": {
+      "title": "Store name in other languages",
+      "descriptionWithDefault": "The default language ({code}) is the value in the form above — it lives in the settings row. These are translation rows, and a language with nothing stored falls back to it.",
+      "descriptionPlain": "These are translation rows. A language with nothing stored falls back to the default.",
+      "missing": "{n} language not translated | {n} languages not translated",
+      "covered": "Every language covered",
+      "onlyOneLanguage": "There is only one language, so there is nothing to translate yet. Add another on the Languages page.",
+      "note": "Stored as {subject} rows, one per language — the same subject the logo is attached to.",
+      "save": "Save translations",
+      "toast": {
+        "readFailed": "Could not read the translations",
+        "saved": "Translations saved",
+        "savedDescription": "Reading in those languages now returns them.",
+        "saveFailed": "Could not save the translations"
+      }
+    }
+  }
+}

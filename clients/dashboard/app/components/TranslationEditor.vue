@@ -83,8 +83,7 @@ const activeIsRtl = computed(() =>
       </UFormField>
 
       <p class="text-xs text-muted">
-        Stored as translation rows, not as columns on this entity. Clearing a field removes the
-        row rather than storing an empty string.
+        {{ $t('translationFields.note') }}
       </p>
     </div>
   </div>

@@ -20,6 +20,7 @@ export interface MediaLibraryOptions {
  */
 export function useMediaLibrary(options: MediaLibraryOptions = {}) {
   const toast = useToast()
+  const { t } = useI18n()
 
   const query = reactive<MediaQuery>({
     search: '',
@@ -156,16 +157,16 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
     return run(
       null,
       () => $fetch<MediaFile>('/api/media', { method: 'POST', body }),
-      uploaded => `Uploaded ${uploaded.fileName}`,
-      'Upload refused'
+      uploaded => t('media.toast.uploaded', { fileName: uploaded.fileName }),
+      t('media.toast.uploadRefused')
     )
   }
 
   const update = (id: string, patch: MediaUpdate) => run(
     id,
     () => $fetch<MediaFile>(`/api/media/${id}`, { method: 'PATCH', body: patch }),
-    updated => `Saved ${updated.fileName}`,
-    'Could not save the file'
+    updated => t('media.toast.saved', { fileName: updated.fileName }),
+    t('media.toast.saveFailed')
   )
 
   /**
@@ -186,8 +187,8 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
       method: 'POST',
       body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, replace }
     }),
-    attached => `Attached ${attached.fileName}`,
-    'Could not attach the file'
+    attached => t('media.toast.attached', { fileName: attached.fileName }),
+    t('media.toast.attachFailed')
   )
 
   /**
@@ -198,8 +199,8 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
   const detach = (id: string, attachmentId: string) => run(
     id,
     () => $fetch<MediaFile>(`/api/media/${id}/attachments/${attachmentId}`, { method: 'DELETE' }),
-    detached => `Detached ${detached.fileName}`,
-    'Could not detach the file'
+    detached => t('media.toast.detached', { fileName: detached.fileName }),
+    t('media.toast.detachFailed')
   )
 
   /**
@@ -220,15 +221,15 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
       method: 'PUT',
       body: { ownerEntityName: owner.entityName, ownerEntityId: owner.entityId, role, mediaFileIds }
     }),
-    () => 'Order saved',
-    'Could not save the order'
+    () => t('media.toast.orderSaved'),
+    t('media.toast.orderFailed')
   )
 
   const remove = (file: MediaFile) => run(
     file.id,
     () => $fetch(`/api/media/${file.id}`, { method: 'DELETE' }),
-    () => `Deleted ${file.fileName}`,
-    'Could not delete the file'
+    () => t('media.toast.deleted', { fileName: file.fileName }),
+    t('media.toast.deleteFailed')
   )
 
   function reset() {

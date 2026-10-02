@@ -2,104 +2,98 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { apiReferenceUrl } = useRuntimeConfig().public
+const { t } = useI18n()
 
-const api = useApi()
-const language = useLanguage()
-
-const { data: languages } = await useAsyncData('layout-languages', () => api.multiLingual.languages())
+// Direction is set on `<html>` by `app.vue`, which reads it from the same place this does.
+useShellLocale()
 
 const open = ref(false)
 const close = () => {
   open.value = false
 }
 
-const links = [[{
-  label: 'Catalog',
+// Computed, not a constant: the labels have to be rebuilt when the language changes, and a plain
+// array would hold whatever language the sidebar was first rendered in.
+const links = computed(() => [[{
+  label: t('nav.catalog'),
   icon: 'i-lucide-package',
   to: '/catalog',
   onSelect: close
 }, {
-  label: 'Media',
+  label: t('nav.media'),
   icon: 'i-lucide-images',
   to: '/media',
   onSelect: close
 }, {
-  label: 'Languages',
+  label: t('nav.languages'),
   icon: 'i-lucide-languages',
   to: '/languages',
   onSelect: close
 }, {
-  label: 'Settings',
+  label: t('nav.settings'),
   icon: 'i-lucide-settings',
   to: '/settings',
   onSelect: close
 }], [{
-  label: 'API reference',
+  label: t('nav.apiReference'),
   icon: 'i-lucide-book-open',
   to: apiReferenceUrl,
   target: '_blank'
 }, {
-  label: 'DotNetBoost on GitHub',
+  label: t('nav.github'),
   icon: 'i-simple-icons-github',
   to: 'https://github.com/dotnetboost',
   target: '_blank'
-}]] satisfies NavigationMenuItem[][]
+}]] satisfies NavigationMenuItem[][])
 
 const groups = computed(() => [{
   id: 'links',
-  label: 'Go to',
-  items: links.flat()
+  label: t('nav.goTo'),
+  items: links.value.flat()
 }])
-
-// The whole shell flips for a right-to-left language — which is why direction is stored
-// alongside the language rather than hardcoded as a list of RTL codes in the client.
-const direction = computed(() =>
-  isRtl(languages.value?.find(l => l.code === language.value)?.direction) ? 'rtl' : 'ltr')
 </script>
 
 <template>
-  <div :dir="direction">
-    <UDashboardGroup unit="rem">
-      <UDashboardSidebar
-        id="default"
-        v-model:open="open"
-        collapsible
-        resizable
-        class="bg-elevated/25"
-        :ui="{ footer: 'lg:border-t lg:border-default' }"
-      >
-        <template #header="{ collapsed }">
-          <AppBrand :collapsed="collapsed" />
-        </template>
+  <UDashboardGroup unit="rem">
+    <UDashboardSidebar
+      id="default"
+      v-model:open="open"
+      collapsible
+      resizable
+      class="bg-elevated/25"
+      :ui="{ footer: 'lg:border-t lg:border-default' }"
+    >
+      <template #header="{ collapsed }">
+        <AppBrand :collapsed="collapsed" />
+      </template>
 
-        <template #default="{ collapsed }">
-          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+      <template #default="{ collapsed }">
+        <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
 
-          <UNavigationMenu
-            :collapsed="collapsed"
-            :items="links[0]"
-            orientation="vertical"
-            tooltip
-            popover
-          />
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="links[0]"
+          orientation="vertical"
+          tooltip
+          popover
+        />
 
-          <UNavigationMenu
-            :collapsed="collapsed"
-            :items="links[1]"
-            orientation="vertical"
-            tooltip
-            class="mt-auto"
-          />
-        </template>
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="links[1]"
+          orientation="vertical"
+          tooltip
+          class="mt-auto"
+        />
+      </template>
 
-        <template #footer="{ collapsed }">
-          <AppearanceMenu :collapsed="collapsed" />
-        </template>
-      </UDashboardSidebar>
+      <template #footer="{ collapsed }">
+        <AppearanceMenu :collapsed="collapsed" />
+      </template>
+    </UDashboardSidebar>
 
-      <UDashboardSearch :groups="groups" />
+    <UDashboardSearch :groups="groups" />
 
-      <slot />
-    </UDashboardGroup>
-  </div>
+    <slot />
+  </UDashboardGroup>
 </template>

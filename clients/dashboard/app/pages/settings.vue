@@ -2,31 +2,32 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { apiReferenceUrl } = useRuntimeConfig().public
+const { t } = useI18n()
 
 // One tab per settings group. Adding a group to `settingsGroups` (and a page under
 // `pages/settings/`) is all it takes to get another — nothing here enumerates them.
-const links = [
+const links = computed(() => [
   settingsGroups.map(group => ({
-    label: group.label,
+    label: groupLabel(group),
     icon: group.icon,
     to: group.to,
     exact: group.to === '/settings'
   })),
   [{
-    label: 'API reference',
+    label: t('nav.apiReference'),
     icon: 'i-lucide-book-open',
     to: apiReferenceUrl,
     target: '_blank'
   }]
-] satisfies NavigationMenuItem[][]
+] satisfies NavigationMenuItem[][])
 
-useHead({ title: 'Settings — DotNetBoost Sample' })
+useHead({ title: () => t('nav.documentTitle', { page: t('nav.settings') }) })
 </script>
 
 <template>
   <UDashboardPanel id="settings" :ui="{ body: 'lg:py-12' }">
     <template #header>
-      <UDashboardNavbar title="Settings">
+      <UDashboardNavbar :title="$t('nav.settings')">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>

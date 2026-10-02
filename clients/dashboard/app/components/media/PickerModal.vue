@@ -37,6 +37,8 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>('open', { default: false })
 
+const { t } = useI18n()
+
 const tab = ref<'library' | 'attached'>('library')
 
 /**
@@ -98,10 +100,10 @@ const selectedRole = computed(() => {
     value: role.value || 'default',
     replace: found ? !found.multiple : false,
     hint: found === undefined
-      ? 'This entity declares no roles, so any name will do.'
+      ? t('media.picker.hint.undeclared')
       : found.multiple
-        ? 'Appended to the end, in order.'
-        : 'Becomes the one file in this role, replacing whatever held it.'
+        ? t('media.picker.hint.multiple')
+        : t('media.picker.hint.single')
   }
 })
 
@@ -158,16 +160,34 @@ watch(() => props.fixedRole, (fixed) => {
 
 watch(() => props.version, () => reloadAll())
 
-/** Shared by both modes: what makes attaching safe is that it is a link, not a move. */
-const shared = 'A file may belong to several entities at once; attaching it here does not take it off anything else.'
+/**
+ * Shared by both modes: what makes attaching safe is that it is a link, not a move.
+ *
+ * Interpolated into either description rather than concatenated after it, so a translator can put
+ * the sentence where their language wants it instead of always last.
+ */
+const description = computed(() => {
+  const shared = t('media.picker.shared')
 
-const description = computed(() => (props.fixedRole
-  ? `Pick the file this ${props.owner.entityName.toLowerCase()} should use as its ${props.fixedRole}, or upload one — it is stored and attached in one step. ${shared}`
-  : `Attach a file that is already in the library, or upload a new one — it is stored and attached in one step. ${shared}`))
+  return props.fixedRole
+    ? t('media.picker.descriptionFixedRole', {
+        entity: props.owner.entityName.toLowerCase(),
+        role: props.fixedRole,
+        shared
+      })
+    : t('media.picker.descriptionPlain', { shared })
+})
 
 const tabs = computed(() => [
-  { label: 'All files', value: 'library', icon: 'i-lucide-images' },
-  { label: `As ${selectedRole.value.value} (${attachedIds.value.length})`, value: 'attached', icon: 'i-lucide-link' }
+  { label: t('media.picker.tabs.all'), value: 'library', icon: 'i-lucide-images' },
+  {
+    label: t('media.picker.tabs.attached', {
+      role: selectedRole.value.value,
+      count: attachedIds.value.length
+    }),
+    value: 'attached',
+    icon: 'i-lucide-link'
+  }
 ])
 
 /** Both tabs show the same rows from different angles, so a change in one has to reach the other. */
@@ -200,7 +220,7 @@ onMounted(() => {
 <template>
   <UModal
     v-model:open="open"
-    :title="title ?? `Media for ${owner.entityName} ${owner.entityId}`"
+    :title="title ?? $t('media.picker.title', { entity: `${owner.entityName} ${owner.entityId}` })"
     :description="description"
     :ui="{ content: 'max-w-5xl' }"
   >
@@ -222,7 +242,7 @@ onMounted(() => {
 
           <UFormField
             v-else-if="!fixedRole && tab === 'library'"
-            label="Attach as"
+            :label="$t('media.picker.attachAs')"
             :description="selectedRole.hint"
             :ui="{ description: 'text-xs' }"
           >
@@ -242,7 +262,8 @@ onMounted(() => {
             <UInput
               v-else
               v-model="role"
-              placeholder="default"
+              dir="ltr"
+              :placeholder="$t('media.picker.rolePlaceholder')"
               size="sm"
               class="w-40"
               @blur="loadAttached"
@@ -281,7 +302,7 @@ onMounted(() => {
     <template #footer>
       <div class="flex w-full justify-end">
         <UButton
-          label="Done"
+          :label="$t('common.done')"
           color="neutral"
           variant="ghost"
           @click="open = false"

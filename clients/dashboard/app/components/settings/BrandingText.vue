@@ -16,8 +16,19 @@ const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
 const toast = useToast()
+const { t } = useI18n()
 
 const { languages, defaultLanguage, ensureLoaded } = useLanguages()
+
+/**
+ * The branding group's metadata, borrowed for one thing: the label on the field below.
+ *
+ * It has to read `Store name` exactly as the generated form above does, because the two boxes edit
+ * the same property in different languages. Taking the label from the same place the form takes it
+ * is what keeps them identical when either is reworded.
+ */
+const brandingGroup = findSettingsGroup('branding')!
+
 await ensureLoaded()
 
 /** Everything except the default language, which the settings row owns. */
@@ -42,7 +53,7 @@ async function load() {
     original.value = JSON.stringify(draft.value)
   } catch (error) {
     toast.add({
-      title: 'Could not read the translations',
+      title: t('settings.brandingText.toast.readFailed'),
       description: problemMessage(error),
       icon: 'i-lucide-triangle-alert',
       color: 'error'
@@ -72,8 +83,8 @@ async function save() {
     await load()
 
     toast.add({
-      title: 'Translations saved',
-      description: 'Reading in those languages now returns them.',
+      title: t('settings.brandingText.toast.saved'),
+      description: t('settings.brandingText.toast.savedDescription'),
       icon: 'i-lucide-check',
       color: 'success'
     })
@@ -81,7 +92,7 @@ async function save() {
     emit('saved')
   } catch (error) {
     toast.add({
-      title: 'Could not save the translations',
+      title: t('settings.brandingText.toast.saveFailed'),
       description: problemMessage(error),
       icon: 'i-lucide-triangle-alert',
       color: 'error'
@@ -96,10 +107,10 @@ async function save() {
   <UPageCard
     variant="subtle"
     class="mt-4 sm:mt-6"
-    title="Store name in other languages"
+    :title="$t('settings.brandingText.title')"
     :description="defaultLanguage
-      ? `The default language (${defaultLanguage.code}) is the value in the form above — it lives in the settings row. These are translation rows, and a language with nothing stored falls back to it.`
-      : 'These are translation rows. A language with nothing stored falls back to the default.'"
+      ? $t('settings.brandingText.descriptionWithDefault', { code: defaultLanguage.code })
+      : $t('settings.brandingText.descriptionPlain')"
   >
     <template #header>
       <div class="flex items-center justify-end gap-2">
@@ -108,41 +119,48 @@ async function save() {
           color="warning"
           variant="subtle"
           size="sm"
-          :label="`${missing} language${missing === 1 ? '' : 's'} not translated`"
+          :label="$t('settings.brandingText.missing', missing)"
         />
         <UBadge
           v-else
           color="success"
           variant="subtle"
           size="sm"
-          label="Every language covered"
+          :label="$t('settings.brandingText.covered')"
         />
       </div>
     </template>
 
     <div v-if="loading" class="py-4 text-center text-sm text-muted">
-      Loading…
+      {{ $t('common.loading') }}
     </div>
 
     <div v-else-if="!translatable.length" class="py-4 text-sm text-muted">
-      There is only one language, so there is nothing to translate yet. Add another on the
-      Languages page.
+      {{ $t('settings.brandingText.onlyOneLanguage') }}
     </div>
 
     <div v-else class="space-y-3">
       <TranslationEditor
         v-model="draft"
         :languages="translatable"
-        :fields="[{ name: 'StoreName', label: 'Store name' }]"
+        :fields="[{ name: 'StoreName', label: fieldLabel(brandingGroup, 'storeName') }]"
       />
 
       <div class="flex items-center justify-between gap-4">
-        <p class="text-xs text-muted">
-          Stored as <code>Branding · branding · StoreName</code> rows, one per language — the same
-          subject the logo is attached to.
-        </p>
+        <!-- `i18n-t` so the stored key stays a code span inside the sentence rather than becoming
+             a second message a translator has to guess the placement of. -->
+        <i18n-t
+          scope="global"
+          keypath="settings.brandingText.note"
+          tag="p"
+          class="text-xs text-muted"
+        >
+          <template #subject>
+            <code>Branding · branding · StoreName</code>
+          </template>
+        </i18n-t>
         <UButton
-          label="Save translations"
+          :label="$t('settings.brandingText.save')"
           :disabled="!dirty"
           :loading="saving"
           @click="save"

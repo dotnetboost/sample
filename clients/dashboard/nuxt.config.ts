@@ -3,6 +3,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
+    '@nuxtjs/i18n',
     '@vueuse/nuxt'
   ],
 
@@ -47,6 +48,38 @@ export default defineNuxtConfig({
         commaDangle: 'never',
         braceStyle: '1tbs'
       }
+    }
+  },
+
+  // The dashboard's own chrome, in the three languages the sample seeds.
+  //
+  // This is NOT the same mechanism as the content languages on the Languages page. Those are rows
+  // in DotNetBoost.MultiLingual that the API resolves from `Accept-Language`; these are static
+  // bundles compiled into the client. They are deliberately joined at one point only —
+  // `plugins/ui-language.ts` moves this locale when the header's reading language moves — so that
+  // picking Arabic translates the labels as well as the content.
+  i18n: {
+    // No `/ar/catalog`: the locale is a consequence of the header selector, not of the URL, so
+    // there is nothing to prefix and nothing to redirect when it changes.
+    strategy: 'no_prefix',
+    defaultLocale: 'en',
+    vueI18n: './i18n.config.ts',
+
+    locales: [
+      { code: 'en', language: 'en', name: 'English', dir: 'ltr', file: 'en.json' },
+      { code: 'ar', language: 'ar', name: 'العربية', dir: 'rtl', file: 'ar.json' },
+      { code: 'fr', language: 'fr', name: 'Français', dir: 'ltr', file: 'fr.json' }
+    ],
+
+    // The selector in the header is the only thing that chooses. Browser detection would set a
+    // cookie that then disagrees with it on the next load, and the disagreement is invisible —
+    // the labels would be in one language and the content in another with nothing to explain it.
+    detectBrowserLanguage: false,
+
+    experimental: {
+      // Types `$t` against en.json, so a mistyped key fails `npm run typecheck` rather than
+      // rendering its own name on the page.
+      typedOptionsAndMessages: 'default'
     }
   }
 })

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-useHead({ title: 'Media — DotNetBoost Sample' })
+const { t } = useI18n()
+
+useHead({ title: () => t('nav.documentTitle', { page: t('nav.media') }) })
 </script>
 
 <template>
   <UDashboardPanel id="media">
     <template #header>
-      <UDashboardNavbar title="Media">
+      <UDashboardNavbar :title="$t('nav.media')">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -18,8 +20,8 @@ useHead({ title: 'Media — DotNetBoost Sample' })
 
     <template #body>
       <UPageCard
-        title="Every uploaded file"
-        description="One row per upload, whatever it is attached to. Search by name, narrow by category or tag, sort, and page — all of it in the query the API is asked, not in the rows already on screen. This is DotNetBoost.Media's own browser, unchanged; the only addition is alt text, which comes from DotNetBoost.MultiLingual and is edited from a file's details."
+        :title="$t('media.page.title')"
+        :description="$t('media.page.description')"
         variant="naked"
       />
 

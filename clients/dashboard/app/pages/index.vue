@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { MediaPage } from '~/types'
 
-useHead({ title: 'Overview — DotNetBoost Sample' })
+const { t } = useI18n()
+
+useHead({ title: () => t('nav.documentTitle', { page: t('nav.overview') }) })
 
 const api = useApi()
 
@@ -22,7 +24,7 @@ const imageCount = computed(() =>
 <template>
   <UDashboardPanel id="overview">
     <template #header>
-      <UDashboardNavbar title="Overview">
+      <UDashboardNavbar :title="$t('nav.overview')">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -35,8 +37,8 @@ const imageCount = computed(() =>
 
     <template #body>
       <UPageCard
-        title="Three libraries, zero references between them"
-        description="This application installs DotNetBoost.Settings, DotNetBoost.Media and DotNetBoost.MultiLingual from NuGet. None depends on another, there is no shared kernel package, and no integration package pairs any two of them. Everything here is produced by application code composing them."
+        :title="$t('overview.intro.title')"
+        :description="$t('overview.intro.description')"
         variant="naked"
       />
 
@@ -44,25 +46,25 @@ const imageCount = computed(() =>
         <UPageCard
           icon="i-lucide-folder-tree"
           :title="String(categories?.length ?? 0)"
-          description="Categories"
+          :description="$t('overview.stats.categories')"
           variant="subtle"
         />
         <UPageCard
           icon="i-lucide-package"
           :title="String(products?.length ?? 0)"
-          description="Products"
+          :description="$t('overview.stats.products')"
           variant="subtle"
         />
         <UPageCard
           icon="i-lucide-images"
           :title="String(library?.total ?? 0)"
-          description="Files in the library"
+          :description="$t('overview.stats.files')"
           variant="subtle"
         />
         <UPageCard
           icon="i-lucide-languages"
           :title="String(languages?.length ?? 0)"
-          description="Languages"
+          :description="$t('overview.stats.languages')"
           variant="subtle"
         />
       </div>
@@ -70,20 +72,31 @@ const imageCount = computed(() =>
       <UCard class="shrink-0">
         <template #header>
           <h2 class="font-semibold">
-            Where the composition happens
+            {{ $t('overview.composition.title') }}
           </h2>
         </template>
 
+        <!--
+          `i18n-t` rather than `$t`, because these sentences have code spans inside them. The
+          alternative is either splitting one sentence into three messages — which leaves a
+          translator reordering fragments they cannot see the shape of — or rendering the message
+          as HTML, which makes every bundle a place markup can arrive from.
+        -->
         <div class="space-y-4 text-sm">
           <div>
             <p class="font-medium">
               Data/AppDbContext.cs
             </p>
-            <p class="text-muted">
-              One PostgreSQL database, one DbContext implementing three independent interfaces, and
-              three independent <code>Apply*</code> calls. Remove a library and you delete its
-              interface, its DbSets and its one line.
-            </p>
+            <i18n-t
+              scope="global"
+              keypath="overview.composition.dbContext"
+              tag="p"
+              class="text-muted"
+            >
+              <template #apply>
+                <code>Apply*</code>
+              </template>
+            </i18n-t>
           </div>
 
           <USeparator />
@@ -92,12 +105,22 @@ const imageCount = computed(() =>
             <p class="font-medium">
               Integration/MediaText.cs
             </p>
-            <p class="text-muted">
-              Per-language alt text for an uploaded file. Both libraries address a subject by
-              <code>(entityName, entityId)</code>, so a media file's own GUID becomes the subject
-              of translation rows. {{ withAltText }} of {{ imageCount }} attached images have alt
-              text. No new table, no integration package.
-            </p>
+            <i18n-t
+              scope="global"
+              keypath="overview.composition.mediaText"
+              tag="p"
+              class="text-muted"
+            >
+              <template #pair>
+                <code>(entityName, entityId)</code>
+              </template>
+              <template #withAltText>
+                {{ withAltText }}
+              </template>
+              <template #imageCount>
+                {{ imageCount }}
+              </template>
+            </i18n-t>
           </div>
 
           <USeparator />
@@ -107,8 +130,7 @@ const imageCount = computed(() =>
               Settings/BrandingSettings.cs
             </p>
             <p class="text-muted">
-              A setting whose value is a media file id. The settings library stores a GUID like any
-              other value; the application passes it to the media library on read.
+              {{ $t('overview.composition.branding') }}
             </p>
           </div>
         </div>
@@ -118,8 +140,8 @@ const imageCount = computed(() =>
         icon="i-lucide-languages"
         color="primary"
         variant="subtle"
-        title="Switch the language in any page header"
-        description="Every product name, description and image alt text is re-read in that language — Arabic flips the whole shell to RTL. The API resolves it from Accept-Language."
+        :title="$t('overview.languageAlert.title')"
+        :description="$t('overview.languageAlert.description')"
       />
     </template>
   </UDashboardPanel>

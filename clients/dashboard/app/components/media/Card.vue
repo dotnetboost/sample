@@ -27,7 +27,7 @@ const emit = defineEmits<{
     <button
       type="button"
       class="relative aspect-[4/3] w-full shrink-0 cursor-pointer"
-      :aria-label="`Open ${file.fileName}`"
+      :aria-label="$t('media.card.openFile', { fileName: file.fileName })"
       @click="emit('open')"
     >
       <MediaThumbnail :file="file" size="lg" class="absolute inset-0 size-full" />
@@ -36,7 +36,12 @@ const emit = defineEmits<{
     <div class="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
       <div class="flex items-start gap-2">
         <UIcon :name="iconFor(file.contentType)" class="mt-0.5 size-4 shrink-0 text-dimmed" />
-        <p class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted" :title="file.fileName">
+        <!-- `dir="auto"`: an uploaded name is the uploader's, not ours. See GroupForm. -->
+        <p
+          dir="auto"
+          class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted"
+          :title="file.fileName"
+        >
           {{ file.fileName }}
         </p>
       </div>
@@ -82,7 +87,7 @@ const emit = defineEmits<{
           color="neutral"
           variant="soft"
           icon="i-lucide-check"
-          label="Attached"
+          :label="$t('media.card.attached')"
           disabled
         />
         <UButton
@@ -90,7 +95,7 @@ const emit = defineEmits<{
           block
           size="sm"
           icon="i-lucide-link"
-          label="Attach"
+          :label="$t('media.card.attach')"
           :loading="busy"
           @click="emit('select')"
         />

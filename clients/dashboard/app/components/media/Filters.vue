@@ -26,6 +26,8 @@ const emit = defineEmits<{
   reset: []
 }>()
 
+const { t } = useI18n()
+
 /**
  * The search box is bound to its own ref and debounced into the query: binding it straight
  * through would fire a request per keystroke.
@@ -47,14 +49,16 @@ watch(() => props.query.search, (value) => {
  */
 const ANY = 'any'
 
-const kinds = [
-  { label: 'Any kind', value: ANY },
-  { label: 'Images', value: 'image/' },
-  { label: 'Video', value: 'video/' },
-  { label: 'Audio', value: 'audio/' },
-  { label: 'PDF', value: 'application/pdf' },
-  { label: 'Text', value: 'text/' }
-]
+// Computed, like every other list of labels in the dashboard: the values are media-type prefixes
+// the API understands and never change, but what each one is called does.
+const kinds = computed(() => [
+  { label: t('media.filters.kinds.any'), value: ANY },
+  { label: t('media.filters.kinds.images'), value: 'image/' },
+  { label: t('media.filters.kinds.video'), value: 'video/' },
+  { label: t('media.filters.kinds.audio'), value: 'audio/' },
+  { label: t('media.filters.kinds.pdf'), value: 'application/pdf' },
+  { label: t('media.filters.kinds.text'), value: 'text/' }
+])
 
 const kind = computed(() => props.query.contentType || ANY)
 
@@ -64,14 +68,14 @@ function onKind(value: string) {
 
 type SortValue = `${MediaSortBy}:${'desc' | 'asc'}`
 
-const sorts: { label: string, value: SortValue }[] = [
-  { label: 'Newest first', value: 'createdAt:desc' },
-  { label: 'Oldest first', value: 'createdAt:asc' },
-  { label: 'Name A–Z', value: 'fileName:asc' },
-  { label: 'Name Z–A', value: 'fileName:desc' },
-  { label: 'Largest first', value: 'size:desc' },
-  { label: 'Smallest first', value: 'size:asc' }
-]
+const sorts = computed<{ label: string, value: SortValue }[]>(() => [
+  { label: t('media.filters.sorts.newest'), value: 'createdAt:desc' },
+  { label: t('media.filters.sorts.oldest'), value: 'createdAt:asc' },
+  { label: t('media.filters.sorts.nameAsc'), value: 'fileName:asc' },
+  { label: t('media.filters.sorts.nameDesc'), value: 'fileName:desc' },
+  { label: t('media.filters.sorts.largest'), value: 'size:desc' },
+  { label: t('media.filters.sorts.smallest'), value: 'size:asc' }
+])
 
 const sort = computed<SortValue>(() =>
   `${props.query.sortBy}:${props.query.descending ? 'desc' : 'asc'}` as SortValue)
@@ -84,10 +88,12 @@ function onSort(value: SortValue) {
 
 <template>
   <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <!-- `dir="auto"` on the value boxes: see SettingsGroupForm for why. -->
     <UInput
       v-model="search"
+      dir="auto"
       icon="i-lucide-search"
-      placeholder="Search file names…"
+      :placeholder="$t('media.filters.search')"
       :loading="pending"
       class="w-full sm:min-w-48 sm:flex-1"
       :ui="{ trailing: 'pe-1' }"
@@ -98,7 +104,7 @@ function onSort(value: SortValue) {
           color="neutral"
           variant="link"
           size="sm"
-          aria-label="Clear search"
+          :aria-label="$t('media.filters.clearSearch')"
           @click="search = ''"
         />
       </template>
@@ -110,7 +116,8 @@ function onSort(value: SortValue) {
       :model-value="query.category"
       :items="categoryOptions"
       create-item
-      placeholder="Any category"
+      dir="auto"
+      :placeholder="$t('media.filters.anyCategory')"
       icon="i-lucide-folder"
       class="w-full sm:w-44"
       @update:model-value="emit('update', { category: $event ?? '' })"
@@ -121,7 +128,8 @@ function onSort(value: SortValue) {
       :model-value="query.tag"
       :items="tagOptions"
       create-item
-      placeholder="Any tag"
+      dir="auto"
+      :placeholder="$t('media.filters.anyTag')"
       icon="i-lucide-tag"
       class="w-full sm:w-40"
       @update:model-value="emit('update', { tag: $event ?? '' })"
@@ -150,7 +158,7 @@ function onSort(value: SortValue) {
       icon="i-lucide-filter-x"
       color="neutral"
       variant="ghost"
-      label="Clear"
+      :label="$t('common.clear')"
       class="self-start"
       @click="emit('reset')"
     />

@@ -7,15 +7,22 @@ defineProps<{
 
 const colorMode = useColorMode()
 const appConfig = useAppConfig()
+const { t } = useI18n()
+
+// The palette names below are NOT translated, and the same goes for role names, language codes and
+// the `api/...` badges elsewhere in the dashboard. They are identifiers: `zinc` is the value
+// `app.config.ts` holds and the name Tailwind and Nuxt UI's own documentation use, so a translated
+// "زنك" in this menu could not be matched to anything outside it. Copy is translated; identifiers
+// are quoted.
 
 const colors = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']
 const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 
 const items = computed<DropdownMenuItem[][]>(() => ([[{
-  label: 'Theme',
+  label: t('appearance.theme'),
   icon: 'i-lucide-palette',
   children: [{
-    label: 'Primary',
+    label: t('appearance.primary'),
     slot: 'chip',
     chip: appConfig.ui.colors.primary,
     content: {
@@ -35,7 +42,7 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
       }
     }))
   }, {
-    label: 'Neutral',
+    label: t('appearance.neutral'),
     slot: 'chip',
     chip: appConfig.ui.colors.neutral === 'neutral' ? 'old-neutral' : appConfig.ui.colors.neutral,
     content: {
@@ -56,10 +63,10 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
     }))
   }]
 }, {
-  label: 'Appearance',
+  label: t('appearance.mode'),
   icon: 'i-lucide-sun-moon',
   children: [{
-    label: 'Light',
+    label: t('appearance.light'),
     icon: 'i-lucide-sun',
     type: 'checkbox',
     checked: colorMode.value === 'light',
@@ -69,7 +76,7 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
       colorMode.preference = 'light'
     }
   }, {
-    label: 'Dark',
+    label: t('appearance.dark'),
     icon: 'i-lucide-moon',
     type: 'checkbox',
     checked: colorMode.value === 'dark',
@@ -80,12 +87,12 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
     }
   }]
 }], [{
-  label: 'Nuxt UI documentation',
+  label: t('appearance.nuxtUiDocs'),
   icon: 'i-lucide-book-open',
   to: 'https://ui.nuxt.com/docs/getting-started/installation/nuxt',
   target: '_blank'
 }, {
-  label: 'GitHub repository',
+  label: t('appearance.githubRepository'),
   icon: 'i-simple-icons-github',
   to: 'https://github.com/dotnetboost',
   target: '_blank'
@@ -100,7 +107,7 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
   >
     <UButton
       icon="i-lucide-palette"
-      :label="collapsed ? undefined : 'Appearance'"
+      :label="collapsed ? undefined : $t('appearance.trigger')"
       :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
       color="neutral"
       variant="ghost"

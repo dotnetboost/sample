@@ -37,6 +37,8 @@ const emit = defineEmits<{
   changed: []
 }>()
 
+const { t } = useI18n()
+
 const owner = computed(() => props.owner)
 
 const library = useMediaLibrary({ owner, pageSize: props.pageSize })
@@ -115,12 +117,22 @@ async function confirmDelete(file: MediaFile) {
 const deleteWarning = computed(() => {
   const entities = new Set(deletingUsedBy.value.map(a => `${a.ownerEntityName}/${a.ownerEntityId}`))
 
-  return entities.size === 0
-    ? 'Nothing is using it.'
-    : entities.size === 1
-      ? `It is attached to ${[...entities][0]!.replace('/', ' ')}, which loses it.`
-      : `It is attached to ${entities.size} entities, and all of them lose it: `
-        + `${[...entities].map(key => key.replace('/', ' ')).join(', ')}.`
+  // Three messages rather than one with a count, because none/one/many are three different
+  // sentences here and not three forms of one — the last names the entities and the others cannot.
+  if (entities.size === 0) {
+    return t('media.browser.confirmDelete.usedByNone')
+  }
+
+  if (entities.size === 1) {
+    return t('media.browser.confirmDelete.usedByOne', {
+      entity: [...entities][0]!.replace('/', ' ')
+    })
+  }
+
+  return t('media.browser.confirmDelete.usedByMany', {
+    count: entities.size,
+    entities: [...entities].map(key => key.replace('/', ' ')).join(', ')
+  })
 })
 
 const attached = (file: MediaFile) => props.attachedIds.includes(file.id)
@@ -130,10 +142,11 @@ const range = computed(() => {
     return ''
   }
 
-  const from = (query.page - 1) * query.pageSize + 1
-  const to = Math.min(query.page * query.pageSize, total.value)
-
-  return `${from}–${to} of ${total.value}`
+  return t('media.browser.range', {
+    from: (query.page - 1) * query.pageSize + 1,
+    to: Math.min(query.page * query.pageSize, total.value),
+    total: total.value
+  })
 })
 
 async function onUpload(input: { file: File, category?: string, tags?: string[] }) {
@@ -222,12 +235,12 @@ onMounted(load)
           color="neutral"
           variant="ghost"
           :loading="pending"
-          aria-label="Refresh"
+          :aria-label="$t('common.refresh')"
           @click="load"
         />
         <UButton
           icon="i-lucide-upload"
-          label="Upload"
+          :label="$t('common.upload')"
           class="flex-1 justify-center lg:flex-none"
           @click="uploading = true"
         />
@@ -239,9 +252,9 @@ onMounted(load)
       color="error"
       variant="subtle"
       icon="i-lucide-plug-zap"
-      title="Could not load the media library"
+      :title="$t('media.browser.loadError')"
       :description="loadError"
-      :actions="[{ label: 'Try again', color: 'neutral', variant: 'outline', onClick: load }]"
+      :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
     />
 
     <template v-else>
@@ -249,11 +262,12 @@ onMounted(load)
         <UBadge
           color="neutral"
           variant="subtle"
+          dir="ltr"
           class="font-mono"
           label="GET api/media"
         />
         <span v-if="range">{{ range }}</span>
-        <span v-if="isFiltered" class="text-dimmed">· filtered</span>
+        <span v-if="isFiltered" class="text-dimmed">· {{ $t('common.filtered') }}</span>
       </div>
 
       <div v-if="pending && !items.length" :class="['grid gap-4', compact ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4']">
@@ -267,10 +281,14 @@ onMounted(load)
         <UIcon name="i-lucide-image-off" class="size-8 text-dimmed" />
         <div>
           <p class="font-medium text-highlighted">
-            {{ isFiltered ? 'Nothing matches this filter' : 'No files yet' }}
+            {{ isFiltered
+              ? $t('media.browser.emptyFiltered.title')
+              : $t('media.browser.emptyNone.title') }}
           </p>
           <p class="text-sm text-muted">
-            {{ isFiltered ? 'Try a different search, category or tag.' : 'Upload one to get started.' }}
+            {{ isFiltered
+              ? $t('media.browser.emptyFiltered.description')
+              : $t('media.browser.emptyNone.description') }}
           </p>
         </div>
         <UButton
@@ -278,13 +296,13 @@ onMounted(load)
           icon="i-lucide-filter-x"
           color="neutral"
           variant="outline"
-          label="Clear filters"
+          :label="$t('media.browser.clearFilters')"
           @click="reset"
         />
         <UButton
           v-else
           icon="i-lucide-upload"
-          label="Upload a file"
+          :label="$t('media.browser.uploadFirst')"
           @click="uploading = true"
         />
       </div>
@@ -338,9 +356,9 @@ onMounted(load)
 
     <ConfirmModal
       :open="deleting !== null"
-      :title="`Delete ${deleting?.fileName}?`"
-      :description="`The bytes are removed from the storage backend, and every link to the file goes with them. ${deleteWarning} With soft delete on — the default — the row is kept as a record that the file existed, but the content is gone either way.`"
-      confirm-label="Delete"
+      :title="$t('media.browser.confirmDelete.title', { fileName: deleting?.fileName ?? '' })"
+      :description="$t('media.browser.confirmDelete.description', { usage: deleteWarning })"
+      :confirm-label="$t('common.delete')"
       :loading="busy === deleting?.id"
       @update:open="!$event && (deleting = null)"
       @confirm="onDelete"

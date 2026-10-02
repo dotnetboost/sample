@@ -14,6 +14,7 @@ import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
  */
 export function useSettingsGroup(group: SettingGroup) {
   const toast = useToast()
+  const { t } = useI18n()
   const language = useLanguage()
   const endpoint = `/api/settings/${group.route}`
 
@@ -90,8 +91,8 @@ export function useSettingsGroup(group: SettingGroup) {
       await load()
 
       toast.add({
-        title: `${group.label} saved`,
-        description: 'The new values are live — no redeploy needed.',
+        title: t('settings.form.toast.saved', { group: groupLabel(group) }),
+        description: t('settings.form.toast.savedDescription'),
         icon: 'i-lucide-check',
         color: 'success'
       })
@@ -100,12 +101,11 @@ export function useSettingsGroup(group: SettingGroup) {
     } catch (error) {
       if (statusOf(error) === 412) {
         conflict.value = true
-        problem.value = 'Someone else changed these settings while you were editing. '
-          + 'Nothing was saved, and your edits are still here.'
+        problem.value = t('settings.form.toast.conflictProblem')
 
         toast.add({
-          title: 'Save refused — settings changed elsewhere',
-          description: 'Reload the latest values, or re-apply your edits on top of them.',
+          title: t('settings.form.toast.conflictTitle'),
+          description: t('settings.form.toast.conflictDescription'),
           icon: 'i-lucide-git-merge',
           color: 'warning'
         })
@@ -113,7 +113,7 @@ export function useSettingsGroup(group: SettingGroup) {
         applyProblem(error)
 
         toast.add({
-          title: 'Save failed',
+          title: t('settings.form.toast.saveFailed'),
           description: problem.value,
           icon: 'i-lucide-triangle-alert',
           color: 'error'
@@ -201,7 +201,9 @@ export function useSettingsGroup(group: SettingGroup) {
 
     errors.value = matched
 
-    problem.value = [data.title || 'The server rejected these values.', ...unmatched].join(' ')
+    // `data.title` first: when the API named the problem, those are its words, and only the
+    // generic stand-in for "it said nothing" is ours to translate.
+    problem.value = [data.title || t('settings.form.rejected'), ...unmatched].join(' ')
   }
 
   // Clear stale server errors as soon as the user edits anything. A conflict is deliberately

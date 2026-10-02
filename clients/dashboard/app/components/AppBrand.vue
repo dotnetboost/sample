@@ -51,7 +51,7 @@ const name = computed(() => branding.value?.storeName || 'DotNetBoost')
 
     <span v-if="!collapsed" class="min-w-0 truncate">
       <span class="block truncate">{{ name }}</span>
-      <span class="block text-xs font-normal text-muted">Sample</span>
+      <span class="block text-xs font-normal text-muted">{{ $t('brand.subtitle') }}</span>
     </span>
   </NuxtLink>
 </template>

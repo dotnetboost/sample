@@ -17,6 +17,7 @@ const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
 const toast = useToast()
+const { t } = useI18n()
 
 const sku = ref('')
 const price = ref(0)
@@ -67,7 +68,7 @@ const categoryItems = computed(() =>
 
 async function save() {
   if (categoryId.value === undefined) {
-    toast.add({ title: 'Pick a category', color: 'error' })
+    toast.add({ title: t('productEditor.toast.pickCategory'), color: 'error' })
     return
   }
 
@@ -89,11 +90,16 @@ async function save() {
       await api.products.update(props.productId, body)
     }
 
-    toast.add({ title: props.productId === null ? 'Product created' : 'Product saved', color: 'success' })
+    toast.add({
+      title: props.productId === null
+        ? t('productEditor.toast.created')
+        : t('productEditor.toast.saved'),
+      color: 'success'
+    })
     emit('saved')
     open.value = false
   } catch (error) {
-    toast.add({ title: 'Save failed', description: String(error), color: 'error' })
+    toast.add({ title: t('productEditor.toast.failed'), description: String(error), color: 'error' })
   } finally {
     saving.value = false
   }
@@ -103,22 +109,27 @@ async function save() {
 <template>
   <USlideover
     v-model:open="open"
-    :title="productId === null ? 'New product' : 'Edit product'"
-    description="SKU and price are columns. Name and description are translation rows. Images are media attachments."
+    :title="productId === null ? $t('productEditor.titleNew') : $t('productEditor.titleEdit')"
+    :description="$t('productEditor.description')"
     :ui="{ content: 'max-w-xl' }"
   >
     <template #body>
       <div v-if="loading" class="py-10 text-center text-muted">
-        Loading…
+        {{ $t('common.loading') }}
       </div>
 
       <div v-else class="space-y-6">
         <div class="grid gap-3 sm:grid-cols-2">
-          <UFormField label="SKU" help="Not translated.">
-            <UInput v-model="sku" placeholder="DESK-001" class="w-full" />
+          <UFormField :label="$t('productEditor.sku.label')" :help="$t('productEditor.sku.help')">
+            <UInput
+              v-model="sku"
+              dir="ltr"
+              :placeholder="$t('productEditor.sku.placeholder')"
+              class="w-full"
+            />
           </UFormField>
 
-          <UFormField label="Price">
+          <UFormField :label="$t('productEditor.price')">
             <UInput
               v-model.number="price"
               type="number"
@@ -128,7 +139,7 @@ async function save() {
           </UFormField>
         </div>
 
-        <UFormField label="Category">
+        <UFormField :label="$t('productEditor.category')">
           <USelect
             v-model="categoryId"
             :items="categoryItems"
@@ -139,21 +150,21 @@ async function save() {
 
         <div>
           <p class="mb-2 text-sm font-medium">
-            Text, per language
+            {{ $t('productEditor.textPerLanguage') }}
           </p>
           <TranslationEditor
             v-model="translations"
             :languages="languages"
             :fields="[
-              { name: 'Name', label: 'Name' },
-              { name: 'Description', label: 'Description', textarea: true }
+              { name: 'Name', label: $t('translationFields.name') },
+              { name: 'Description', label: $t('translationFields.description'), textarea: true }
             ]"
           />
         </div>
 
         <div v-if="productId !== null">
           <p class="mb-2 text-sm font-medium">
-            Media
+            {{ $t('productEditor.media') }}
           </p>
           <EntityAttachments
             entity-name="Product"
@@ -168,8 +179,8 @@ async function save() {
           icon="i-lucide-info"
           variant="subtle"
           color="neutral"
-          title="Save first to attach media"
-          description="An attachment needs the product's key, which it does not have until it is saved."
+          :title="$t('productEditor.saveFirst.title')"
+          :description="$t('productEditor.saveFirst.description')"
         />
       </div>
     </template>
@@ -177,12 +188,12 @@ async function save() {
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
-          label="Cancel"
+          :label="$t('common.cancel')"
           color="neutral"
           variant="ghost"
           @click="open = false"
         />
-        <UButton :loading="saving" label="Save" @click="save" />
+        <UButton :loading="saving" :label="$t('common.save')" @click="save" />
       </div>
     </template>
   </USlideover>

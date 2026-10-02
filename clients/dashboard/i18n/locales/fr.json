@@ -1,0 +1,542 @@
+{
+  "common": {
+    "save": "Enregistrer",
+    "saveChanges": "Enregistrer les modifications",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "done": "Terminé",
+    "reset": "Réinitialiser",
+    "tryAgain": "Réessayer",
+    "loading": "Chargement…",
+    "upload": "Téléverser",
+    "open": "Ouvrir",
+    "download": "Télécharger",
+    "clear": "Effacer",
+    "refresh": "Actualiser",
+    "none": "Aucune",
+    "empty": "—",
+    "filtered": "filtré"
+  },
+
+
+  "nav": {
+    "overview": "Vue d'ensemble",
+    "catalog": "Catalogue",
+    "media": "Médias",
+    "languages": "Langues",
+    "settings": "Paramètres",
+    "apiReference": "Référence de l'API",
+    "github": "DotNetBoost sur GitHub",
+    "goTo": "Aller à",
+    "documentTitle": "{page} — Exemple DotNetBoost"
+  },
+
+  "brand": {
+    "subtitle": "Exemple"
+  },
+
+  "readingLanguage": {
+    "label": "Langue de lecture"
+  },
+
+  "appearance": {
+    "trigger": "Apparence",
+    "theme": "Thème",
+    "primary": "Couleur principale",
+    "neutral": "Couleur neutre",
+    "mode": "Mode",
+    "light": "Clair",
+    "dark": "Sombre",
+    "nuxtUiDocs": "Documentation Nuxt UI",
+    "githubRepository": "Dépôt GitHub"
+  },
+
+  "errorPage": {
+    "title": "Page introuvable",
+    "description": "Nous sommes désolés, cette page n'a pas pu être trouvée."
+  },
+
+  "api": {
+    "unreachable": "L'API est injoignable.",
+    "refused": "L'API a refusé"
+  },
+
+  "overview": {
+    "intro": {
+      "title": "Trois bibliothèques, aucune référence entre elles",
+      "description": "Cette application installe DotNetBoost.Settings, DotNetBoost.Media et DotNetBoost.MultiLingual depuis NuGet. Aucune ne dépend d'une autre, il n'existe pas de paquet de noyau partagé, et aucun paquet d'intégration n'en apparie deux. Tout ce que vous voyez ici est produit par le code de l'application qui les compose."
+    },
+    "stats": {
+      "categories": "Catégories",
+      "products": "Produits",
+      "files": "Fichiers dans la bibliothèque",
+      "languages": "Langues"
+    },
+    "composition": {
+      "title": "Là où la composition se fait",
+      "dbContext": "Une base PostgreSQL, un DbContext qui implémente trois interfaces indépendantes, et trois appels {apply} indépendants. Retirez une bibliothèque et vous supprimez son interface, ses DbSets et sa seule ligne.",
+      "mediaText": "Un texte alternatif par langue pour un fichier téléversé. Les deux bibliothèques désignent un sujet par {pair}, de sorte que le GUID d'un fichier média devient le sujet de lignes de traduction. {withAltText} des {imageCount} images attachées ont un texte alternatif. Aucune table nouvelle, aucun paquet d'intégration.",
+      "branding": "Un paramètre dont la valeur est l'identifiant d'un fichier média. La bibliothèque de paramètres stocke un GUID comme n'importe quelle autre valeur ; l'application le transmet à la bibliothèque de médias à la lecture."
+    },
+    "languageAlert": {
+      "title": "Changez la langue dans l'en-tête de n'importe quelle page",
+      "description": "Chaque nom de produit, chaque description et chaque texte alternatif est relu dans cette langue — l'arabe fait basculer toute l'interface en RTL. L'API la résout depuis Accept-Language. Les libellés du tableau de bord suivent le même sélecteur."
+    }
+  },
+
+  "catalog": {
+    "tabs": {
+      "categories": "Catégories",
+      "products": "Produits"
+    },
+    "newCategory": "Nouvelle catégorie",
+    "newProduct": "Nouveau produit",
+    "categories": {
+      "title": "Catégories",
+      "description": "L'entité propre à l'application. Le nom et la description ne sont pas des colonnes de cette table — ce sont des lignes de traduction, renvoyées déjà remplies pour la langue choisie dans l'en-tête.",
+      "empty": "Aucune catégorie pour l'instant."
+    },
+    "products": {
+      "title": "Produits",
+      "description": "Le nom et la description sont des lignes de traduction ; les images sont des pièces jointes dans la bibliothèque de médias. Ni l'une ni l'autre bibliothèque ne sait que l'autre existe.",
+      "empty": "Aucun produit pour l'instant."
+    },
+    "productCount": "{n} produit | {n} produits",
+    "imageCount": "{n} image | {n} images",
+    "confirmDelete": {
+      "title": "Supprimer {name} ?",
+      "description": "Cette action est irréversible. Les images d'un produit et leurs textes alternatifs partent avec lui — écrits à la main, car rien ne se propage en cascade au-delà des frontières d'une bibliothèque."
+    },
+    "toast": {
+      "deleted": "Supprimé",
+      "deleteFailed": "Suppression impossible"
+    }
+  },
+
+  "categoryEditor": {
+    "titleNew": "Nouvelle catégorie",
+    "titleEdit": "Modifier la catégorie",
+    "description": "Le slug est une colonne. Le texte, des lignes de traduction. La bannière, une pièce jointe média.",
+    "slug": {
+      "label": "Slug",
+      "help": "Non traduit — un segment d'URL doit être la même chaîne dans toutes les langues, et c'est ce que déclare [NotMultiLingual].",
+      "placeholder": "furniture"
+    },
+    "textPerLanguage": "Texte, par langue",
+    "media": "Médias",
+    "saveFirst": {
+      "title": "Enregistrez d'abord pour attacher un média",
+      "description": "Une pièce jointe a besoin de la clé de la catégorie, qu'elle n'a pas avant d'être enregistrée."
+    },
+    "toast": {
+      "created": "Catégorie créée",
+      "saved": "Catégorie enregistrée",
+      "failed": "Échec de l'enregistrement"
+    }
+  },
+
+  "productEditor": {
+    "titleNew": "Nouveau produit",
+    "titleEdit": "Modifier le produit",
+    "description": "Le SKU et le prix sont des colonnes. Le nom et la description, des lignes de traduction. Les images, des pièces jointes média.",
+    "sku": {
+      "label": "SKU",
+      "help": "Non traduit.",
+      "placeholder": "DESK-001"
+    },
+    "price": "Prix",
+    "category": "Catégorie",
+    "textPerLanguage": "Texte, par langue",
+    "media": "Médias",
+    "saveFirst": {
+      "title": "Enregistrez d'abord pour attacher un média",
+      "description": "Une pièce jointe a besoin de la clé du produit, qu'elle n'a pas avant d'être enregistré."
+    },
+    "toast": {
+      "pickCategory": "Choisissez une catégorie",
+      "created": "Produit créé",
+      "saved": "Produit enregistré",
+      "failed": "Échec de l'enregistrement"
+    }
+  },
+
+  "translationFields": {
+    "name": "Nom",
+    "description": "Description",
+    "note": "Stocké comme lignes de traduction, non comme colonnes de cette entité. Vider un champ supprime la ligne au lieu d'enregistrer une chaîne vide."
+  },
+
+  "languages": {
+    "title": "Langues",
+    "add": "Ajouter une langue",
+    "reload": "Recharger les langues",
+    "card": {
+      "description": "Servi par MapLanguageEndpoints() de DotNetBoost.MultiLingual.API — des points de terminaison de la bibliothèque, non écrits par cette application. Le sens de lecture est stocké avec la langue, et c'est ce qui permet à l'interface de basculer en RTL sans liste de codes codée en dur dans le client."
+    },
+    "loadError": "Impossible de charger les langues",
+    "columns": {
+      "code": "Code",
+      "name": "Nom",
+      "direction": "Sens",
+      "role": "Rôle",
+      "active": "Active"
+    },
+    "empty": "Aucune langue pour l'instant. Ajoutez-en une pour commencer à écrire du contenu.",
+    "badge": {
+      "default": "par défaut",
+      "base": "base",
+      "baseTooltip": "La langue de base : ses valeurs vivent dans les colonnes des entités elles-mêmes plutôt que dans la table des traductions."
+    },
+    "activate": "Activer {name}",
+    "deactivate": "Désactiver {name}",
+    "actionsFor": "Actions pour {name}",
+    "actions": {
+      "edit": "Modifier",
+      "makeDefault": "Définir par défaut",
+      "purge": "Supprimer ses traductions",
+      "delete": "Supprimer"
+    },
+    "confirmPurge": {
+      "title": "Supprimer tout ce qui est écrit en {name} ?",
+      "description": "Chaque traduction en {code} est supprimée, pour toutes les entités. La langue elle-même reste, et le contenu retombe sur la langue par défaut jusqu'à ce qu'il soit ressaisi.",
+      "baseNote": "C'est la langue de base : ses valeurs vivent dans les colonnes des entités elles-mêmes et ne sont pas touchées.",
+      "confirm": "Supprimer les traductions"
+    },
+    "confirmDelete": {
+      "title": "Supprimer {name} ?",
+      "description": "La langue et tout ce qui est écrit en elle disparaissent. L'API refuse s'il s'agit de la langue par défaut."
+    },
+    "toast": {
+      "added": "{name} ajoutée",
+      "addedDefault": "{code} est désormais la langue par défaut — le contenu y retombe.",
+      "addedOther": "Le contenu peut désormais être écrit en {code}.",
+      "saved": "{name} enregistrée",
+      "savedInactive": "Elle est inactive : le contenu n'y est plus servi.",
+      "promoted": "{name} est désormais la langue par défaut",
+      "promotedDescription": "Les traductions manquantes y retombent, et la langue qui tenait ce rôle a été rétrogradée.",
+      "deleted": "{code} supprimée",
+      "purged": "{n} traduction supprimée | {n} traductions supprimées",
+      "purgedDescription": "{code} existe toujours ; tout ce qui y était écrit a disparu."
+    },
+    "form": {
+      "titleAdd": "Ajouter une langue",
+      "titleEdit": "Modifier {name}",
+      "descriptionAdd": "Une nouvelle langue démarre sans traduction. Le contenu existant retombe sur la langue par défaut jusqu'à ce que chaque ligne soit remplie.",
+      "descriptionEdit": "Le code est l'identité de la langue et ne peut pas changer ; tout ce qui y est écrit est indexé par lui.",
+      "code": {
+        "label": "Code",
+        "description": "ISO 639-1, éventuellement avec une région : en, ar, pt-BR.",
+        "placeholder": "es"
+      },
+      "name": {
+        "label": "Nom",
+        "description": "Affiché dans le sélecteur de langue, écrit dans la langue elle-même.",
+        "placeholder": "Español"
+      },
+      "direction": {
+        "label": "Sens de lecture",
+        "descriptionNew": "Laissé sur « d'après le code », l'API le déduit des données culturelles du runtime — ar, he, fa et ur reviennent de droite à gauche.",
+        "descriptionEdit": "Changer ceci fait basculer l'interface pour tous ceux qui lisent dans cette langue.",
+        "auto": "D'après le code",
+        "ltr": "De gauche à droite",
+        "rtl": "De droite à gauche"
+      },
+      "active": {
+        "label": "Active",
+        "description": "Désactivée, le contenu n'y est plus servi. La langue par défaut ne peut pas être désactivée."
+      },
+      "makeDefault": {
+        "label": "En faire la langue par défaut",
+        "descriptionFirst": "La première langue créée est toujours celle par défaut — il n'y a rien d'autre sur quoi retomber.",
+        "descriptionOther": "Rétrograde la langue qui tient ce rôle actuellement."
+      },
+      "validation": {
+        "required": "Obligatoire.",
+        "nameTooLong": "128 caractères au maximum."
+      }
+    }
+  },
+
+  "media": {
+    "page": {
+      "title": "Tous les fichiers téléversés",
+      "description": "Une ligne par téléversement, quoi qu'il soit attaché à. Cherchez par nom, restreignez par catégorie ou par étiquette, triez, paginez — tout cela dans la requête envoyée à l'API, et non parmi les lignes déjà affichées. C'est le navigateur de DotNetBoost.Media lui-même, inchangé ; le seul ajout est le texte alternatif, qui vient de DotNetBoost.MultiLingual et s'édite depuis les détails d'un fichier."
+    },
+    "browser": {
+      "loadError": "Impossible de charger la bibliothèque de médias",
+      "range": "{from}–{to} sur {total}",
+      "emptyFiltered": {
+        "title": "Rien ne correspond à ce filtre",
+        "description": "Essayez une autre recherche, catégorie ou étiquette."
+      },
+      "emptyNone": {
+        "title": "Aucun fichier pour l'instant",
+        "description": "Téléversez-en un pour commencer."
+      },
+      "clearFilters": "Effacer les filtres",
+      "uploadFirst": "Téléverser un fichier",
+      "confirmDelete": {
+        "title": "Supprimer {fileName} ?",
+        "description": "Les octets sont retirés du service de stockage, et chaque lien vers le fichier part avec eux. {usage} Avec la suppression douce activée — le réglage par défaut — la ligne est conservée comme trace de l'existence du fichier, mais le contenu disparaît dans les deux cas.",
+        "usedByNone": "Rien ne l'utilise.",
+        "usedByOne": "Il est attaché à {entity}, qui le perdra.",
+        "usedByMany": "Il est attaché à {count} entités, et toutes le perdront : {entities}."
+      }
+    },
+    "filters": {
+      "search": "Rechercher dans les noms de fichiers…",
+      "clearSearch": "Effacer la recherche",
+      "anyCategory": "Toute catégorie",
+      "anyTag": "Toute étiquette",
+      "kinds": {
+        "any": "Tout type",
+        "images": "Images",
+        "video": "Vidéo",
+        "audio": "Audio",
+        "pdf": "PDF",
+        "text": "Texte"
+      },
+      "sorts": {
+        "newest": "Plus récents d'abord",
+        "oldest": "Plus anciens d'abord",
+        "nameAsc": "Nom A–Z",
+        "nameDesc": "Nom Z–A",
+        "largest": "Plus volumineux d'abord",
+        "smallest": "Moins volumineux d'abord"
+      }
+    },
+    "card": {
+      "openFile": "Ouvrir {fileName}",
+      "attached": "Attaché",
+      "attach": "Attacher"
+    },
+    "detail": {
+      "description": "Tout ce que la ligne média enregistre. Les octets, leur taille et leur emplacement sont figés — remplacer le contenu, c'est un nouveau téléversement.",
+      "directLink": "Lien direct",
+      "directLinkTitle": "Un lien signé et expirant, qui mène directement au service de stockage",
+      "fileName": {
+        "label": "Nom du fichier",
+        "description": "Le nom sous lequel le fichier est proposé. Le chemin stocké ne change pas."
+      },
+      "category": {
+        "label": "Catégorie",
+        "description": "Un classement grossier. La changer ne déplace pas les octets stockés."
+      },
+      "tags": {
+        "label": "Étiquettes",
+        "description": "Jusqu'à 32, de 64 caractères chacune, sans virgule.",
+        "placeholder": "Ajouter une étiquette…"
+      },
+      "usedBy": {
+        "label": "Utilisé par",
+        "descriptionOne": "Les entités auxquelles ce fichier est attaché, et ce que chacune en fait. Cliquez sur un rôle pour retirer ce lien — le fichier lui-même reste.",
+        "descriptionMany": "Un fichier, plusieurs entités — rien n'est copié, toutes pointent vers les mêmes octets. Cliquez sur un rôle pour retirer ce lien-là ; supprimer le fichier le retire de toutes.",
+        "none": "Rien — il est dans la bibliothèque, en attente d'être attaché.",
+        "detach": "Détacher {role} de {entity}"
+      },
+      "facts": {
+        "type": "Type",
+        "size": "Taille",
+        "uploaded": "Téléversé le",
+        "updated": "Modifié le",
+        "uploadedBy": "Téléversé par",
+        "checksum": "Somme de contrôle",
+        "id": "Identifiant"
+      },
+      "storage": {
+        "title": "Où sont les octets",
+        "description": "Volontairement absent des réponses de l'API — l'organisation du stockage ne regarde pas un client. Ce tableau de bord parle à l'API comme le ferait un administrateur."
+      }
+    },
+    "upload": {
+      "title": "Téléverser un fichier",
+      "descriptionOwner": "Stocké et attaché à {entity} en une seule étape.",
+      "descriptionPlain": "Stocké via POST api/media. Le nom, la taille et le type sont relevés sur le fichier lui-même.",
+      "file": "Fichier",
+      "dropzone": "Déposez un fichier ici, ou cliquez pour en choisir un",
+      "limit": "Jusqu'à {size}",
+      "tooLarge": {
+        "title": "Trop volumineux pour être téléversé",
+        "description": "{fileName} pèse {size} ; la limite est de {limit}."
+      },
+      "category": {
+        "label": "Catégorie",
+        "description": "Un classement grossier — avatars, invoices, product-images. Il ouvre aussi le chemin de stockage."
+      },
+      "tags": {
+        "label": "Étiquettes",
+        "description": "Jusqu'à 32, de 64 caractères chacune, sans virgule.",
+        "placeholder": "Ajouter une étiquette…"
+      },
+      "checks": {
+        "title": "Ce que l'API vérifie",
+        "description": "La taille est mesurée à l'arrivée des octets, le type est vérifié contre les premiers octets du fichier lui-même, et les exécutables sont refusés. Un fichier qui échoue à l'un de ces contrôles revient sous forme de problem details au lieu d'être stocké."
+      }
+    },
+    "picker": {
+      "title": "Médias pour {entity}",
+      "descriptionFixedRole": "Choisissez le fichier que ce {entity} doit utiliser comme {role}, ou téléversez-en un — il est stocké et attaché en une seule étape. {shared}",
+      "descriptionPlain": "Attachez un fichier déjà présent dans la bibliothèque, ou téléversez-en un nouveau — il est stocké et attaché en une seule étape. {shared}",
+      "shared": "Un fichier peut appartenir à plusieurs entités à la fois ; l'attacher ici ne le retire de rien d'autre.",
+      "tabs": {
+        "all": "Tous les fichiers",
+        "attached": "Comme {role} ({count})"
+      },
+      "attachAs": "Attacher comme",
+      "rolePlaceholder": "default",
+      "hint": {
+        "undeclared": "Cette entité ne déclare aucun rôle : n'importe quel nom fera l'affaire.",
+        "multiple": "Ajouté à la fin, dans l'ordre.",
+        "single": "Devient le seul fichier de ce rôle, en remplaçant celui qui l'occupait."
+      }
+    },
+    "altText": {
+      "title": "Texte alternatif et légende",
+      "subtitle": "Stockés par DotNetBoost.MultiLingual, non par la bibliothèque de médias.",
+      "missing": "{n} langue sans texte alternatif | {n} langues sans texte alternatif",
+      "covered": "Toutes les langues sont couvertes",
+      "altText": {
+        "label": "Texte alternatif",
+        "description": "Nécessaire à l'accessibilité, et différent dans chaque langue."
+      },
+      "caption": "Légende",
+      "note": "Vider un champ supprime la ligne stockée au lieu d'enregistrer une chaîne vide.",
+      "save": "Enregistrer le texte alternatif",
+      "toast": {
+        "readFailed": "Impossible de lire le texte alternatif",
+        "saved": "Texte alternatif enregistré",
+        "saveFailed": "Impossible d'enregistrer le texte alternatif"
+      }
+    },
+    "toast": {
+      "uploaded": "{fileName} téléversé",
+      "uploadRefused": "Téléversement refusé",
+      "saved": "{fileName} enregistré",
+      "saveFailed": "Impossible d'enregistrer le fichier",
+      "attached": "{fileName} attaché",
+      "attachFailed": "Impossible d'attacher le fichier",
+      "detached": "{fileName} détaché",
+      "detachFailed": "Impossible de détacher le fichier",
+      "orderSaved": "Ordre enregistré",
+      "orderFailed": "Impossible d'enregistrer l'ordre",
+      "deleted": "{fileName} supprimé",
+      "deleteFailed": "Impossible de supprimer le fichier"
+    }
+  },
+
+  "entity": {
+    "attachments": {
+      "many": "plusieurs",
+      "one": "un",
+      "fileCount": "{n} fichier | {n} fichiers",
+      "missingAltText": "Certaines n'ont pas de texte alternatif dans cette langue — ajoutez-le depuis la page Médias.",
+      "noRoles": "Cette entité ne déclare aucun rôle média.",
+      "pickerTitle": "Attacher comme {role}",
+      "toast": {
+        "attached": "{fileName} est désormais le {role} de ce {entity}",
+        "attachFailed": "Impossible d'attacher le fichier",
+        "detached": "{fileName} retiré de {role}",
+        "detachFailed": "Impossible de retirer l'image",
+        "gone": "Cette pièce jointe n'existe plus.",
+        "orderSaved": "Ordre de {role} enregistré",
+        "orderFailed": "Impossible d'enregistrer l'ordre"
+      }
+    },
+    "roleBox": {
+      "attach": "Attacher un fichier comme {role}",
+      "openInNewTab": "Ouvrir {fileName} dans un nouvel onglet",
+      "replace": "Remplacer l'image {role}",
+      "remove": "Retirer {fileName} du {role} de ce produit",
+      "moveEarlier": "Déplacer {fileName} vers l'avant",
+      "moveLater": "Déplacer {fileName} vers l'arrière"
+    }
+  },
+
+  "settings": {
+    "groups": {
+      "branding": {
+        "label": "Identité",
+        "description": "La façon dont la boutique se présente. Les changements enregistrés prennent effet à la lecture suivante — sans redémarrage, sans redéploiement.",
+        "fields": {
+          "storeName": {
+            "label": "Nom de la boutique",
+            "description": "Affiché dans l'en-tête de la barre latérale, à la place du nom de l'exemple."
+          },
+          "accentColor": {
+            "label": "Couleur d'accentuation",
+            "description": "Une valeur hexadécimale CSS, par exemple #512BD4."
+          },
+          "headerLogoSize": {
+            "label": "Taille du logo d'en-tête",
+            "description": "La taille à laquelle le logo est dessiné dans l'en-tête de la barre latérale, en pixels. L'en-tête borne ce qu'il affiche entre 16 et 64."
+          }
+        }
+      },
+      "catalog": {
+        "label": "Catalogue",
+        "description": "La façon dont le catalogue est présenté. Ces valeurs sont lues à chaque listage : un changement est donc visible immédiatement.",
+        "fields": {
+          "pageSize": {
+            "label": "Taille de page",
+            "description": "Nombre de produits renvoyés par page."
+          },
+          "currencySymbol": {
+            "label": "Symbole monétaire",
+            "description": "Affiché à côté des prix."
+          },
+          "showProductsWithoutImages": {
+            "label": "Lister les produits sans image",
+            "description": "Désactivé, un produit sans image attachée est exclu des listages."
+          }
+        }
+      }
+    },
+    "form": {
+      "defaultLanguageBadge": "défaut · {code}",
+      "defaultLanguageBadgeUnknown": "langue par défaut",
+      "sensitiveBadge": "sensible",
+      "notSet": "Non défini",
+      "reveal": "Afficher {label}",
+      "hide": "Masquer {label}",
+      "loadError": "Impossible de charger {name}",
+      "conflict": {
+        "title": "Ces paramètres ont changé pendant votre modification",
+        "reapply": "Réappliquer mes modifications",
+        "discard": "Abandonner les miennes et recharger"
+      },
+      "toast": {
+        "saved": "{group} enregistré",
+        "savedDescription": "Les nouvelles valeurs sont actives — aucun redéploiement nécessaire.",
+        "conflictProblem": "Quelqu'un d'autre a modifié ces paramètres pendant que vous les éditiez. Rien n'a été enregistré, et vos modifications sont toujours là.",
+        "conflictTitle": "Enregistrement refusé — les paramètres ont changé ailleurs",
+        "conflictDescription": "Rechargez les dernières valeurs, ou réappliquez vos modifications par-dessus.",
+        "saveFailed": "Échec de l'enregistrement"
+      },
+      "rejected": "Le serveur a rejeté ces valeurs."
+    },
+    "media": {
+      "title": "Médias",
+      "description": "Ce n'est pas un paramètre. Le logo est une pièce jointe média sur un propriétaire qui n'a de table nulle part — ce qu'une clé étrangère ne saurait exprimer, et dont la bibliothèque de médias se satisfait parfaitement, puisqu'un propriétaire n'est jamais que deux chaînes qu'elle ne cherche jamais à résoudre.",
+      "outsideSave": "Hors du bouton Enregistrer de ce formulaire, et hors de l'ETag et de la piste d'audit du groupe — les trois choses que stocker un identifiant de fichier dans un paramètre aurait rapportées. Abandonnées au profit d'une source unique de vérité : détacher le logo et la boutique n'ayant pas de logo sont le même énoncé.",
+      "sizedBySetting": "Attachez-en un et il apparaît immédiatement dans l'en-tête de la barre latérale, à la taille que nomme le champ {field} de ce groupe — une valeur de DotNetBoost.Settings qui dimensionne un fichier de DotNetBoost.Media, sans rien d'autre pour les joindre que cette application."
+    },
+    "brandingText": {
+      "title": "Nom de la boutique dans les autres langues",
+      "descriptionWithDefault": "La langue par défaut ({code}) est la valeur du formulaire ci-dessus — elle vit dans la ligne de paramètres. Celles-ci sont des lignes de traduction, et une langue sans valeur stockée y retombe.",
+      "descriptionPlain": "Celles-ci sont des lignes de traduction. Une langue sans valeur stockée retombe sur la langue par défaut.",
+      "missing": "{n} langue non traduite | {n} langues non traduites",
+      "covered": "Toutes les langues sont couvertes",
+      "onlyOneLanguage": "Il n'y a qu'une seule langue : il n'y a donc encore rien à traduire. Ajoutez-en une autre depuis la page Langues.",
+      "note": "Stocké comme des lignes {subject}, une par langue — le même sujet auquel le logo est attaché.",
+      "save": "Enregistrer les traductions",
+      "toast": {
+        "readFailed": "Impossible de lire les traductions",
+        "saved": "Traductions enregistrées",
+        "savedDescription": "La lecture dans ces langues les renvoie désormais.",
+        "saveFailed": "Impossible d'enregistrer les traductions"
+      }
+    }
+  }
+}

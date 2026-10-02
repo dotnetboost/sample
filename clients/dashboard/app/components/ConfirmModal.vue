@@ -19,7 +19,7 @@ const emit = defineEmits<{
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
-          label="Cancel"
+          :label="$t('common.cancel')"
           color="neutral"
           variant="ghost"
           @click="open = false"

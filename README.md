@@ -26,6 +26,28 @@ so the claim cannot quietly stop being true.
 A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
 **Languages**, **Settings**, with the reading-language selector in every page header.
 
+That one selector moves **both** languages in the dashboard. The content language is a row in
+DotNetBoost.MultiLingual that the API resolves from `Accept-Language`; the dashboard's own labels,
+buttons, help text and toasts are static bundles under `clients/dashboard/i18n/locales` —
+English, Arabic and French, the three the sample seeds. Nothing makes them the same thing, so
+`app/plugins/ui-language.ts` is the one file that decides they move together. A second switcher
+for the chrome would be a second answer to the same question, and two answers can disagree.
+
+Add a language on the Languages page and it has content long before it has a bundle: the labels
+fall back to English, and the shell still flips if the language reads right-to-left, because
+direction travels with the language row rather than with the translation file.
+
+The choice is **remembered**, so the dashboard reopens in the language you left it in. Its
+direction is remembered beside it — a cache of the API's last answer, not a list of RTL codes in
+the client — so a remembered Arabic opens right-to-left on the first paint instead of flipping a
+round trip later. A language that was deleted or deactivated in the meantime falls back to the
+default rather than leaving the selector stuck on a code that no longer exists.
+
+Counts are pluralised by CLDR rules rather than by an English `-s`, which is why two products
+read **منتجان** in Arabic — the dual — and zero reads *0 produit* in French. Dates, relative times
+and file sizes come from `Intl` in the UI locale, so a size is `1.4MB`, `1,4Mo` or `1.4 م.ب`
+without a unit name being written down anywhere.
+
 The sidebar header is the whole sample in miniature: the store's **name** is a
 DotNetBoost.Settings value, its **logo** is a DotNetBoost.Media attachment, the **size** that logo
 is drawn at is another setting, and nothing but `BrandingEndpoints.cs` knows all three exist. Change
@@ -90,7 +112,8 @@ The Aspire dashboard opens with three resources: `postgres`, `api` and `dashboar
 (English, Arabic, French), two categories and three products, each translated.
 
 Switch the language in the dashboard header. Every product name, description and image alt text
-is re-read in that language, and Arabic flips the shell to RTL.
+is re-read in that language, every label and button on the page is re-rendered in it, and Arabic
+flips the shell to RTL.
 
 ---
 
@@ -260,6 +283,13 @@ src/DotNetBoostSample.Api/
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
 clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
+  i18n/locales/{en,ar,fr}.json           the dashboard's own labels, one file per locale
+  i18n/i18n.config.ts                    CLDR plural rules for Arabic and French
+  app/plugins/ui-language.ts             moves the UI locale with the reading language
+  app/plugins/reading-language.ts        restores the remembered language before the first paint
+  app/composables/useShellLocale.ts      direction and Nuxt UI's strings, from the API's answer
+  app/utils/locale.ts                    the locale, for helpers that cannot call useI18n()
+  app/utils/rememberedLanguage.ts        the choice, and its direction, across visits
   app/pages/settings.vue                 tabbed shell — one tab per settings group
   app/pages/settings/index.vue           Branding tab: the group form plus its media
   app/pages/settings/catalog.vue         Catalog tab

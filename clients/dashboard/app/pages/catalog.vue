@@ -2,7 +2,9 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { Category, Product } from '~/types'
 
-useHead({ title: 'Catalog — DotNetBoost Sample' })
+const { t } = useI18n()
+
+useHead({ title: () => t('nav.documentTitle', { page: t('nav.catalog') }) })
 
 const api = useApi()
 const toast = useToast()
@@ -49,22 +51,22 @@ async function confirmDelete() {
       await api.products.remove(confirming.value.id)
       await Promise.all([refreshProducts(), refreshCategories()])
     }
-    toast.add({ title: 'Deleted', color: 'success' })
+    toast.add({ title: t('catalog.toast.deleted'), color: 'success' })
     confirming.value = null
   } catch (error: unknown) {
     const message = (error as { data?: { message?: string } })?.data?.message ?? String(error)
-    toast.add({ title: 'Could not delete', description: message, color: 'error' })
+    toast.add({ title: t('catalog.toast.deleteFailed'), description: message, color: 'error' })
   } finally {
     deleting.value = false
   }
 }
 
 const categoryActions = (category: Category): DropdownMenuItem[][] => [[{
-  label: 'Edit',
+  label: t('common.edit'),
   icon: 'i-lucide-pencil',
   onSelect: () => editCategory(category.id)
 }], [{
-  label: 'Delete',
+  label: t('common.delete'),
   icon: 'i-lucide-trash-2',
   color: 'error',
   disabled: category.products > 0,
@@ -72,11 +74,11 @@ const categoryActions = (category: Category): DropdownMenuItem[][] => [[{
 }]]
 
 const productActions = (product: Product): DropdownMenuItem[][] => [[{
-  label: 'Edit',
+  label: t('common.edit'),
   icon: 'i-lucide-pencil',
   onSelect: () => editProduct(product.id)
 }], [{
-  label: 'Delete',
+  label: t('common.delete'),
   icon: 'i-lucide-trash-2',
   color: 'error',
   onSelect: () => confirming.value = { kind: 'product', id: product.id, name: product.name }
@@ -84,16 +86,17 @@ const productActions = (product: Product): DropdownMenuItem[][] => [[{
 
 const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.name ?? '—'
 
-const items = [
-  { label: 'Categories', value: 'categories', icon: 'i-lucide-folder-tree' },
-  { label: 'Products', value: 'products', icon: 'i-lucide-package' }
-]
+// Computed so the tab labels follow the language, as the sidebar's do.
+const items = computed(() => [
+  { label: t('catalog.tabs.categories'), value: 'categories', icon: 'i-lucide-folder-tree' },
+  { label: t('catalog.tabs.products'), value: 'products', icon: 'i-lucide-package' }
+])
 </script>
 
 <template>
   <UDashboardPanel id="catalog">
     <template #header>
-      <UDashboardNavbar title="Catalog">
+      <UDashboardNavbar :title="$t('nav.catalog')">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -118,14 +121,14 @@ const items = [
             v-if="tab === 'categories'"
             icon="i-lucide-plus"
             size="sm"
-            label="New category"
+            :label="$t('catalog.newCategory')"
             @click="editCategory(null)"
           />
           <UButton
             v-else
             icon="i-lucide-plus"
             size="sm"
-            label="New product"
+            :label="$t('catalog.newProduct')"
             @click="editProduct(null)"
           />
         </template>
@@ -134,10 +137,10 @@ const items = [
 
     <template #body>
       <UPageCard
-        :title="tab === 'categories' ? 'Categories' : 'Products'"
+        :title="tab === 'categories' ? $t('catalog.categories.title') : $t('catalog.products.title')"
         :description="tab === 'categories'
-          ? 'The application\'s own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.'
-          : 'Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.'"
+          ? $t('catalog.categories.description')
+          : $t('catalog.products.description')"
         variant="naked"
       />
 
@@ -170,11 +173,17 @@ const items = [
             </p>
           </div>
 
-          <UBadge variant="subtle" color="neutral" size="sm">
+          <!-- `dir="ltr"`: a slug is a URL segment, declared [NotMultiLingual] for that reason. -->
+          <UBadge
+            variant="subtle"
+            color="neutral"
+            size="sm"
+            dir="ltr"
+          >
             {{ category.slug }}
           </UBadge>
           <UBadge variant="subtle" size="sm">
-            {{ category.products }} products
+            {{ $t('catalog.productCount', category.products) }}
           </UBadge>
 
           <UDropdownMenu :items="categoryActions(category)">
@@ -184,7 +193,7 @@ const items = [
 
         <UCard v-if="!categories?.length">
           <p class="text-muted">
-            No categories yet.
+            {{ $t('catalog.categories.empty') }}
           </p>
         </UCard>
       </div>
@@ -218,7 +227,12 @@ const items = [
             </p>
           </div>
 
-          <UBadge variant="subtle" color="neutral" size="sm">
+          <UBadge
+            variant="subtle"
+            color="neutral"
+            size="sm"
+            dir="ltr"
+          >
             {{ product.sku }}
           </UBadge>
           <span class="text-sm">{{ product.price }}</span>
@@ -231,7 +245,7 @@ const items = [
             color="neutral"
             size="sm"
           >
-            {{ product.images.length }} images
+            {{ $t('catalog.imageCount', product.images.length) }}
           </UBadge>
 
           <UDropdownMenu :items="productActions(product)">
@@ -241,7 +255,7 @@ const items = [
 
         <UCard v-if="!products?.length">
           <p class="text-muted">
-            No products yet.
+            {{ $t('catalog.products.empty') }}
           </p>
         </UCard>
       </div>
@@ -263,9 +277,9 @@ const items = [
 
       <ConfirmModal
         :open="confirming !== null"
-        :title="`Delete ${confirming?.name ?? ''}?`"
-        description="This cannot be undone. A product's images and their alt text go with it — written out by hand, because nothing cascades across library boundaries."
-        confirm-label="Delete"
+        :title="$t('catalog.confirmDelete.title', { name: confirming?.name ?? '' })"
+        :description="$t('catalog.confirmDelete.description')"
+        :confirm-label="$t('common.delete')"
         :loading="deleting"
         @update:open="confirming = null"
         @confirm="confirmDelete"

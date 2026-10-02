@@ -28,8 +28,8 @@ const ownerEntityId = 'branding'
       <UPageCard
         variant="subtle"
         class="mt-4 sm:mt-6"
-        title="Media"
-        description="Not a setting. The logo is a media attachment on an owner that has no table anywhere — which a foreign key could not express, and which the media library is perfectly happy with, because an owner is only ever two strings it never tries to resolve."
+        :title="$t('settings.media.title')"
+        :description="$t('settings.media.description')"
       >
         <div class="space-y-3">
           <EntityAttachments
@@ -40,16 +40,24 @@ const ownerEntityId = 'branding'
           />
 
           <p class="text-xs text-muted">
-            Outside this form's Save, and outside the group's ETag and audit trail — the three
-            things storing a file id in a setting would have bought. Given up for a single source
-            of truth: detaching the logo and the store having no logo are the same statement.
+            {{ $t('settings.media.outsideSave') }}
           </p>
 
-          <p class="text-xs text-muted">
-            Attach one and it appears in the sidebar header immediately, at the size this group's
-            <strong>Header logo size</strong> names — one value from DotNetBoost.Settings sizing one
-            file from DotNetBoost.Media, joined by nothing but this application.
-          </p>
+          <!--
+            `i18n-t` because the sentence names another field on this very form, in bold, and that
+            name is itself translated. Interpolating the field's own label keeps the two in step:
+            rename it in the bundles and this paragraph follows.
+          -->
+          <i18n-t
+            scope="global"
+            keypath="settings.media.sizedBySetting"
+            tag="p"
+            class="text-xs text-muted"
+          >
+            <template #field>
+              <strong>{{ fieldLabel(group, 'headerLogoSize') }}</strong>
+            </template>
+          </i18n-t>
         </div>
       </UPageCard>
     </template>

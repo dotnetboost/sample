@@ -27,6 +27,8 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>('open', { default: false })
 
+const { t } = useI18n()
+
 const fileName = ref(props.file.fileName)
 const category = ref(props.file.category ?? '')
 const tags = ref<string[]>([...props.file.tags])
@@ -72,13 +74,21 @@ function save() {
 
 /** Everything the row records that is not editable, in the order it is worth reading. */
 const facts = computed(() => [
-  { label: 'Type', value: props.file.contentType, mono: true },
-  { label: 'Size', value: formatBytes(props.file.size) },
-  { label: 'Uploaded', value: formatDate(props.file.createdAt) },
-  { label: 'Updated', value: props.file.updatedAt ? formatDate(props.file.updatedAt) : '—' },
-  { label: 'Uploaded by', value: props.file.uploadedBy ?? '—' },
-  { label: 'Checksum', value: props.file.checksum ?? '—', mono: true, truncate: true },
-  { label: 'Id', value: props.file.id, mono: true, truncate: true }
+  { label: t('media.detail.facts.type'), value: props.file.contentType, mono: true },
+  { label: t('media.detail.facts.size'), value: formatBytes(props.file.size) },
+  { label: t('media.detail.facts.uploaded'), value: formatDate(props.file.createdAt) },
+  {
+    label: t('media.detail.facts.updated'),
+    value: props.file.updatedAt ? formatDate(props.file.updatedAt) : t('common.empty')
+  },
+  { label: t('media.detail.facts.uploadedBy'), value: props.file.uploadedBy ?? t('common.empty') },
+  {
+    label: t('media.detail.facts.checksum'),
+    value: props.file.checksum ?? t('common.empty'),
+    mono: true,
+    truncate: true
+  },
+  { label: t('media.detail.facts.id'), value: props.file.id, mono: true, truncate: true }
 ])
 </script>
 
@@ -86,9 +96,15 @@ const facts = computed(() => [
   <USlideover
     v-model:open="open"
     :title="file.fileName"
-    description="Everything the media row records. The bytes, their size and where they live are fixed — replacing content means a new upload."
+    :description="$t('media.detail.description')"
     :ui="{ content: 'sm:max-w-lg' }"
   >
+    <!-- Through the slot, not the `title` prop: the prop has nowhere to carry a `dir`, and a
+         file called `321106641.png` reads as `png.321106641` in the RTL panel header without one. -->
+    <template #title>
+      <span dir="auto">{{ file.fileName }}</span>
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-5">
         <div class="relative aspect-[16/9] w-full overflow-hidden rounded-lg border border-default">
@@ -101,7 +117,7 @@ const facts = computed(() => [
             color="neutral"
             variant="outline"
             size="sm"
-            label="Open"
+            :label="$t('common.open')"
             :to="contentUrl(file.id)"
             target="_blank"
           />
@@ -110,7 +126,7 @@ const facts = computed(() => [
             color="neutral"
             variant="outline"
             size="sm"
-            label="Download"
+            :label="$t('common.download')"
             :to="contentUrl(file.id, true)"
           />
           <UButton
@@ -119,35 +135,54 @@ const facts = computed(() => [
             color="neutral"
             variant="outline"
             size="sm"
-            label="Direct link"
+            :label="$t('media.detail.directLink')"
             :to="file.url"
             target="_blank"
-            title="A signed, expiring link straight to the storage backend"
+            :title="$t('media.detail.directLinkTitle')"
           />
         </div>
 
-        <UFormField label="File name" description="The name the file is offered under. The stored path does not change.">
-          <UInput v-model="fileName" class="w-full" />
-        </UFormField>
-
-        <UFormField label="Category" description="A coarse bucket. Changing it does not move the stored bytes.">
-          <UInput v-model="category" placeholder="None" class="w-full" />
-        </UFormField>
-
-        <UFormField label="Tags" description="Up to 32, each 64 characters, no commas.">
-          <UInputTags v-model="tags" placeholder="Add a tag…" class="w-full" />
+        <UFormField
+          :label="$t('media.detail.fileName.label')"
+          :description="$t('media.detail.fileName.description')"
+        >
+          <UInput v-model="fileName" dir="auto" class="w-full" />
         </UFormField>
 
         <UFormField
-          label="Used by"
+          :label="$t('media.detail.category.label')"
+          :description="$t('media.detail.category.description')"
+        >
+          <UInput
+            v-model="category"
+            dir="auto"
+            :placeholder="$t('common.none')"
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
+          :label="$t('media.detail.tags.label')"
+          :description="$t('media.detail.tags.description')"
+        >
+          <UInputTags
+            v-model="tags"
+            dir="auto"
+            :placeholder="$t('media.detail.tags.placeholder')"
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
+          :label="$t('media.detail.usedBy.label')"
           :description="usedBy.length > 1
-            ? 'One file, several entities — nothing is copied, they all point at the same bytes. Click a role to remove that one link; deleting the file removes it from all of them.'
-            : 'Which entities this file is attached to, and what each uses it for. Click a role to remove that link — the file itself stays.'"
+            ? $t('media.detail.usedBy.descriptionMany')
+            : $t('media.detail.usedBy.descriptionOne')"
         >
           <USkeleton v-if="loadingAttachments" class="h-7 w-40" />
 
           <p v-else-if="!usedBy.length" class="text-sm text-muted">
-            Nothing — it is in the library, waiting to be attached.
+            {{ $t('media.detail.usedBy.none') }}
           </p>
 
           <div v-else class="flex flex-col gap-1.5">
@@ -156,9 +191,11 @@ const facts = computed(() => [
               :key="`${entity.entityName}/${entity.entityId}`"
               class="flex flex-wrap items-center gap-1.5"
             >
+              <!-- `dir="ltr"`: an owner and a role are identifiers the API chose, never prose. -->
               <UBadge
                 color="primary"
                 variant="subtle"
+                dir="ltr"
                 icon="i-lucide-link"
                 :label="`${entity.entityName} ${entity.entityId}`"
               />
@@ -172,9 +209,13 @@ const facts = computed(() => [
                 color="neutral"
                 variant="outline"
                 size="xs"
+                dir="ltr"
                 icon="i-lucide-unlink"
                 :label="link.role"
-                :aria-label="`Detach ${link.role} from ${entity.entityName} ${entity.entityId}`"
+                :aria-label="$t('media.detail.usedBy.detach', {
+                  role: link.role,
+                  entity: `${entity.entityName} ${entity.entityId}`
+                })"
                 :loading="busy"
                 @click="emit('detach', link)"
               />
@@ -195,7 +236,9 @@ const facts = computed(() => [
             <dt class="text-muted">
               {{ fact.label }}
             </dt>
+            <!-- A checksum, a GUID and a media type are identifiers: always left-to-right. -->
             <dd
+              :dir="fact.mono ? 'ltr' : undefined"
               class="text-highlighted"
               :class="[fact.mono && 'font-mono text-xs', fact.truncate && 'truncate']"
               :title="fact.truncate ? fact.value : undefined"
@@ -209,8 +252,8 @@ const facts = computed(() => [
           color="neutral"
           variant="subtle"
           icon="i-lucide-hard-drive"
-          title="Where the bytes are"
-          :description="`Not shown by the API's own responses, on purpose — the storage layout is not a client's business. This dashboard talks to the API as an administrator would.`"
+          :title="$t('media.detail.storage.title')"
+          :description="$t('media.detail.storage.description')"
         />
       </div>
     </template>
@@ -221,7 +264,7 @@ const facts = computed(() => [
           icon="i-lucide-trash-2"
           color="error"
           variant="ghost"
-          label="Delete"
+          :label="$t('common.delete')"
           :loading="busy"
           @click="emit('remove')"
         />
@@ -229,12 +272,12 @@ const facts = computed(() => [
           class="ms-auto"
           color="neutral"
           variant="ghost"
-          label="Close"
+          :label="$t('common.close')"
           @click="open = false"
         />
         <UButton
           icon="i-lucide-save"
-          label="Save"
+          :label="$t('common.save')"
           :disabled="!dirty"
           :loading="busy"
           @click="save"

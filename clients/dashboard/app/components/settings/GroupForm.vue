@@ -12,13 +12,16 @@ const emit = defineEmits<{
 }>()
 
 const { defaultLanguage } = useLanguages()
+const { t } = useI18n()
 
 /**
  * What a translated field's badge says. The settings row holds the default language's value, so
  * the badge names it — otherwise the box looks like it edits whatever you are reading in.
  */
 const defaultLanguageLabel = computed(() =>
-  defaultLanguage.value ? `default · ${defaultLanguage.value.code}` : 'default language')
+  defaultLanguage.value
+    ? t('settings.form.defaultLanguageBadge', { code: defaultLanguage.value.code })
+    : t('settings.form.defaultLanguageBadgeUnknown'))
 
 const {
   keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
@@ -39,8 +42,19 @@ function field(key: string): SettingField {
   return props.group.fields[key] ?? {}
 }
 
+/**
+ * The property's label and help text, from the bundles, by group route and property name.
+ *
+ * A property the bundles say nothing about — one just added to the C# class — still renders: the
+ * label falls back to its humanised name and the description to nothing. That is the same promise
+ * the generated form makes about the controls themselves.
+ */
 function label(key: string) {
-  return field(key).label ?? humanizeKey(key)
+  return fieldLabel(props.group, key)
+}
+
+function description(key: string) {
+  return fieldDescription(props.group, key) || undefined
 }
 </script>
 
@@ -51,18 +65,19 @@ function label(key: string) {
     @submit="submit"
   >
     <UPageCard
-      :title="group.label"
+      :title="groupLabel(group)"
       variant="naked"
       orientation="horizontal"
       class="mb-4"
     >
       <template #description>
-        <p>{{ group.description }}</p>
+        <p>{{ groupDescription(group) }}</p>
 
         <UBadge
           color="neutral"
           variant="subtle"
           size="sm"
+          dir="ltr"
           class="mt-2 font-mono"
           :label="`api/settings/${group.route}`"
         />
@@ -70,7 +85,7 @@ function label(key: string) {
 
       <div class="flex items-center gap-2 lg:ms-auto">
         <UButton
-          label="Reset"
+          :label="$t('common.reset')"
           color="neutral"
           variant="ghost"
           :disabled="!dirty || saving"
@@ -78,7 +93,7 @@ function label(key: string) {
         />
         <UButton
           :form="`settings-${group.route}`"
-          label="Save changes"
+          :label="$t('common.saveChanges')"
           type="submit"
           :loading="saving"
           :disabled="!dirty"
@@ -91,10 +106,10 @@ function label(key: string) {
       color="error"
       variant="subtle"
       icon="i-lucide-plug-zap"
-      :title="`Could not load ${group.name}`"
+      :title="$t('settings.form.loadError', { name: group.name })"
       :description="loadError"
       class="mb-4"
-      :actions="[{ label: 'Try again', color: 'neutral', variant: 'outline', onClick: load }]"
+      :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
     />
 
     <UAlert
@@ -102,12 +117,12 @@ function label(key: string) {
       color="warning"
       variant="subtle"
       icon="i-lucide-git-merge"
-      title="These settings changed while you were editing"
+      :title="$t('settings.form.conflict.title')"
       :description="problem"
       class="mb-4"
       :actions="[
-        { label: 'Re-apply my changes', color: 'warning', variant: 'solid', loading: saving, onClick: reapply },
-        { label: 'Discard mine and reload', color: 'neutral', variant: 'outline', onClick: load }
+        { label: $t('settings.form.conflict.reapply'), color: 'warning', variant: 'solid', loading: saving, onClick: reapply },
+        { label: $t('settings.form.conflict.discard'), color: 'neutral', variant: 'outline', onClick: load }
       ]"
     />
 
@@ -133,7 +148,7 @@ function label(key: string) {
           <UFormField
             :name="key"
             :label="label(key)"
-            :description="field(key).description"
+            :description="description(key)"
             :error="errors[key]"
           >
             <template #label>
@@ -144,7 +159,7 @@ function label(key: string) {
                   color="warning"
                   variant="subtle"
                   size="sm"
-                  label="sensitive"
+                  :label="$t('settings.form.sensitiveBadge')"
                 />
                 <UBadge
                   v-if="field(key).translated"
@@ -170,12 +185,23 @@ function label(key: string) {
               class="w-full"
             />
 
+            <!--
+              `dir="auto"` on every box that holds a value rather than a label.
+
+              The shell flips to RTL for Arabic, and the bidi algorithm then lays out a value with
+              no strong direction of its own from the right: `#512BD4` renders as `512BD4#`, and a
+              file called `321106641.png` as `png.321106641`. Neither is a translation problem —
+              both are correct Unicode for text the browser was told is Arabic. `auto` tells it to
+              decide per value from the first strongly-directional character, so a store name in
+              Arabic still reads right-to-left and a hex colour still reads left-to-right.
+            -->
             <UInput
               v-else-if="field(key).sensitive"
               v-model="state[key]"
+              dir="auto"
               :type="revealed[key] ? 'text' : 'password'"
               autocomplete="new-password"
-              placeholder="Not set"
+              :placeholder="$t('settings.form.notSet')"
               class="w-full"
               :ui="{ trailing: 'pe-1' }"
             >
@@ -185,7 +211,9 @@ function label(key: string) {
                   variant="link"
                   size="sm"
                   :icon="revealed[key] ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  :aria-label="revealed[key] ? `Hide ${label(key)}` : `Show ${label(key)}`"
+                  :aria-label="revealed[key]
+                    ? $t('settings.form.hide', { label: label(key) })
+                    : $t('settings.form.reveal', { label: label(key) })"
                   @click="revealed[key] = !revealed[key]"
                 />
               </template>
@@ -194,6 +222,7 @@ function label(key: string) {
             <UInput
               v-else
               v-model="state[key]"
+              dir="auto"
               :type="field(key).type ?? 'text'"
               autocomplete="off"
               class="w-full"

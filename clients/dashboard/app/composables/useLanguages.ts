@@ -3,8 +3,13 @@ import type { Language, LanguageUpdate, NewLanguage, PurgeResult } from '~/types
 
 /**
  * The language list from `GET api/languages`, shared by every page, and the administration calls
- * `MapLanguageEndpoints()` maps. Lifted from the DotNetBoost.MultiLingual dashboard, with that
- * dashboard's i18n layer replaced by plain strings — this sample does not translate its own chrome.
+ * `MapLanguageEndpoints()` maps. Lifted from the DotNetBoost.MultiLingual dashboard, i18n layer
+ * and all.
+ *
+ * Note what is translated and what is not. The outcome a toast reports — "Arabic saved" — is this
+ * dashboard's own words, so it comes from the message bundles. A refusal is the API's words, and
+ * is shown as the API wrote them: the problem detail is already written for the caller, and
+ * replacing it with something of ours would only make it vaguer.
  *
  * Each call reloads the list afterwards: setting a default demotes another language, so patching
  * one row locally would be wrong.
@@ -15,6 +20,7 @@ import type { Language, LanguageUpdate, NewLanguage, PurgeResult } from '~/types
  */
 const _useLanguages = () => {
   const toast = useToast()
+  const { t } = useI18n()
   const { baseLanguage } = useRuntimeConfig().public
 
   const languages = ref<Language[]>([])
@@ -77,7 +83,7 @@ const _useLanguages = () => {
       return result
     } catch (error) {
       toast.add({
-        title: 'The API refused that',
+        title: t('api.refused'),
         description: problemMessage(error),
         icon: 'i-lucide-triangle-alert',
         color: 'error'
@@ -92,35 +98,36 @@ const _useLanguages = () => {
   const create = (input: NewLanguage) => run(input.code, () =>
     $fetch<Language>('/api/languages', { method: 'POST', body: input }),
   created => ({
-    title: `${created.name} added`,
+    title: t('languages.toast.added', { name: created.name }),
     description: created.isDefault
-      ? `${created.code} is now the default — content falls back to it.`
-      : `Content can now be written in ${created.code}.`
+      ? t('languages.toast.addedDefault', { code: created.code })
+      : t('languages.toast.addedOther', { code: created.code })
   }))
 
   const update = (code: string, input: LanguageUpdate) => run(code, () =>
     $fetch<Language>(`/api/languages/${code}`, { method: 'PUT', body: input }),
   updated => ({
-    title: `${updated.name} saved`,
-    description: updated.isActive ? undefined : 'It is inactive, so content is no longer served in it.'
+    title: t('languages.toast.saved', { name: updated.name }),
+    description: updated.isActive ? undefined : t('languages.toast.savedInactive')
   }))
 
   const setDefault = (code: string) => run(code, () =>
     $fetch<Language>(`/api/languages/${code}/set-default`, { method: 'POST' }),
   promoted => ({
-    title: `${promoted.name} is now the default`,
-    description: 'Missing translations fall back to it, and the language that held the role was demoted.'
+    title: t('languages.toast.promoted', { name: promoted.name }),
+    description: t('languages.toast.promotedDescription')
   }))
 
   const remove = (code: string) => run(code, () =>
     $fetch(`/api/languages/${code}`, { method: 'DELETE' }),
-  () => ({ title: `${code} deleted` }))
+  () => ({ title: t('languages.toast.deleted', { code }) }))
 
   const purge = (code: string) => run(code, () =>
     $fetch<PurgeResult>(`/api/languages/${code}/translations`, { method: 'DELETE' }),
   result => ({
-    title: `${result.deletedTranslations} translation${result.deletedTranslations === 1 ? '' : 's'} removed`,
-    description: `${result.code} still exists; everything written in it is gone.`
+    // Counted, so Arabic gets its dual and its three-to-ten form rather than an English plural -s.
+    title: t('languages.toast.purged', result.deletedTranslations),
+    description: t('languages.toast.purgedDescription', { code: result.code })
   }))
 
   return {

@@ -18,6 +18,7 @@ const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
 const toast = useToast()
+const { t } = useI18n()
 
 const slug = ref('')
 const translations = ref<Translations>({})
@@ -72,11 +73,16 @@ async function save() {
       await api.categories.update(props.categoryId, body)
     }
 
-    toast.add({ title: props.categoryId === null ? 'Category created' : 'Category saved', color: 'success' })
+    toast.add({
+      title: props.categoryId === null
+        ? t('categoryEditor.toast.created')
+        : t('categoryEditor.toast.saved'),
+      color: 'success'
+    })
     emit('saved')
     open.value = false
   } catch (error) {
-    toast.add({ title: 'Save failed', description: String(error), color: 'error' })
+    toast.add({ title: t('categoryEditor.toast.failed'), description: String(error), color: 'error' })
   } finally {
     saving.value = false
   }
@@ -86,40 +92,45 @@ async function save() {
 <template>
   <USlideover
     v-model:open="open"
-    :title="categoryId === null ? 'New category' : 'Edit category'"
-    description="Slug is a column. Text is translation rows. The banner is a media attachment."
+    :title="categoryId === null ? $t('categoryEditor.titleNew') : $t('categoryEditor.titleEdit')"
+    :description="$t('categoryEditor.description')"
     :ui="{ content: 'max-w-xl' }"
   >
     <template #body>
       <div v-if="loading" class="py-10 text-center text-muted">
-        Loading…
+        {{ $t('common.loading') }}
       </div>
 
       <div v-else class="space-y-6">
         <UFormField
-          label="Slug"
-          help="Not translated — a URL segment should be the same string in every language, which is what [NotMultiLingual] declares."
+          :label="$t('categoryEditor.slug.label')"
+          :help="$t('categoryEditor.slug.help')"
         >
-          <UInput v-model="slug" placeholder="furniture" class="w-full" />
+          <UInput
+            v-model="slug"
+            dir="ltr"
+            :placeholder="$t('categoryEditor.slug.placeholder')"
+            class="w-full"
+          />
         </UFormField>
 
         <div>
           <p class="mb-2 text-sm font-medium">
-            Text, per language
+            {{ $t('categoryEditor.textPerLanguage') }}
           </p>
           <TranslationEditor
             v-model="translations"
             :languages="languages"
             :fields="[
-              { name: 'Name', label: 'Name' },
-              { name: 'Description', label: 'Description', textarea: true }
+              { name: 'Name', label: $t('translationFields.name') },
+              { name: 'Description', label: $t('translationFields.description'), textarea: true }
             ]"
           />
         </div>
 
         <div v-if="categoryId !== null">
           <p class="mb-2 text-sm font-medium">
-            Media
+            {{ $t('categoryEditor.media') }}
           </p>
           <EntityAttachments
             entity-name="Category"
@@ -134,8 +145,8 @@ async function save() {
           icon="i-lucide-info"
           variant="subtle"
           color="neutral"
-          title="Save first to attach media"
-          description="An attachment needs the category's key, which it does not have until it is saved."
+          :title="$t('categoryEditor.saveFirst.title')"
+          :description="$t('categoryEditor.saveFirst.description')"
         />
       </div>
     </template>
@@ -143,12 +154,12 @@ async function save() {
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
-          label="Cancel"
+          :label="$t('common.cancel')"
           color="neutral"
           variant="ghost"
           @click="open = false"
         />
-        <UButton :loading="saving" label="Save" @click="save" />
+        <UButton :loading="saving" :label="$t('common.save')" @click="save" />
       </div>
     </template>
   </USlideover>

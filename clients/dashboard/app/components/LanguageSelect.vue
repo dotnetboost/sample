@@ -1,13 +1,16 @@
 <script setup lang="ts">
 /**
  * The dashboard's reading language, in the header of every page. It is sent as `Accept-Language`
- * on every call, so the API resolves it and returns translated content — and it flips the shell
- * to RTL when the language reads right to left.
+ * on every call, so the API resolves it and returns translated content — it flips the shell to RTL
+ * when the language reads right to left, and `plugins/ui-language.ts` moves the dashboard's own
+ * labels with it.
+ *
+ * This one control is the whole language story. A second switcher for the chrome would be a second
+ * answer to the same question, and two answers can disagree.
  */
-const api = useApi()
 const language = useLanguage()
 
-const { data: languages } = await useAsyncData('header-languages', () => api.multiLingual.languages())
+const { languages } = useShellLocale()
 
 const items = computed(() => (languages.value ?? [])
   .filter(l => l.isActive)
@@ -28,7 +31,7 @@ const items = computed(() => (languages.value ?? [])
     variant="outline"
     class="w-32 sm:w-40"
     :content="{ align: 'end' }"
-    aria-label="Reading language"
+    :aria-label="$t('readingLanguage.label')"
   >
     <template #item-label="{ item }">
       <span :dir="item.direction">{{ item.label }}</span>

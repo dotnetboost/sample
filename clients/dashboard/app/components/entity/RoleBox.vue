@@ -51,13 +51,13 @@ const emit = defineEmits<{
       v-if="!image"
       type="button"
       class="flex size-full cursor-pointer flex-col items-center justify-center gap-1 text-dimmed transition hover:text-primary"
-      :aria-label="`Attach a file as ${role}`"
+      :aria-label="$t('entity.roleBox.attach', { role })"
       :disabled="busy"
       @click="emit('pick')"
     >
       <UIcon v-if="busy" name="i-lucide-loader-circle" class="size-6 animate-spin" />
       <UIcon v-else name="i-lucide-plus" class="size-6" />
-      <span class="px-1 text-center text-[11px] leading-tight">{{ role }}</span>
+      <span dir="ltr" class="px-1 text-center text-[11px] leading-tight">{{ role }}</span>
     </button>
 
     <template v-else>
@@ -69,7 +69,7 @@ const emit = defineEmits<{
         rel="noopener"
         class="block size-full"
         :title="[image.fileName, formatBytes(image.size), image.altText].filter(Boolean).join(' · ')"
-        :aria-label="`Open ${image.fileName} in a new tab`"
+        :aria-label="$t('entity.roleBox.openInNewTab', { fileName: image.fileName })"
       >
         <MediaThumbnail
           :file="{
@@ -102,7 +102,7 @@ const emit = defineEmits<{
           size="xs"
           class="rounded-full"
           :disabled="busy"
-          :aria-label="`Replace the ${role} image`"
+          :aria-label="$t('entity.roleBox.replace', { role })"
           @click="emit('pick')"
         />
         <span v-else />
@@ -114,7 +114,7 @@ const emit = defineEmits<{
           size="xs"
           class="rounded-full"
           :loading="busy"
-          :aria-label="`Remove ${image.fileName} from this product's ${role}`"
+          :aria-label="$t('entity.roleBox.remove', { fileName: image.fileName, role })"
           @click="emit('detach')"
         />
       </div>
@@ -129,7 +129,7 @@ const emit = defineEmits<{
           variant="solid"
           size="xs"
           :disabled="!canMoveEarlier || busy"
-          :aria-label="`Move ${image.fileName} earlier`"
+          :aria-label="$t('entity.roleBox.moveEarlier', { fileName: image.fileName })"
           @click="emit('move', -1)"
         />
         <UButton
@@ -138,7 +138,7 @@ const emit = defineEmits<{
           variant="solid"
           size="xs"
           :disabled="!canMoveLater || busy"
-          :aria-label="`Move ${image.fileName} later`"
+          :aria-label="$t('entity.roleBox.moveLater', { fileName: image.fileName })"
           @click="emit('move', 1)"
         />
       </div>

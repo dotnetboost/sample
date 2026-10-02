@@ -239,10 +239,6 @@ export type SettingValues = Record<string, SettingValue>
  * the values the API returns, so a property added to the C# class renders without an entry.
  */
 export interface SettingField {
-  /** Overrides the label generated from the property name. */
-  label?: string
-  /** Helper text shown under the control. */
-  description?: string
   /** Renders a masked input with a reveal toggle. Mirrors `[Sensitive]` on the C# property. */
   sensitive?: boolean
   /**
@@ -262,14 +258,18 @@ export interface SettingField {
   step?: number
 }
 
-/** A `[SettingGroup]`-decorated C# class, as surfaced by the dashboard. */
+/**
+ * A `[SettingGroup]`-decorated C# class, as surfaced by the dashboard.
+ *
+ * No label or description: a group's visible text is addressed in the message bundles by its
+ * `route`, so there is nothing to keep in step between here and three locale files. See
+ * `groupLabel` and `fieldLabel` in `utils/settings.ts`.
+ */
 export interface SettingGroup {
   /** Route segment from `[SettingGroup("…")]` — the API path this group lives on. */
   route: string
-  /** C# class name, shown as the group identity. */
+  /** C# class name. Not translated: it is the identity the API and the C# source share. */
   name: string
-  label: string
-  description: string
   icon: string
   /** Dashboard route for this group's tab. */
   to: string

@@ -15,6 +15,7 @@ const open = defineModel<boolean>('open', { default: false })
 const form = useTemplateRef('form')
 
 const { languages, create, update, busy } = useLanguages()
+const { t } = useI18n()
 
 type Direction = TextDirection | 'auto'
 
@@ -29,11 +30,11 @@ const state = reactive({
 const editing = computed(() => !!props.language)
 const first = computed(() => !editing.value && languages.value.length === 0)
 
-const directions = [
-  { label: 'From the code', value: 'auto' },
-  { label: 'Left to right', value: 'ltr' },
-  { label: 'Right to left', value: 'rtl' }
-]
+const directions = computed(() => [
+  { label: t('languages.form.direction.auto'), value: 'auto' },
+  { label: t('languages.form.direction.ltr'), value: 'ltr' },
+  { label: t('languages.form.direction.rtl'), value: 'rtl' }
+])
 
 watch(open, (isOpen) => {
   if (!isOpen) {
@@ -56,13 +57,13 @@ function validate(values: typeof state): FormError[] {
   const errors: FormError[] = []
 
   if (!values.code.trim()) {
-    errors.push({ name: 'code', message: 'Required.' })
+    errors.push({ name: 'code', message: t('languages.form.validation.required') })
   }
 
   if (!values.name.trim()) {
-    errors.push({ name: 'name', message: 'Required.' })
+    errors.push({ name: 'name', message: t('languages.form.validation.required') })
   } else if (values.name.trim().length > 128) {
-    errors.push({ name: 'name', message: 'At most 128 characters.' })
+    errors.push({ name: 'name', message: t('languages.form.validation.nameTooLong') })
   }
 
   return errors
@@ -104,10 +105,12 @@ async function submit() {
 <template>
   <UModal
     v-model:open="open"
-    :title="editing ? `Edit ${language?.name}` : 'Add a language'"
+    :title="editing
+      ? $t('languages.form.titleEdit', { name: language?.name ?? '' })
+      : $t('languages.form.titleAdd')"
     :description="editing
-      ? 'The code is the language\'s identity and cannot change; everything written in it is keyed by it.'
-      : 'A new language starts with no translations. Existing content falls back to the default until each row is filled in.'"
+      ? $t('languages.form.descriptionEdit')
+      : $t('languages.form.descriptionAdd')"
   >
     <template #body>
       <!-- The submit button sits in the modal footer, outside the form, so Enter is wired up here. -->
@@ -122,12 +125,13 @@ async function submit() {
       >
         <UFormField
           name="code"
-          label="Code"
-          description="ISO 639-1, optionally with a region: en, ar, pt-BR."
+          :label="$t('languages.form.code.label')"
+          :description="$t('languages.form.code.description')"
         >
           <UInput
             v-model="state.code"
-            placeholder="es"
+            dir="ltr"
+            :placeholder="$t('languages.form.code.placeholder')"
             :disabled="editing"
             autocomplete="off"
             class="w-full font-mono"
@@ -136,13 +140,13 @@ async function submit() {
 
         <UFormField
           name="name"
-          label="Name"
-          description="Shown in the language picker, written in the language itself."
+          :label="$t('languages.form.name.label')"
+          :description="$t('languages.form.name.description')"
         >
           <UInput
             v-model="state.name"
             :dir="state.direction === 'auto' ? 'auto' : state.direction"
-            placeholder="Español"
+            :placeholder="$t('languages.form.name.placeholder')"
             autocomplete="off"
             class="w-full"
           />
@@ -150,10 +154,10 @@ async function submit() {
 
         <UFormField
           name="direction"
-          label="Direction"
+          :label="$t('languages.form.direction.label')"
           :description="editing
-            ? 'Changing this flips the shell for everyone reading in this language.'
-            : 'Left as “from the code”, the API takes it from the runtime\'s culture data — ar, he, fa and ur come back right to left.'"
+            ? $t('languages.form.direction.descriptionEdit')
+            : $t('languages.form.direction.descriptionNew')"
         >
           <USelect
             v-model="state.direction"
@@ -167,8 +171,8 @@ async function submit() {
 
         <UFormField
           name="isActive"
-          label="Active"
-          description="When off, content is no longer served in it. The default language cannot be deactivated."
+          :label="$t('languages.form.active.label')"
+          :description="$t('languages.form.active.description')"
           class="flex items-center justify-between gap-4"
         >
           <USwitch v-model="state.isActive" :disabled="language?.isDefault" />
@@ -177,10 +181,10 @@ async function submit() {
         <UFormField
           v-if="!editing"
           name="isDefault"
-          label="Make it the default"
+          :label="$t('languages.form.makeDefault.label')"
           :description="first
-            ? 'The first language created is always the default — there is nothing to fall back to otherwise.'
-            : 'Demotes whichever language holds the role now.'"
+            ? $t('languages.form.makeDefault.descriptionFirst')
+            : $t('languages.form.makeDefault.descriptionOther')"
           class="flex items-center justify-between gap-4"
         >
           <USwitch
@@ -203,7 +207,7 @@ async function submit() {
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
-          label="Cancel"
+          :label="$t('common.cancel')"
           color="neutral"
           variant="ghost"
           @click="open = false"
@@ -211,7 +215,7 @@ async function submit() {
         <UButton
           form="language-form"
           type="submit"
-          :label="editing ? 'Save' : 'Add language'"
+          :label="editing ? $t('common.save') : $t('languages.add')"
           :loading="busy !== null"
         />
       </div>

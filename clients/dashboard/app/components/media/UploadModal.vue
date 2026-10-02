@@ -59,19 +59,19 @@ function submit() {
 <template>
   <UModal
     v-model:open="open"
-    title="Upload a file"
+    :title="$t('media.upload.title')"
     :description="owner
-      ? `Stored and attached to ${owner.entityName} ${owner.entityId} in one step.`
-      : 'Stored through POST api/media. The name, size and type are recorded from the file itself.'"
+      ? $t('media.upload.descriptionOwner', { entity: `${owner.entityName} ${owner.entityId}` })
+      : $t('media.upload.descriptionPlain')"
   >
     <template #body>
       <div class="flex flex-col gap-4">
-        <UFormField label="File" required>
+        <UFormField :label="$t('media.upload.file')" required>
           <UFileUpload
             v-model="file"
             icon="i-lucide-upload"
-            label="Drop a file here, or click to choose"
-            :description="`Up to ${formatBytes(maxUploadBytes)}`"
+            :label="$t('media.upload.dropzone')"
+            :description="$t('media.upload.limit', { size: formatBytes(maxUploadBytes) })"
             class="w-full min-h-40"
           />
         </UFormField>
@@ -81,27 +81,44 @@ function submit() {
           color="error"
           variant="subtle"
           icon="i-lucide-triangle-alert"
-          title="Too large to upload"
-          :description="`${file.name} is ${formatBytes(file.size)}; the limit is ${formatBytes(maxUploadBytes)}.`"
+          :title="$t('media.upload.tooLarge.title')"
+          :description="$t('media.upload.tooLarge.description', {
+            fileName: file.name,
+            size: formatBytes(file.size),
+            limit: formatBytes(maxUploadBytes)
+          })"
         />
 
         <UFormField
-          label="Category"
-          description="A coarse bucket — avatars, invoices, product-images. It also leads the storage path."
+          :label="$t('media.upload.category.label')"
+          :description="$t('media.upload.category.description')"
         >
-          <UInput v-model="category" placeholder="None" class="w-full" />
+          <UInput
+            v-model="category"
+            dir="auto"
+            :placeholder="$t('common.none')"
+            class="w-full"
+          />
         </UFormField>
 
-        <UFormField label="Tags" description="Up to 32, each 64 characters, no commas.">
-          <UInputTags v-model="tags" placeholder="Add a tag…" class="w-full" />
+        <UFormField
+          :label="$t('media.upload.tags.label')"
+          :description="$t('media.upload.tags.description')"
+        >
+          <UInputTags
+            v-model="tags"
+            dir="auto"
+            :placeholder="$t('media.upload.tags.placeholder')"
+            class="w-full"
+          />
         </UFormField>
 
         <UAlert
           color="neutral"
           variant="subtle"
           icon="i-lucide-shield-check"
-          title="What the API checks"
-          description="The size is measured as the bytes arrive, the type is verified against the file's own leading bytes, and executables are refused. A file that fails any of those comes back as a problem detail rather than being stored."
+          :title="$t('media.upload.checks.title')"
+          :description="$t('media.upload.checks.description')"
         />
       </div>
     </template>
@@ -109,14 +126,14 @@ function submit() {
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
-          label="Cancel"
+          :label="$t('common.cancel')"
           color="neutral"
           variant="ghost"
           @click="open = false"
         />
         <UButton
           icon="i-lucide-upload"
-          label="Upload"
+          :label="$t('common.upload')"
           :disabled="!canUpload"
           :loading="busy"
           @click="submit"
