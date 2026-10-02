@@ -28,6 +28,9 @@
     <PackageVersion Include="DotNetBoost.MultiLingual.Core" Version="1.0.0-preview.1" />
     <PackageVersion Include="DotNetBoost.MultiLingual.EntityFrameworkCore" Version="1.0.0-preview.1" />
     <PackageVersion Include="DotNetBoost.MultiLingual.API" Version="1.0.0-preview.1" />
+    <!-- IStringLocalizer over Resources/*.json, answering in the language the CONTENT is served
+         in. Still one library's family, so the independence tests are unaffected. -->
+    <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.1" />
   </ItemGroup>
 
   <ItemGroup Label="Persistence — PostgreSQL through EF Core">

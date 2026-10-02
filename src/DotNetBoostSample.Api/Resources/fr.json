@@ -1,0 +1,41 @@
+// Les messages propres à l'API, dans la langue où le contenu est servi. Voir en.json.
+{
+  "Catalog": {
+    "CategoryNotFound": "La catégorie {0} est introuvable.",
+    "ProductNotFound": "Le produit {0} est introuvable.",
+    "CategoryHasProducts": "Déplacez ou supprimez d'abord les produits de cette catégorie."
+  },
+
+  "MediaText": {
+    "FileNotFound": "Le fichier média {0} est introuvable."
+  },
+
+  // Les messages propres à DotNetBoost.MultiLingual, que la bibliothèque recherche ici. Voir en.json.
+  "MultiLingual": {
+    "Problems": {
+      "LanguageNotFound": {
+        "Title": "Langue introuvable",
+        "Detail": "La langue « {0} » n'existe pas."
+      },
+      "UnknownLanguage": {
+        "Title": "Langue inconnue"
+      },
+      "LanguageConflict": {
+        "Title": "Entre en conflit avec une règle existante"
+      },
+      "InvalidLanguage": {
+        "Title": "Langue invalide"
+      },
+      "NoLanguageConfigured": {
+        "Title": "Aucune langue configurée",
+        "Detail": "Aucune langue n'a encore été créée. Créez-en une avant de lire ou d'écrire du contenu."
+      },
+      "BaseLanguageRequired": {
+        "Title": "Langue de base requise"
+      },
+      "BaseLanguageNotTranslatable": {
+        "Title": "La langue de base n'est pas une traduction"
+      }
+    }
+  }
+}

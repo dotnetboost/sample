@@ -1,0 +1,41 @@
+// رسائل الـ API نفسها، باللغة التي يُقدَّم بها المحتوى. انظر en.json لشرح الآلية.
+{
+  "Catalog": {
+    "CategoryNotFound": "التصنيف {0} غير موجود.",
+    "ProductNotFound": "المنتج {0} غير موجود.",
+    "CategoryHasProducts": "انقل منتجات هذا التصنيف أو احذفها أولًا."
+  },
+
+  "MediaText": {
+    "FileNotFound": "ملف الوسائط {0} غير موجود."
+  },
+
+  // رسائل DotNetBoost.MultiLingual نفسها — تبحث عنها المكتبة هنا. انظر en.json.
+  "MultiLingual": {
+    "Problems": {
+      "LanguageNotFound": {
+        "Title": "اللغة غير موجودة",
+        "Detail": "اللغة '{0}' غير موجودة."
+      },
+      "UnknownLanguage": {
+        "Title": "لغة غير معروفة"
+      },
+      "LanguageConflict": {
+        "Title": "يتعارض مع قاعدة قائمة"
+      },
+      "InvalidLanguage": {
+        "Title": "لغة غير صالحة"
+      },
+      "NoLanguageConfigured": {
+        "Title": "لا توجد لغة مُهيّأة",
+        "Detail": "لم تُنشأ أي لغة بعد. أنشئ واحدة قبل قراءة المحتوى أو كتابته."
+      },
+      "BaseLanguageRequired": {
+        "Title": "اللغة الأساسية مطلوبة"
+      },
+      "BaseLanguageNotTranslatable": {
+        "Title": "اللغة الأساسية ليست ترجمة"
+      }
+    }
+  }
+}

@@ -79,10 +79,23 @@ builder.Services
 builder.Services
     .AddMultiLingual()
     .UseEntityFrameworkCore<AppDbContext>()
+    // The API's OWN messages, from Resources/{en,ar,fr}.json, through IStringLocalizer<ApiMessages>.
+    //
+    // Translated content is data in the Translations table; a message like "Category 3 was not
+    // found." is code, so it lives in a file next to the code. What this adds over the framework's
+    // AddLocalization() is which language it answers in: IMultiLingualManager.CurrentLanguage, the
+    // one the EF interceptors just translated the row with — not CultureInfo.CurrentUICulture.
+    // A refusal and the content it was about therefore cannot disagree.
+    .AddJsonLocalization()
     .Build();
 
 // ── The only integration code in the solution ────────────────────────────────
 builder.Services.AddScoped<MediaText>();
+
+// Problem details for the refusals the application writes itself. MultiLingual's own refusals
+// need nothing here: its endpoint filter turns them into problem details, and that mapping already
+// looks the title and detail up through the localizer registered above.
+builder.Services.AddProblemDetails();
 
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
@@ -91,6 +104,7 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+app.UseExceptionHandler();
 app.UseCors();
 
 // Creates the schema and seeds languages, categories, products and their translations.

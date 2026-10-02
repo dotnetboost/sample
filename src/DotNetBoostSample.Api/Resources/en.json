@@ -1,0 +1,54 @@
+// The API's own messages, in the language the CONTENT is served in.
+//
+// Served by DotNetBoost.MultiLingual.Localization through IStringLocalizer<ApiMessages>, which
+// reads IMultiLingualManager.CurrentLanguage rather than CultureInfo.CurrentUICulture — so a
+// refusal comes back in the same language as the product name in the same response, with the same
+// fallback to the default language.
+//
+// Nested objects join into dotted keys: "Catalog.CategoryNotFound". Arguments fill {0}, {1}, … as
+// in string.Format. Comments and trailing commas are allowed.
+{
+  "Catalog": {
+    "CategoryNotFound": "Category {0} was not found.",
+    "ProductNotFound": "Product {0} was not found.",
+    "CategoryHasProducts": "Move or delete this category's products first."
+  },
+
+  "MediaText": {
+    "FileNotFound": "Media file {0} was not found."
+  },
+
+  // DotNetBoost.MultiLingual's OWN refusals, which it looks up here itself.
+  //
+  // `MultiLingualProblems.ToProblemDetails` checks `MultiLingual.Problems.{Kind}.Title` and
+  // `.Detail` — Kind being the exception type without "Exception" — and keeps its built-in English
+  // for any key that is absent. So this block is not wiring, it is just the words; the library
+  // does the lookup, in the same language and with the same fallback as the content.
+  "MultiLingual": {
+    "Problems": {
+      "LanguageNotFound": {
+        "Title": "Language not found",
+        "Detail": "The language '{0}' does not exist."
+      },
+      "UnknownLanguage": {
+        "Title": "Unknown language"
+      },
+      "LanguageConflict": {
+        "Title": "Conflicts with an existing rule"
+      },
+      "InvalidLanguage": {
+        "Title": "Invalid language"
+      },
+      "NoLanguageConfigured": {
+        "Title": "No language configured",
+        "Detail": "No language has been created yet. Create one before reading or writing content."
+      },
+      "BaseLanguageRequired": {
+        "Title": "Base language required"
+      },
+      "BaseLanguageNotTranslatable": {
+        "Title": "The base language is not a translation"
+      }
+    }
+  }
+}

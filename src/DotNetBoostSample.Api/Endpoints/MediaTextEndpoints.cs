@@ -1,5 +1,7 @@
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoostSample.Api.Integration;
+using DotNetBoostSample.Api.Localization;
+using Microsoft.Extensions.Localization;
 
 namespace DotNetBoostSample.Api.Endpoints;
 
@@ -13,6 +15,12 @@ namespace DotNetBoostSample.Api.Endpoints;
 /// </summary>
 public static class MediaTextEndpoints
 {
+    /// <summary>A 404 naming the file, in the caller's language. See CatalogEndpoints for the shape.</summary>
+    private static IResult FileNotFound(IStringLocalizer<ApiMessages> messages, Guid mediaFileId) =>
+        Results.Problem(
+            detail: messages["MediaText.FileNotFound", mediaFileId],
+            statusCode: StatusCodes.Status404NotFound);
+
     public static void MapMediaTextEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/media-text").WithTags("Media text (composition)");
@@ -21,11 +29,12 @@ public static class MediaTextEndpoints
             Guid mediaFileId,
             IMediaManager media,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             // Proves the file exists in the media library before answering about its text.
             var file = await media.FindAsync(mediaFileId, ct);
-            if (file is null) return Results.NotFound();
+            if (file is null) return FileNotFound(messages, mediaFileId);
 
             var current = await mediaText.GetAsync(mediaFileId, ct);
             var all     = await mediaText.GetAllLanguagesAsync(mediaFileId, ct);
@@ -49,10 +58,11 @@ public static class MediaTextEndpoints
             MediaTextWrite body,
             IMediaManager media,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var file = await media.FindAsync(mediaFileId, ct);
-            if (file is null) return Results.NotFound();
+            if (file is null) return FileNotFound(messages, mediaFileId);
 
             foreach (var (language, values) in body.Values)
             {

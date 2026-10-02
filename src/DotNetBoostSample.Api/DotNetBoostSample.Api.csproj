@@ -16,6 +16,7 @@
     <PackageReference Include="DotNetBoost.MultiLingual.Core" />
     <PackageReference Include="DotNetBoost.MultiLingual.EntityFrameworkCore" />
     <PackageReference Include="DotNetBoost.MultiLingual.API" />
+    <PackageReference Include="DotNetBoost.MultiLingual.Localization" />
   </ItemGroup>
 
   <ItemGroup Label="Persistence">

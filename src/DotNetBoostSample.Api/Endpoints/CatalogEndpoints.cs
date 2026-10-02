@@ -4,7 +4,9 @@ using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Api.Data;
 using DotNetBoostSample.Api.Entities;
 using DotNetBoostSample.Api.Integration;
+using DotNetBoostSample.Api.Localization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace DotNetBoostSample.Api.Endpoints;
 
@@ -19,9 +21,26 @@ namespace DotNetBoostSample.Api.Endpoints;
 /// <em>edit</em> paths are the exception — an editor needs every language at once, which is what
 /// <c>For(entity).GetAllAsync()</c> returns.
 /// </para>
+/// <para>
+/// Every refusal below carries a message, and the message is localized: the handlers take
+/// <see cref="IStringLocalizer{ApiMessages}"/>, which answers in the language the request is being
+/// read in. A bare <c>Results.NotFound()</c> says nothing a caller can show a user, and a hardcoded
+/// English sentence says it in the wrong language — the content in the same response is translated.
+/// </para>
 /// </summary>
 public static class CatalogEndpoints
 {
+    /// <summary>
+    /// A 404 whose body says which thing was missing, in the caller's language.
+    /// <para>
+    /// `Results.Problem` rather than `Results.NotFound(text)`: the dashboard reads RFC 7807
+    /// problem details, so a refusal here has the same shape as one from any of the three
+    /// libraries and needs no special case in the client.
+    /// </para>
+    /// </summary>
+    private static IResult NotFound(IStringLocalizer<ApiMessages> messages, string key, object id) =>
+        Results.Problem(detail: messages[key, id], statusCode: StatusCodes.Status404NotFound);
+
     /// <summary>The role a category's single banner image is attached under.</summary>
     private const string BannerRole = "banner";
 
@@ -76,10 +95,11 @@ public static class CatalogEndpoints
             IMediaManager media,
             IMultiLingualManager multiLingual,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
-            if (category is null) return Results.NotFound();
+            if (category is null) return NotFound(messages, "Catalog.CategoryNotFound", id);
 
             return Results.Ok(new
             {
@@ -117,10 +137,11 @@ public static class CatalogEndpoints
             CategoryWrite body,
             AppDbContext db,
             IMultiLingualManager multiLingual,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
-            if (category is null) return Results.NotFound();
+            if (category is null) return NotFound(messages, "Catalog.CategoryNotFound", id);
 
             category.Slug = body.Slug;
 
@@ -136,13 +157,18 @@ public static class CatalogEndpoints
             int id,
             AppDbContext db,
             IMediaManager media,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
-            if (category is null) return Results.NotFound();
+            if (category is null) return NotFound(messages, "Catalog.CategoryNotFound", id);
 
+            // Was an English literal in an ad-hoc `{ message }` shape, which the dashboard's
+            // problem-details reader could not see at all. Now localized, and RFC 7807 like the rest.
             if (await db.Products.AnyAsync(p => p.CategoryId == id, ct))
-                return Results.Conflict(new { message = "Move or delete this category's products first." });
+                return Results.Problem(
+                    detail: messages["Catalog.CategoryHasProducts"],
+                    statusCode: StatusCodes.Status409Conflict);
 
             // Detach rather than delete: the banner may be in use elsewhere. The category's own
             // translations go automatically — MultiLingual's SaveChanges interceptor sees the
@@ -206,10 +232,11 @@ public static class CatalogEndpoints
             IMediaManager media,
             IMultiLingualManager multiLingual,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
+            if (product is null) return NotFound(messages, "Catalog.ProductNotFound", id);
 
             return Results.Ok(new
             {
@@ -251,10 +278,11 @@ public static class CatalogEndpoints
             ProductWrite body,
             AppDbContext db,
             IMultiLingualManager multiLingual,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
+            if (product is null) return NotFound(messages, "Catalog.ProductNotFound", id);
 
             product.Sku        = body.Sku;
             product.Price      = body.Price;
@@ -274,10 +302,11 @@ public static class CatalogEndpoints
             string? role,
             AppDbContext db,
             IMediaManager media,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
+            if (product is null) return NotFound(messages, "Catalog.ProductNotFound", id);
 
             await using var stream = file.OpenReadStream();
 
@@ -302,10 +331,11 @@ public static class CatalogEndpoints
             AppDbContext db,
             IMediaManager media,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (product is null) return Results.NotFound();
+            if (product is null) return NotFound(messages, "Catalog.ProductNotFound", id);
 
             // Nothing cascades across library boundaries — the honest cost of having no
             // integration package, which is why this is written out rather than hidden.
