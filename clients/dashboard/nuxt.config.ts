@@ -51,7 +51,8 @@ export default defineNuxtConfig({
     }
   },
 
-  // Tajawal, the dashboard's typeface — see `--font-sans` in app/assets/css/main.css.
+  // Tajawal, which sets the Arabic — see `--font-sans` in app/assets/css/main.css for how it and
+  // Public Sans divide the scripts between them.
   //
   // `@nuxt/fonts` comes with @nuxt/ui and already self-hosts whatever the CSS asks for: it fetches
   // the files at build time and serves them from this origin, which is why no <link> to
@@ -61,18 +62,34 @@ export default defineNuxtConfig({
   // Both settings below are here because the defaults are wrong for this font:
   //
   //   • it downloads weights 400 and 700 only, and the family is installed here with the full set
-  //     Tajawal publishes. A browser is only ever sent the weights a page actually draws — 400,
-  //     500 and 700 as the dashboard stands — so the rest cost build time and disk, not load time;
-  //   • its default subsets are the Latin, Cyrillic and Greek ones. `arabic` is not among them,
-  //     and without it the Arabic UI renders in a system fallback while the Latin one does not —
+  //     Tajawal publishes. Only the weights a page actually draws IN ARABIC are ever sent to a
+  //     browser, so the rest cost build time and disk, not load time;
+  //   • its default subsets are the Latin, Cyrillic and Greek ones, and `arabic` is not among
+  //     them. Without it the Arabic UI renders in a system fallback while the Latin one does not,
   //     which looks like a styling bug and is actually a missing download.
+  //
+  // `arabic` ALONE, and not because the Latin is unwanted: Public Sans is ahead of Tajawal in the
+  // stack, so Tajawal's Latin faces could never be reached. Asking for them would put seven files
+  // in the build that no browser can ever request.
+  //
+  // `global` is what makes the stack in main.css work at all, and it is not optional. @nuxt/fonts
+  // reads only the FIRST family of a `font-family` declaration and treats the rest as fallbacks to
+  // measure against local fonts — it does not fetch them. Tajawal is second there, so without this
+  // it is never downloaded, and the Arabic silently renders in whatever the system offers. `global`
+  // emits its @font-face rules anyway; `unicode-range` still keeps the files off the wire until
+  // Arabic is actually on screen.
+  //
+  // Public Sans is not listed here at all. It is first in the stack, so @nuxt/fonts finds it in the
+  // CSS by itself, and its defaults are right for it — a variable face covering the 400–700 the
+  // dashboard draws.
   fonts: {
     families: [
       {
         name: 'Tajawal',
         provider: 'google',
+        global: true,
         weights: [200, 300, 400, 500, 700, 800, 900],
-        subsets: ['arabic', 'latin']
+        subsets: ['arabic']
       }
     ]
   },

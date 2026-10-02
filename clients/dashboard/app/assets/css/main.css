@@ -3,15 +3,21 @@
 
 @theme static {
   /*
-   * Tajawal, which carries both scripts this dashboard reads in.
+   * Public Sans for Latin, Tajawal for Arabic.
    *
-   * One family for Arabic and Latin rather than a pair, so switching the header to Arabic changes
-   * the script and nothing else — no jump in weight, width or x-height halfway through the shell.
-   * The weights are declared in nuxt.config.ts, because `@nuxt/fonts` downloads 400 and 700 unless
-   * it is told otherwise, and so is the `arabic` subset, which is not one of the ones it fetches
-   * by default. Without that subset every Arabic glyph on the page falls back to a system font.
+   * This is a stack rather than a pair of `:lang()` rules because CSS falls back per CHARACTER,
+   * not per element: the browser tries Public Sans for every glyph, finds no Arabic in it, and
+   * reaches Tajawal for exactly those. So a sidebar entry reading "DotNetBoost على GitHub" is set
+   * in both faces, each doing the script it was drawn for, with nothing here having to know which
+   * language the dashboard is in.
+   *
+   * It also means Tajawal is fetched only when Arabic is actually on screen — `unicode-range` on
+   * its @font-face keeps an English-only session from downloading it at all.
+   *
+   * Order is the whole mechanism. Putting Tajawal first would hand it the Latin too, since it
+   * carries both scripts, and quietly undo the split.
    */
-  --font-sans: 'Tajawal', sans-serif;
+  --font-sans: 'Public Sans', 'Tajawal', sans-serif;
 
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
