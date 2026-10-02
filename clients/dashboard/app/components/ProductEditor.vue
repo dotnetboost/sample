@@ -99,7 +99,11 @@ async function save() {
     emit('saved')
     open.value = false
   } catch (error) {
-    toast.add({ title: t('productEditor.toast.failed'), description: String(error), color: 'error' })
+    toast.add({
+      title: t('productEditor.toast.failed'),
+      description: problemMessage(error),
+      color: 'error'
+    })
   } finally {
     saving.value = false
   }

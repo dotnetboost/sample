@@ -53,9 +53,16 @@ async function confirmDelete() {
     }
     toast.add({ title: t('catalog.toast.deleted'), color: 'success' })
     confirming.value = null
-  } catch (error: unknown) {
-    const message = (error as { data?: { message?: string } })?.data?.message ?? String(error)
-    toast.add({ title: t('catalog.toast.deleteFailed'), description: message, color: 'error' })
+  } catch (error) {
+    // `problemMessage`, which reads the problem details the API actually sends. Reading
+    // `data.message` was left over from the ad-hoc shape this endpoint used to answer with: it
+    // has matched nothing since that moved to RFC 7807, so every refused delete fell through to
+    // `String(error)` and showed a raw FetchError where the API had sent a sentence.
+    toast.add({
+      title: t('catalog.toast.deleteFailed'),
+      description: problemMessage(error),
+      color: 'error'
+    })
   } finally {
     deleting.value = false
   }
