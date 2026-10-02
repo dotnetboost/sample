@@ -79,11 +79,28 @@ export default defineNuxtConfig({
   // emits its @font-face rules anyway; `unicode-range` still keeps the files off the wire until
   // Arabic is actually on screen.
   //
-  // Public Sans is not listed here at all. It is first in the stack, so @nuxt/fonts finds it in the
-  // CSS by itself, and its defaults are right for it — a variable face covering the 400–700 the
-  // dashboard draws.
+  // `fallbacks: []` on Public Sans is the other half, and it is just as load-bearing. By default
+  // @nuxt/fonts rewrites the declaration to insert metric-matched local faces straight after the
+  // FIRST family, so the stack the browser actually gets reads
+  //
+  //   Public Sans, …Fallback: BlinkMacSystemFont, …Segoe UI, …Helvetica Neue, …Arial, …Noto Sans,
+  //   Tajawal, sans-serif
+  //
+  // Those are whole system fonts, and Arial carries Arabic. Arabic therefore matched Arial and
+  // never reached Tajawal — the font looked like it had simply not been applied. Emptying the list
+  // stops the rewrite, which costs the no-layout-shift overrides while Public Sans loads and buys
+  // back the only thing that makes two scripts in one stack work.
+  //
+  // Public Sans is listed for that one setting. Everything else about it stays default: it is
+  // first in the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering
+  // the 400–700 the dashboard draws.
   fonts: {
     families: [
+      {
+        name: 'Public Sans',
+        provider: 'google',
+        fallbacks: []
+      },
       {
         name: 'Tajawal',
         provider: 'google',
