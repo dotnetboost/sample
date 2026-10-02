@@ -24,11 +24,14 @@ public class BrandingOwnerTests
         // the logo is drawn, not which file it is. So this looks at the type, and only treats a
         // name as evidence when it is a type that could hold an identifier.
         static bool CouldIdentifyAFile(PropertyInfo p) =>
-            p.PropertyType == typeof(Guid)
-            || p.PropertyType == typeof(Guid?)
-            || (p.PropertyType == typeof(string)
-                && (p.Name.EndsWith("Id", StringComparison.Ordinal)
-                    || p.Name.Contains("File", StringComparison.OrdinalIgnoreCase)));
+            // The entity's own key is not a reference to anything — it is how MultiLingual
+            // addresses this group. Only a name that points at something ELSE counts.
+            p.Name != "Id"
+            && (p.PropertyType == typeof(Guid)
+                || p.PropertyType == typeof(Guid?)
+                || (p.PropertyType == typeof(string)
+                    && (p.Name.EndsWith("Id", StringComparison.Ordinal)
+                        || p.Name.Contains("File", StringComparison.OrdinalIgnoreCase))));
 
         var suspicious = typeof(BrandingSettings)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -143,5 +146,43 @@ public class BrandingTranslationSubjectTests
             DotNetBoost.Media.Core.Metadata.MediaEntityNames.For(typeof(BrandingSettings)),
             DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
                 .EntityNameFor(typeof(BrandingSettings)));
+    }
+}
+
+/// <summary>
+/// The get-only <c>Id</c>: what it gives MultiLingual, and what it deliberately hides from Settings.
+/// </summary>
+public class BrandingIdTests
+{
+    [Fact]
+    public void MultiLingual_can_now_key_the_group()
+    {
+        var accessor = new DotNetBoost.MultiLingual.Core.Services.ConventionEntityKeyAccessor();
+
+        Assert.Equal(BrandingSettings.MediaOwnerId, accessor.GetKey(new BrandingSettings()));
+    }
+
+    [Fact]
+    public void The_settings_library_cannot_see_it()
+    {
+        // SettingManager maps `.Where(p => p.CanRead && p.CanWrite)`. A get-only property fails
+        // that, so it never becomes a row — which is the only reason adding an Id here is safe.
+        var id = typeof(BrandingSettings).GetProperty(nameof(BrandingSettings.Id))!;
+
+        Assert.True(id.CanRead);
+        Assert.False(id.CanWrite, "A settable Id would be persisted as a setting row.");
+    }
+
+    [Fact]
+    public void The_two_halves_of_the_address_are_now_both_present()
+    {
+        var name = DotNetBoost.MultiLingual.Core.Metadata.MultiLingualMetadata
+            .EntityNameFor(typeof(BrandingSettings));
+
+        var id = new DotNetBoost.MultiLingual.Core.Services.ConventionEntityKeyAccessor()
+            .GetKey(new BrandingSettings());
+
+        Assert.Equal("Branding", name);
+        Assert.Equal("branding", id);
     }
 }

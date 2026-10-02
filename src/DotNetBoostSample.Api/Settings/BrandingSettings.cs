@@ -61,6 +61,25 @@ public class BrandingSettings
     public const string LogoRole = "logo";
 
     /// <summary>
+    /// The id MultiLingual addresses this group by — the other half of
+    /// <see cref="MultiLingualEntityAttribute"/>'s name. A translation row is
+    /// <c>(EntityName, EntityId, PropertyName, LanguageCode)</c>, and without an id there is no
+    /// row to write: the name alone is half an address.
+    ///
+    /// <para><b>Get-only on purpose, and that is the whole trick.</b> The settings library maps
+    /// only properties that are <c>CanRead &amp;&amp; CanWrite</c>, so this one is invisible to it
+    /// and never becomes a setting row. MultiLingual's convention accessor looks for exactly this
+    /// name and only ever reads it — and its EF accessor falls back to that convention for types
+    /// outside the model, which this is. One property, two libraries, each seeing what it needs
+    /// and neither knowing the other exists.</para>
+    ///
+    /// <para>The same degenerate constant the media owner uses, so one subject —
+    /// <c>("Branding", "branding")</c> — carries the logo attachment and this group's translations
+    /// alike.</para>
+    /// </summary>
+    public string Id => MediaOwnerId;
+
+    /// <summary>
     /// Shown in the dashboard header.
     /// <para>
     /// The attribute goes BELOW the doc comment: a <c>///</c> block between an attribute and its
