@@ -169,6 +169,27 @@ export interface PurgeResult {
 /** languageCode -> (propertyName -> value): what the API returns and the editor hands back. */
 export type Translations = Record<string, Record<string, string | null>>
 
+/**
+ * What a catalogue write answers with: a sentence saying what it did, in the language the call
+ * asked for.
+ *
+ * The dashboard does not compose this text — "Category phone-cases was saved." names the row and
+ * the API is the only side that knows which row it ended up being. So the toast shows the API's
+ * sentence under the dashboard's own short title, exactly the way a refused write already shows
+ * `problemMessage(error)` under one.
+ *
+ * That is also why `update` and `remove` are typed at all: they used to answer 204 and there was
+ * nothing to read.
+ */
+export interface WriteResult {
+  message: string
+}
+
+/** A create, which answers with the new row's id beside the message. */
+export interface CreateResult extends WriteResult {
+  id: number
+}
+
 /** A category in the list, translated into the request's language. */
 export interface Category {
   id: number

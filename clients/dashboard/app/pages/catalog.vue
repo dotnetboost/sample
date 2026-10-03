@@ -44,14 +44,20 @@ async function confirmDelete() {
 
   deleting.value = true
   try {
+    let message: string
+
     if (confirming.value.kind === 'category') {
-      await api.categories.remove(confirming.value.id)
+      ({ message } = await api.categories.remove(confirming.value.id))
       await refreshCategories()
     } else {
-      await api.products.remove(confirming.value.id)
+      ({ message } = await api.products.remove(confirming.value.id))
       await Promise.all([refreshProducts(), refreshCategories()])
     }
-    notifySuccess(t('catalog.toast.deleted'))
+
+    // "Deleted" on its own left the reader to work out which of two rows went. The API says which,
+    // by slug or SKU, in the language the list is being read in — the same place the refusal in the
+    // catch block comes from.
+    notifySuccess(t('catalog.toast.deleted'), message)
     confirming.value = null
   } catch (error) {
     // The refusal that matters here is "this category still has products", which the API sends as

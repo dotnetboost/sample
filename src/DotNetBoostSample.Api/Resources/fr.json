@@ -3,7 +3,16 @@
   "Catalog": {
     "CategoryNotFound": "La catégorie {0} est introuvable.",
     "ProductNotFound": "Le produit {0} est introuvable.",
-    "CategoryHasProducts": "Déplacez ou supprimez d'abord les produits de cette catégorie."
+    "CategoryHasProducts": "Déplacez ou supprimez d'abord les produits de cette catégorie.",
+
+    // Les messages d'une écriture réussie. {0} est le slug ou la référence. Voir en.json.
+    "CategoryCreated": "La catégorie {0} a été créée.",
+    "CategoryUpdated": "La catégorie {0} a été enregistrée.",
+    "CategoryDeleted": "La catégorie {0} a été supprimée.",
+    "ProductCreated": "Le produit {0} a été créé.",
+    "ProductUpdated": "Le produit {0} a été enregistré.",
+    "ProductDeleted": "Le produit {0} a été supprimé.",
+    "ProductImageUploaded": "{0} a été joint au produit."
   },
 
   "MediaText": {

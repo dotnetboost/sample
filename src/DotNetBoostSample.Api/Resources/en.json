@@ -11,7 +11,17 @@
   "Catalog": {
     "CategoryNotFound": "Category {0} was not found.",
     "ProductNotFound": "Product {0} was not found.",
-    "CategoryHasProducts": "Move or delete this category's products first."
+    "CategoryHasProducts": "Move or delete this category's products first.",
+
+    // What a write that succeeded says. {0} is the slug or the SKU — the handle the editor typed —
+    // so the message names the row the write landed on rather than the id it was addressed by.
+    "CategoryCreated": "Category {0} was created.",
+    "CategoryUpdated": "Category {0} was saved.",
+    "CategoryDeleted": "Category {0} was deleted.",
+    "ProductCreated": "Product {0} was created.",
+    "ProductUpdated": "Product {0} was saved.",
+    "ProductDeleted": "Product {0} was deleted.",
+    "ProductImageUploaded": "{0} was attached to the product."
   },
 
   "MediaText": {

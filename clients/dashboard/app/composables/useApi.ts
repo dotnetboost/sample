@@ -1,5 +1,6 @@
 import type {
-  Category, CategoryDetail, Language, MediaTextValues, Product, ProductDetail, Translations
+  Category, CategoryDetail, CreateResult, Language, MediaTextValues, Product, ProductDetail,
+  Translations, WriteResult
 } from '~/types'
 
 /**
@@ -46,24 +47,32 @@ export function useApi() {
     },
 
     // ── This application: the catalogue ───────────────────────────────────
+    //
+    // Accept-Language on the writes as well as the reads. A write's own answer is now a sentence —
+    // `WriteResult.message` — and the API writes it in whatever language the request was read in,
+    // so a call that sends no header gets the right words in the wrong language. The `get`s stay
+    // without it on purpose: they return every language at once for the editor, and a header would
+    // not change what comes back.
     categories: {
       list: () => $fetch<Category[]>('/api/categories', { headers: headers() }),
       get: (id: number) => $fetch<CategoryDetail>(`/api/categories/${id}`),
       create: (body: { slug: string, translations: Translations }) =>
-        $fetch<{ id: number }>('/api/categories', { method: 'POST', body }),
+        $fetch<CreateResult>('/api/categories', { method: 'POST', body, headers: headers() }),
       update: (id: number, body: { slug: string, translations: Translations }) =>
-        $fetch(`/api/categories/${id}`, { method: 'PUT', body }),
-      remove: (id: number) => $fetch(`/api/categories/${id}`, { method: 'DELETE' })
+        $fetch<WriteResult>(`/api/categories/${id}`, { method: 'PUT', body, headers: headers() }),
+      remove: (id: number) =>
+        $fetch<WriteResult>(`/api/categories/${id}`, { method: 'DELETE', headers: headers() })
     },
 
     products: {
       list: () => $fetch<Product[]>('/api/products', { headers: headers() }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
-        $fetch<{ id: number }>('/api/products', { method: 'POST', body }),
+        $fetch<CreateResult>('/api/products', { method: 'POST', body, headers: headers() }),
       update: (id: number, body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
-        $fetch(`/api/products/${id}`, { method: 'PUT', body }),
-      remove: (id: number) => $fetch(`/api/products/${id}`, { method: 'DELETE' })
+        $fetch<WriteResult>(`/api/products/${id}`, { method: 'PUT', body, headers: headers() }),
+      remove: (id: number) =>
+        $fetch<WriteResult>(`/api/products/${id}`, { method: 'DELETE', headers: headers() })
     },
 
     // ── The composition: Media × MultiLingual ─────────────────────────────

@@ -27,6 +27,15 @@ namespace DotNetBoostSample.Api.Endpoints;
 /// read in. A bare <c>Results.NotFound()</c> says nothing a caller can show a user, and a hardcoded
 /// English sentence says it in the wrong language — the content in the same response is translated.
 /// </para>
+/// <para>
+/// <b>So does every write that succeeds.</b> <c>POST</c>, <c>PUT</c> and <c>DELETE</c> each answer
+/// with a <c>message</c> naming what they did, from the same resource files and in the same
+/// language as the refusal they might have been instead. That is why the two updates and the two
+/// deletes return <c>200 OK</c> rather than <c>204 No Content</c>: a 204 is defined to have no
+/// body, so it has nowhere to put the sentence. The caller is free to ignore it — the id on a
+/// create is still the part that matters — but a caller that wants to say what happened no longer
+/// has to write the sentence itself, in the one language its own bundle happens to be in.
+/// </para>
 /// </summary>
 public static class CatalogEndpoints
 {
@@ -40,6 +49,20 @@ public static class CatalogEndpoints
     /// </summary>
     private static IResult NotFound(IStringLocalizer<ApiMessages> messages, string key, object id) =>
         Results.Problem(detail: messages[key, id], statusCode: StatusCodes.Status404NotFound);
+
+    /// <summary>
+    /// What a write that succeeded answers with: <c>200 OK</c> and a localized sentence saying what
+    /// it did, under the same <c>message</c> name whichever write it was.
+    /// <para>
+    /// The argument is the entity's slug or SKU rather than its id, which is what separates these
+    /// keys from the 404s above: a 404 is about an id that arrived in a URL and is the only handle
+    /// the caller has, while this message is read by whoever just typed that slug into the editor.
+    /// "Category phone-cases was saved." tells them their edit landed on the row they meant;
+    /// "Category 7 was saved." makes them go and check.
+    /// </para>
+    /// </summary>
+    private static IResult Wrote(IStringLocalizer<ApiMessages> messages, string key, object subject) =>
+        Results.Ok(new { Message = messages[key, subject].Value });
 
     /// <summary>The role a category's single banner image is attached under.</summary>
     private const string BannerRole = "banner";
@@ -130,6 +153,7 @@ public static class CatalogEndpoints
             CategoryWrite body,
             AppDbContext db,
             IMultiLingualManager multiLingual,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var category = new Category { Slug = body.Slug };
@@ -139,7 +163,15 @@ public static class CatalogEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/categories/{category.Id}", new { category.Id });
+            // The id AND the message: a 201 is the one write whose body already had something the
+            // caller needs, and the sentence is added beside it rather than in place of it.
+            return Results.Created(
+                $"/api/categories/{category.Id}",
+                new
+                {
+                    category.Id,
+                    Message = messages["Catalog.CategoryCreated", category.Slug].Value
+                });
         })
         .WithSummary("Creates a category in one or more languages");
 
@@ -160,7 +192,7 @@ public static class CatalogEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.NoContent();
+            return Wrote(messages, "Catalog.CategoryUpdated", category.Slug);
         })
         .WithSummary("Updates a category's slug and any language's text");
 
@@ -186,10 +218,14 @@ public static class CatalogEndpoints
             // delete.
             await media.For(category).DetachAllAsync(ct);
 
+            // Read before the row goes: naming the deleted thing is the whole point of the message,
+            // and `category.Slug` is only reliable while the entity is still there to read it from.
+            var slug = category.Slug;
+
             db.Categories.Remove(category);
             await db.SaveChangesAsync(ct);
 
-            return Results.NoContent();
+            return Wrote(messages, "Catalog.CategoryDeleted", slug);
         })
         .WithSummary("Deletes a category that has no products");
     }
@@ -267,6 +303,7 @@ public static class CatalogEndpoints
             ProductWrite body,
             AppDbContext db,
             IMultiLingualManager multiLingual,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = new Product
@@ -282,7 +319,13 @@ public static class CatalogEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.Created($"/api/products/{product.Id}", new { product.Id });
+            return Results.Created(
+                $"/api/products/{product.Id}",
+                new
+                {
+                    product.Id,
+                    Message = messages["Catalog.ProductCreated", product.Sku].Value
+                });
         })
         .WithSummary("Creates a product in one or more languages");
 
@@ -305,7 +348,7 @@ public static class CatalogEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            return Results.NoContent();
+            return Wrote(messages, "Catalog.ProductUpdated", product.Sku);
         })
         .WithSummary("Updates a product and any language's text");
 
@@ -334,7 +377,15 @@ public static class CatalogEndpoints
                 },
                 ct);
 
-            return Results.Ok(new { uploaded.Id, uploaded.FileName, uploaded.Size });
+            // Named after the file rather than the product's SKU: the file is the thing that just
+            // arrived, and it is the only one of the two the uploader can get wrong.
+            return Results.Ok(new
+            {
+                uploaded.Id,
+                uploaded.FileName,
+                uploaded.Size,
+                Message = messages["Catalog.ProductImageUploaded", uploaded.FileName].Value
+            });
         })
         .DisableAntiforgery()
         .WithSummary("Uploads an image and attaches it to the product");
@@ -360,12 +411,15 @@ public static class CatalogEndpoints
                 await media.DeleteAsync(file.Id, ct);
             }
 
+            // Read before the row goes, for the same reason as the category's slug.
+            var sku = product.Sku;
+
             // The product's own translations ARE removed automatically: MultiLingual's
             // SaveChanges interceptor sees the entity being deleted.
             db.Products.Remove(product);
             await db.SaveChangesAsync(ct);
 
-            return Results.NoContent();
+            return Wrote(messages, "Catalog.ProductDeleted", sku);
         })
         .WithSummary("Deletes a product, its images, and their alt text");
     }

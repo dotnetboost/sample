@@ -3,7 +3,16 @@
   "Catalog": {
     "CategoryNotFound": "التصنيف {0} غير موجود.",
     "ProductNotFound": "المنتج {0} غير موجود.",
-    "CategoryHasProducts": "انقل منتجات هذا التصنيف أو احذفها أولًا."
+    "CategoryHasProducts": "انقل منتجات هذا التصنيف أو احذفها أولًا.",
+
+    // رسائل عمليات الكتابة الناجحة. {0} هو المُعرِّف النصي أو رمز المنتج. انظر en.json.
+    "CategoryCreated": "تم إنشاء التصنيف {0}.",
+    "CategoryUpdated": "تم حفظ التصنيف {0}.",
+    "CategoryDeleted": "تم حذف التصنيف {0}.",
+    "ProductCreated": "تم إنشاء المنتج {0}.",
+    "ProductUpdated": "تم حفظ المنتج {0}.",
+    "ProductDeleted": "تم حذف المنتج {0}.",
+    "ProductImageUploaded": "تم إرفاق {0} بالمنتج."
   },
 
   "MediaText": {

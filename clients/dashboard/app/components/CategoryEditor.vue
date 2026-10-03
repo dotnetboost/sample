@@ -67,15 +67,18 @@ async function save() {
     // Media is NOT saved here: an attach or a detach landed as its own request when it was made,
     // against the media library's own endpoints. Saving a category cannot touch its files, because
     // they are attachment rows pointing at it rather than columns on it.
-    if (props.categoryId === null) {
-      await api.categories.create(body)
-    } else {
-      await api.categories.update(props.categoryId, body)
-    }
+    const written = props.categoryId === null
+      ? await api.categories.create(body)
+      : await api.categories.update(props.categoryId, body)
 
-    notifySuccess(props.categoryId === null
-      ? t('categoryEditor.toast.created')
-      : t('categoryEditor.toast.saved'))
+    // The title is this dashboard's — short, and the same every time, which is what makes a toast
+    // scannable. The description is the API's: it names the slug the write landed on, and it is
+    // already in the reading language, so there is nothing here to translate.
+    notifySuccess(
+      props.categoryId === null
+        ? t('categoryEditor.toast.created')
+        : t('categoryEditor.toast.saved'),
+      written.message)
 
     emit('saved')
     open.value = false

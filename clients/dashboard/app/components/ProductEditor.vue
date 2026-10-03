@@ -86,15 +86,16 @@ async function save() {
     // Media is NOT saved here: an attach, detach or reorder landed as its own request when it was
     // made, against the media library's own endpoints. A product's files are attachment rows
     // pointing at it, not columns on it.
-    if (props.productId === null) {
-      await api.products.create(body)
-    } else {
-      await api.products.update(props.productId, body)
-    }
+    const written = props.productId === null
+      ? await api.products.create(body)
+      : await api.products.update(props.productId, body)
 
-    notifySuccess(props.productId === null
-      ? t('productEditor.toast.created')
-      : t('productEditor.toast.saved'))
+    // Title from here, sentence from the API — see CategoryEditor.
+    notifySuccess(
+      props.productId === null
+        ? t('productEditor.toast.created')
+        : t('productEditor.toast.saved'),
+      written.message)
 
     emit('saved')
     open.value = false
