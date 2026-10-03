@@ -48,27 +48,51 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
     private static string Key(Guid mediaFileId) => mediaFileId.ToString("D");
 
     /// <summary>
-    /// Writes one property of one file in one language. A null <paramref name="value"/> removes
-    /// the stored row rather than storing a null, which is the store's own contract.
+    /// Writes the alt text and caption of one file in every language supplied — one call, one
+    /// batch. A null value removes the stored row rather than storing a null, which is the store's
+    /// own contract and is unchanged by batching.
+    ///
+    /// <para><b>Why not one call per property per language.</b> This replaced a
+    /// <c>SetAsync(file, language, property, value)</c> that the endpoint called in a nested loop:
+    /// two awaits a language, so six round trips to save three languages of a single file, each one
+    /// wrapping a single row in an array for the batch API it was already calling.</para>
+    ///
+    /// <para>The cost that mattered was not the round trips though — it was that each was its own
+    /// write. A failure part-way left some languages saved and the rest not, with nothing in the
+    /// response to say where it stopped, on a screen whose whole purpose is editing several
+    /// languages at once. <c>UpsertManyAsync</c> takes the lot and is atomic where the backend
+    /// supports it, so the edit lands whole or not at all.</para>
     /// </summary>
-    public Task SetAsync(
+    public Task SetManyAsync(
         Guid mediaFileId,
-        string languageCode,
-        string propertyName,
-        string? value,
-        CancellationToken ct = default) =>
-        translations.UpsertManyAsync(
-            [
-                new Translation
-                {
-                    EntityName   = Subject,
-                    EntityId     = Key(mediaFileId),
-                    PropertyName = propertyName,
-                    LanguageCode = languageCode,
-                    Value        = value
-                }
-            ],
-            ct);
+        IReadOnlyDictionary<string, MediaTextValues> byLanguage,
+        CancellationToken ct = default)
+    {
+        var entityId = Key(mediaFileId);
+
+        var rows = byLanguage
+            .SelectMany(language => new[]
+            {
+                Row(entityId, language.Key, AltText, language.Value.AltText),
+                Row(entityId, language.Key, Caption, language.Value.Caption)
+            })
+            .ToArray();
+
+        // No languages supplied, so no statement to send — the same answer GetManyAsync gives an
+        // empty id list, rather than asking the store to write nothing.
+        return rows.Length == 0 ? Task.CompletedTask : translations.UpsertManyAsync(rows, ct);
+    }
+
+    /// <summary>One row of the batch, so the four parts of a translation's key are named once.</summary>
+    private static Translation Row(
+        string entityId, string languageCode, string propertyName, string? value) => new()
+    {
+        EntityName   = Subject,
+        EntityId     = entityId,
+        PropertyName = propertyName,
+        LanguageCode = languageCode,
+        Value        = value
+    };
 
     /// <summary>
     /// Alt text and caption for one file in the language this request resolved to, falling back

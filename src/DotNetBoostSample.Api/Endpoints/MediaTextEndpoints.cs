@@ -64,11 +64,9 @@ public static class MediaTextEndpoints
             var file = await media.FindAsync(mediaFileId, ct);
             if (file is null) return FileNotFound(messages, mediaFileId);
 
-            foreach (var (language, values) in body.Values)
-            {
-                await mediaText.SetAsync(mediaFileId, language, MediaText.AltText, values.AltText, ct);
-                await mediaText.SetAsync(mediaFileId, language, MediaText.Caption, values.Caption, ct);
-            }
+            // Every language in one write. A loop here would be several, and an editor that saves
+            // three languages at once should not be able to half-succeed.
+            await mediaText.SetManyAsync(mediaFileId, body.Values ?? [], ct);
 
             return Results.Ok(await mediaText.GetAllLanguagesAsync(mediaFileId, ct));
         })
@@ -100,8 +98,15 @@ public static class MediaTextEndpoints
     }
 }
 
-/// <summary>Alt text and caption, keyed by language code.</summary>
-public sealed record MediaTextWrite(Dictionary<string, MediaTextValues> Values);
+/// <summary>
+/// Alt text and caption, keyed by language code.
+/// <para>
+/// Nullable because the wire can leave it out: a body of <c>{}</c> deserialises to a null here
+/// whatever the annotation says, and the handler treats that as "no languages supplied" rather
+/// than answering 500.
+/// </para>
+/// </summary>
+public sealed record MediaTextWrite(Dictionary<string, MediaTextValues>? Values);
 
 /// <summary>The files to resolve text for, in the request's language.</summary>
 public sealed record ResolveMediaText(Guid[] Ids);
