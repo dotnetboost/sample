@@ -1,4 +1,6 @@
 using Xunit;
+using DotNetBoost.Media.Core.Metadata;
+using DotNetBoost.Media.Core.Models;
 using DotNetBoostSample.Api.Integration;
 using MediaKey = DotNetBoost.Media.Core.Metadata.EntityKey;
 using MultiLingualKey = DotNetBoost.MultiLingual.Core.Metadata.EntityKey;
@@ -61,6 +63,21 @@ public class KeyFormatAgreementTests
         // something long fails here rather than at the database.
         Assert.True(MediaText.Subject.Length <= 128);
         Assert.False(string.IsNullOrWhiteSpace(MediaText.Subject));
+    }
+
+    [Fact]
+    public void The_subject_is_the_name_Media_resolves_a_file_to()
+    {
+        // The other half of the agreement, and the half the format tests above do not cover: the
+        // ids line up, but only if the two stores are being asked about the same ENTITY NAME.
+        //
+        // MediaText hardcodes "MediaFile" so the rows sit under the name Media resolves the type
+        // to, which is what lets the two be read side by side. Nothing in either library enforces
+        // it — exactly as with the key format — so it is asserted here, the way
+        // BrandingOwnerTests asserts it for the Branding owner. Renaming or attributing
+        // MediaFile upstream fails this test instead of quietly stranding every stored alt text
+        // under a name nothing asks about.
+        Assert.Equal(MediaText.Subject, MediaEntityNames.For(typeof(MediaFile)));
     }
 }
 
