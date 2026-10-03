@@ -42,11 +42,12 @@ public static class BrandingEndpoints
             //
             // And deliberately a LOCAL, not `branding.StoreName = translated`. `GetAsync` hands
             // back the instance SettingManager cached, so assigning to a property of it writes this
-            // language's text INTO the entry every later reader of the group is served from. Today
-            // Settings/LanguageAwareSettingCache.cs gives each language its own entry, which
-            // confines the damage to the one language the text was right for and makes it
-            // invisible — which is exactly why it must not be what keeps this correct. Projecting
-            // into the response leaves the cached group untouched whatever the cache does.
+            // language's text INTO the entry every later reader of the group is served from — and
+            // `GET /api/settings/branding` would hand that back as though it were the stored value.
+            //
+            // Projecting into the response is the only thing preventing that: there is no
+            // language-keyed cache behind it to soften the blow, and nothing else would notice.
+            // tests/.../Integration/BrandingCompositionTests.cs is what holds it.
             var stored = await multiLingual.For(branding).GetAllAsync(ct);
 
             var storeName =

@@ -228,11 +228,10 @@ var logo     = await media.For("Branding", "branding").GetByRoleAsync("logo");
 
 > **Do not assign to what `GetAsync` hands you.** It is the instance `SettingManager` cached, not a
 > copy, so `branding.StoreName = translated` writes one request's language into the entry every
-> later reader of the group is served from. `BrandingEndpoints.cs` resolves the translated name into
-> a local and projects it into the response instead. This is the kind of bug a cache hides rather
-> than causes: with `Settings/LanguageAwareSettingCache.cs` giving each language its own entry, the
-> stray write lands in the one language it was already right for and nothing looks wrong until
-> somebody simplifies the cache away.
+> later reader of the group is served from — and `GET /api/settings/branding` hands it back as
+> though it were the stored value. `BrandingEndpoints.cs` resolves the translated name into a local
+> and projects it into the response instead, which is the only thing preventing that. It is pinned
+> by an integration test, because nothing else would notice.
 
 **This is the sharpest demonstration of the attachment model in the sample.** Products show
 attaching to rows, which any schema can do with a foreign key. Branding has no row at all — it is a
@@ -400,7 +399,6 @@ src/DotNetBoostSample.Api/
   Data/Seed.cs                           schema + languages + catalogue on first run
   Entities/                              Category, Product — the app's own two entities
   Settings/BrandingSettings.cs           text in Settings, logo attached in Media
-  Settings/LanguageAwareSettingCache.cs  a cache entry per group PER LANGUAGE
   Integration/MediaText.cs               Media × MultiLingual  ← the composition
   Endpoints/                             catalogue, media-text, branding
   Program.cs                             three independent registrations

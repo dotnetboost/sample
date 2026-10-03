@@ -41,16 +41,21 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 
 // ── DotNetBoost.Settings ─────────────────────────────────────────────────────
 // Runtime-editable configuration, stored in the Settings table of the same database.
-// The language-aware settings cache resolves the request's language per call, so it needs the
-// accessor to reach the current request's scope from a singleton.
-builder.Services.AddHttpContextAccessor();
-
+//
+// The library's own cache keys a group by its name, which is right while no value in a group
+// varies by language — and none does. `Setting` declares nothing translatable, so MultiLingual's
+// interceptor never sees a settings write, and branding's translated name is resolved in
+// BrandingEndpoints.cs by projecting a translation into the RESPONSE, leaving the cached group
+// untouched.
+//
+// This did carry a `.UseCustomCache<LanguageAwareSettingCache>()` that appended the request's
+// language to every key and evicted across all of them. It was correct, and it guarded nothing:
+// the one value that reads differently per language never reaches the cache. A group whose values
+// genuinely do differ per language needs it back — git history has it, and the shape to copy is a
+// language suffix on read plus eviction wider than the write.
 builder.Services
     .AddSettings()
     .UseEntityFrameworkCore<AppDbContext>()
-    // Keys each group's cache entry by the request's language as well as the group, and evicts
-    // every language on a write. See Settings/LanguageAwareSettingCache.cs.
-    .UseCustomCache<LanguageAwareSettingCache>()
     .Build();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
