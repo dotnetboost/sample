@@ -32,27 +32,35 @@ public static class BrandingEndpoints
             // Three reads, three libraries, no shared anything.
             var branding = await settings.For<BrandingSettings>().GetAsync(cancellationToken: ct);
 
-            // Override StoreName only when a translation exists, so the settings row stays the
-            // value every other language falls back to.
+            // The store name in the request's language when a translation exists, and the settings
+            // row otherwise — that row is the value every other language falls back to.
             //
             // Deliberately NOT LocalizeAsync(): outside base-language mode MultiLingual treats the
             // translations as the ONLY store, so it nulls a property it finds nothing for. Here the
             // settings row IS the base value — the group's own ETag and audit cover it — so a
             // missing translation must leave it alone rather than erase it.
+            //
+            // And deliberately a LOCAL, not `branding.StoreName = translated`. `GetAsync` hands
+            // back the instance SettingManager cached, so assigning to a property of it writes this
+            // language's text INTO the entry every later reader of the group is served from. Today
+            // Settings/LanguageAwareSettingCache.cs gives each language its own entry, which
+            // confines the damage to the one language the text was right for and makes it
+            // invisible — which is exactly why it must not be what keeps this correct. Projecting
+            // into the response leaves the cached group untouched whatever the cache does.
             var stored = await multiLingual.For(branding).GetAllAsync(ct);
 
-            if (stored.TryGetValue(multiLingual.CurrentLanguage.Code, out var inLanguage)
+            var storeName =
+                stored.TryGetValue(multiLingual.CurrentLanguage.Code, out var inLanguage)
                 && inLanguage.TryGetValue(nameof(BrandingSettings.StoreName), out var translated)
-                && !string.IsNullOrWhiteSpace(translated))
-            {
-                branding.StoreName = translated;
-            }
+                && !string.IsNullOrWhiteSpace(translated)
+                    ? translated
+                    : branding.StoreName;
 
             var owner = media.For(BrandingSettings.MediaOwnerName, BrandingSettings.MediaOwnerId);
 
             return Results.Ok(new
             {
-                branding.StoreName,
+                StoreName = storeName,
                 branding.AccentColor,
                 branding.HeaderLogoSize,
                 // Every attached file with its role — the same shape the catalogue returns, so the

@@ -14,6 +14,16 @@ namespace DotNetBoostSample.Api.Settings;
 /// and everyone else gets their language's values out of someone else's cache entry. This appends
 /// the language, so each one gets its own entry.</para>
 ///
+/// <para><b>No group varies by language yet, and this is not what stops one going wrong.</b> The
+/// settings library does not localize: <c>Setting</c> declares no translatable properties, so a
+/// settings write is invisible to MultiLingual's interceptor — tests/BrandingOwnerTests.cs pins
+/// that. The one value that reads differently per language, branding's <c>StoreName</c>, is
+/// resolved in Endpoints/BrandingEndpoints.cs by projecting the translation into the response,
+/// which leaves the cached group untouched. So this class is a guard for the day a group's values
+/// genuinely do differ per language, and nothing currently depends on it for a correct answer —
+/// which is the state it should stay in. A cache that is load-bearing by accident fails silently
+/// the first time someone simplifies it away.</para>
+///
 /// <para><b>Eviction has to be wider than the read.</b> <c>SettingManager</c> removes
 /// <c>dnb:setting:{group}</c> after a write — one key, the current language's. Every other
 /// language's entry would survive with the old values. So every suffix this cache has ever issued
