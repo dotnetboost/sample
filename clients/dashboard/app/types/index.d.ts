@@ -108,24 +108,39 @@ export interface AttachRequest {
 }
 
 /**
- * One of an entity's files, as this application's own detail endpoints return it.
+ * A file as a listing or a thumbnail carries it: the file, and its text.
  *
- * The role and sort order come from `ListWithRolesAsync`, and `altText`/`caption` from
- * DotNetBoost.MultiLingual — two libraries' data in one object, joined in application code.
+ * `altText` and `caption` are DotNetBoost.MultiLingual rows, not media data — two libraries' data
+ * in one object, joined in application code.
+ *
+ * **No role.** A role belongs to an attachment rather than to a file, and the media library lets
+ * one file be attached several times over, so there is no single role for a listing to report.
+ * {@link EntityImage} is the shape that has one, and only the detail endpoints return it.
  */
-export interface EntityImage {
+export interface MediaRef {
   id: string
   fileName: string
   contentType: string
   size: number
-  /** What this entity uses it for — `banner`, `primary`, `gallery`. */
-  role: string
-  /** Its position within that role. */
-  sortOrder: number
   /** Resolved in the request's language, with fallback to the default. */
   altText: string | null
   caption: string | null
   url: string
+}
+
+/**
+ * One of an entity's files **in one of its roles**, as this application's own detail endpoints
+ * return it — what the role boxes on an editor are drawn from.
+ *
+ * The role and sort order come from `ListWithRolesAsync`, which answers per link rather than per
+ * file: a product using one file as both its `primary` and its `gallery` image appears here twice,
+ * once under each role, which is exactly what a role box needs and exactly what a count does not.
+ */
+export interface EntityImage extends MediaRef {
+  /** What this entity uses it for — `banner`, `primary`, `gallery`. */
+  role: string
+  /** Its position within that role. */
+  sortOrder: number
 }
 
 /** Which way a language reads. The API serialises it lowercase. */
@@ -197,7 +212,7 @@ export interface Category {
   description: string
   slug: string
   products: number
-  banner: EntityImage | null
+  banner: MediaRef | null
 }
 
 /** A category for editing: every language at once, and every attached file with its role. */
@@ -216,8 +231,9 @@ export interface Product {
   sku: string
   price: number
   categoryId: number
-  primary: EntityImage | null
-  images: EntityImage[]
+  primary: MediaRef | null
+  /** Distinct files: a file in two roles is one image here. */
+  images: MediaRef[]
 }
 
 /**

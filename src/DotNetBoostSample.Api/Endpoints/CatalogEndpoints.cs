@@ -129,7 +129,7 @@ public static class CatalogEndpoints
                     category.Description,
                     category.Slug,
                     Products = productCounts.GetValueOrDefault(category.Id),
-                    Banner = await ThumbnailAsync(banner, BannerRole, mediaText, ct)
+                    Banner = await ThumbnailAsync(banner, mediaText, ct)
                 });
             }
 
@@ -290,11 +290,25 @@ public static class CatalogEndpoints
             // size of the table — which is the second thing PageSize buys.
             foreach (var product in rows)
             {
-                var attachments = media.For(product);
+                // One read, two answers. ListWithRolesAsync is per LINK rather than per file, so
+                // the entry holding `primary` is already in what came back and does not need a
+                // GetByRoleAsync of its own — two round trips a row instead of three.
+                var attached = await media.For(product).ListWithRolesAsync(ct);
 
-                var files = await attachments.ListAsync(ct);
-                var text = await mediaText.GetManyAsync([.. files.Select(f => f.Id)], ct);
-                var primary = await attachments.GetByRoleAsync(PrimaryRole, ct);
+                var text = await mediaText.GetManyAsync([.. attached.Select(a => a.File.Id)], ct);
+
+                var primary = attached.FirstOrDefault(a => a.Role == PrimaryRole)?.File;
+
+                // Distinct files, because `images` on a LISTING answers "what does this product
+                // have" — a file attached as both primary and gallery is one image, and the count
+                // badge beside it would otherwise read two. Ordered first so the survivor of each
+                // group is the same one `ListAsync` would have returned: lowest role, then
+                // position. The per-role view is the detail endpoint's job, and that is the only
+                // shape carrying a role at all.
+                var files = attached
+                    .OrderBy(a => a.Role).ThenBy(a => a.SortOrder)
+                    .GroupBy(a => a.File.Id)
+                    .Select(group => group.First().File);
 
                 result.Add(new
                 {
@@ -304,8 +318,10 @@ public static class CatalogEndpoints
                     product.Sku,
                     product.Price,
                     product.CategoryId,
-                    Primary = await ThumbnailAsync(primary, PrimaryRole, mediaText, ct),
-                    Images = files.Select(f => AttachedFiles.Describe(f, string.Empty, 0, text.GetValueOrDefault(f.Id)))
+                    Primary = primary is null
+                        ? null
+                        : AttachedFiles.Describe(primary, text.GetValueOrDefault(primary.Id)),
+                    Images = files.Select(f => AttachedFiles.Describe(f, text.GetValueOrDefault(f.Id)))
                 });
             }
 
@@ -527,17 +543,21 @@ public static class CatalogEndpoints
     }
 
     /// <summary>
-    /// One file for a list thumbnail, with its alt text resolved. The role is passed in because a
-    /// thumbnail is fetched by role — a category's banner, a product's primary image.
+    /// One file for a list thumbnail, with its alt text resolved.
+    /// <para>
+    /// It no longer carries the role it was fetched by. The field it lands in already says which
+    /// one — <c>banner</c>, <c>primary</c>, <c>logo</c> — so repeating it told the caller nothing it
+    /// did not know, while making the listing's file shape look like the detail endpoint's
+    /// role-slot shape without being it.
+    /// </para>
     /// </summary>
     private static async Task<object?> ThumbnailAsync(
         MediaFileInfo? file,
-        string role,
         MediaText mediaText,
         CancellationToken ct) =>
         file is null
             ? null
-            : AttachedFiles.Describe(file, role, 0, await mediaText.GetAsync(file.Id, ct));
+            : AttachedFiles.Describe(file, await mediaText.GetAsync(file.Id, ct));
 }
 
 /// <summary>Translations as languageCode → (propertyName → value), straight from the editor.</summary>

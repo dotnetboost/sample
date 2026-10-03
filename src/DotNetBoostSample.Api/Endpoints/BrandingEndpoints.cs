@@ -129,7 +129,7 @@ public static class BrandingEndpoints
 
         return logo is null
             ? null
-            : AttachedFiles.Describe(logo, BrandingSettings.LogoRole, 0, await mediaText.GetAsync(logo.Id, ct));
+            : AttachedFiles.Describe(logo, await mediaText.GetAsync(logo.Id, ct));
     }
 }
 

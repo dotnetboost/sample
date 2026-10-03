@@ -371,6 +371,17 @@ response says what it settled on. `MaxPageSize` caps whatever is asked for, beca
 a caller's suggestion and an unbounded one is how a listing endpoint becomes a way to exhaust
 memory.
 
+**A file and a file-in-a-role are different shapes, and the API sends different ones.** A listing
+or a thumbnail — `images` and `primary` on `/api/products`, `banner` on `/api/categories`, `logo`
+on `/api/branding` — carries the file and its text, and no role: a role belongs to an attachment,
+and the media library lets one file be attached several times over, so there is no single role to
+report. The detail endpoints carry `role` and `sortOrder`, because a role box is asking about links
+rather than files. It is the library's own distinction — `ListAsync` answers "what files does this
+entity use" and returns each once; `ListWithRolesAsync` answers per link and returns a file once
+per role — and the two shapes exist so that each endpoint can use the right one. A product using
+one image as both its `primary` and its `gallery` picture therefore counts as **one** image in the
+list and fills **two** boxes in the editor, which is correct in both places.
+
 Attachments are the media library's: `POST /api/media/{id}/attachments`,
 `DELETE /api/media/{id}/attachments/{attachmentId}`, `PUT /api/media/attachments/order` and
 `GET /api/media/roles/{entityName}`. The roles themselves are declared once, in `Program.cs`:

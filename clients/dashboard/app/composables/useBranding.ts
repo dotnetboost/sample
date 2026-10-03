@@ -1,4 +1,4 @@
-import type { EntityImage } from '~/types'
+import type { EntityImage, MediaRef } from '~/types'
 
 export interface Branding {
   storeName: string
@@ -7,8 +7,8 @@ export interface Branding {
   headerLogoSize: number
   /** Everything attached to ("Branding", "branding"), with roles. */
   images: EntityImage[]
-  /** The file in the `logo` role, or null. */
-  logo: EntityImage | null
+  /** The file in the `logo` role, or null. The field name is the role, so the file does not repeat it. */
+  logo: MediaRef | null
 }
 
 /** The key the header and the settings page share, so one refresh updates both. */
