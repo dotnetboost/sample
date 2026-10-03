@@ -120,7 +120,11 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 
 // ── Each library maps its own endpoints. Three calls, no coordination. ───────
-app.MapSettingsEndpoints();                     // /api/settings/{group}
+// Media and MultiLingual tag their own endpoints ("Media", "Languages"); Settings does not,
+// so its routes would be filed under the application name in the OpenAPI document. The empty
+// prefix leaves the paths alone and only carries the tag in.
+app.MapGroup("").WithTags("Settings")
+   .MapSettingsEndpoints();                     // /api/settings/{group}
 app.MapMediaEndpoints();                        // /api/media
 app.MapLanguageEndpoints();                     // /api/languages
 
