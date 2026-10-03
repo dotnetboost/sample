@@ -63,6 +63,18 @@ save that would overwrite someone else's is refused with `412`. The form then of
 only the fields *you* edited on top of the latest values, so neither writer clobbers the other.
 Verified by changing a group out-of-band mid-edit.
 
+The second tab, **Catalog**, is there to show a group that is read somewhere other than the page
+that writes it — three values, each landing in a different place:
+
+| | |
+|---|---|
+| `PageSize` | How many products `GET /api/products` answers with. The catalogue list asks for no page size, so this is the one that decides; the pager under the list follows it. |
+| `CurrencySymbol` | The glyph beside a price. Only the glyph — `Intl` places it, so the same `€` reads `€349.00` in English and `349.00 €` in Arabic. |
+| `ShowProductsWithoutImages` | Turn it off and a product with nothing attached is not listed at all. The list says so rather than leaving a short page looking like the whole catalogue. |
+
+Change `PageSize` from 12 to 2, reload the Catalog page, and it pages by two — no restart, no
+redeploy, which is the entire claim of a settings library and is worth seeing actually happen.
+
 **Languages** is DotNetBoost.MultiLingual's own page: a table with the code, the name written in
 its own script and direction, the direction badge, the default marker, an active switch, and a
 per-row menu for edit, make-default, *delete its translations* and delete. Refusals are shown in
@@ -91,6 +103,12 @@ Nothing on those forms knows it is touching three libraries. The slug and SKU ar
 name and description are translation rows; the images are attachment rows — and attaching,
 detaching and reordering go straight to **the media library's own endpoints**, so this application
 has no attachment endpoints of its own.
+
+The products list is **paged**, and it does not decide the page size itself: it sends none, so the
+API answers with `CatalogSettings.PageSize` and reports in `take` what it used. The pager reads that
+number back rather than holding a second opinion about it, which is why editing the setting moves
+the list and why the two cannot end up disagreeing. Prices are drawn with the same group's
+`CurrencySymbol`.
 
 Saving and deleting are reported in **the API's words** rather than the dashboard's: a delete reads
 "تم حذف التصنيف coques-telephone." and not "Deleted", because the sentence naming the row comes back
@@ -208,6 +226,14 @@ var branding = await settings.For<BrandingSettings>().GetAsync();
 var logo     = await media.For("Branding", "branding").GetByRoleAsync("logo");
 ```
 
+> **Do not assign to what `GetAsync` hands you.** It is the instance `SettingManager` cached, not a
+> copy, so `branding.StoreName = translated` writes one request's language into the entry every
+> later reader of the group is served from. `BrandingEndpoints.cs` resolves the translated name into
+> a local and projects it into the response instead. This is the kind of bug a cache hides rather
+> than causes: with `Settings/LanguageAwareSettingCache.cs` giving each language its own entry, the
+> stray write lands in the one language it was already right for and nothing looks wrong until
+> somebody simplifies the cache away.
+
 **This is the sharpest demonstration of the attachment model in the sample.** Products show
 attaching to rows, which any schema can do with a foreign key. Branding has no row at all — it is a
 group of setting rows and there can only ever be one of it — and a foreign key could not express
@@ -250,9 +276,10 @@ Being honest about the trade-off, because it is the point of the sample:
 | | |
 |---|---|
 | **Glue per app** | Every application writes `MediaText.cs` itself — about 100 lines here, most of it comment. |
-| **No cascade** | Deleting a `MediaFile` does not delete its alt text; the media library has no idea it exists. `DELETE /api/products/{id}` writes that cleanup out by hand. |
-| **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`. |
+| **No cascade** | Deleting a `MediaFile` does not delete its alt text; the media library has no idea it exists. Both delete paths write that cleanup out by hand — `DELETE /api/products/{id}` for a product's files, and the Media page's own delete, which goes to the library's endpoint and so would otherwise strand the rows it never hears about. Two callers, because there are two ways to delete a file. |
+| **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
 | **No shared guarantee** | Both libraries must format keys identically. They do — but by a hand-maintained convention, which is why `tests/KeyFormatAgreementTests.cs` asserts it rather than trusting it. |
+| **One query the interface cannot ask** | `ShowProductsWithoutImages` needs "has an image" for every product at once, before a page can be taken. Media addresses one owner at a time and ships no bulk API, so `CatalogEndpoints.ProductsWithAnImage` reads the `MediaAttachments` table directly rather than running a query per row. It is the only place in the application that reads a library's rows instead of its interface, and it is a schema dependency a package upgrade could break where `IMediaAccessor` could not. |
 
 None of these are capability limits. They are ergonomics, and they are the price of being able to
 install one library without the other two.
@@ -269,8 +296,14 @@ dotnet test
   `DotNetBoost.Core` or `DotNetBoost.Abstractions`. A README sentence decays; a failing build does
   not.
 - **`KeyFormatAgreementTests`** — Media and MultiLingual format the same `Guid`, `int`, `long` and
-  `string` key to the same string, and cap it at the same length. This is what makes
-  `MediaText.cs` safe.
+  `string` key to the same string, and cap it at the same length. It also pins the other half of
+  the agreement: ids only find each other if both stores are asked about the same *entity name*, so
+  `MediaText.Subject` is asserted equal to `MediaEntityNames.For(typeof(MediaFile))`. Renaming
+  `MediaFile` upstream fails here rather than stranding every stored alt text under a name nothing
+  asks about. Together, this is what makes `MediaText.cs` safe.
+- **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
+  code uses is the one the attribute stores under, and the group's `Id` stays out of both the
+  settings table and the JSON.
 
 ---
 
@@ -278,13 +311,14 @@ dotnet test
 
 ```
 src/DotNetBoostSample.Api/
-  Data/AppDbContext.cs          one database, three Apply* calls
-  Data/Seed.cs                  schema + languages + catalogue on first run
-  Entities/                     Category, Product — the app's own two entities
-  Settings/BrandingSettings.cs  text in Settings, logo attached in Media
-  Integration/MediaText.cs      Media × MultiLingual  ← the composition
-  Endpoints/                    catalogue, media-text, branding
-  Program.cs                    three independent registrations
+  Data/AppDbContext.cs                   one database, three Apply* calls
+  Data/Seed.cs                           schema + languages + catalogue on first run
+  Entities/                              Category, Product — the app's own two entities
+  Settings/BrandingSettings.cs           text in Settings, logo attached in Media
+  Settings/LanguageAwareSettingCache.cs  a cache entry per group PER LANGUAGE
+  Integration/MediaText.cs               Media × MultiLingual  ← the composition
+  Endpoints/                             catalogue, media-text, branding
+  Program.cs                             three independent registrations
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
@@ -301,6 +335,7 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/pages/settings/catalog.vue         Catalog tab
   app/components/settings/GroupForm.vue  form generated from whatever the group returns
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
+  app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
   app/utils/settings.ts                  the group registry — one entry per tab
   app/pages/languages.vue                MultiLingual's own languages table
   app/components/languages/FormModal.vue add or edit a language
@@ -309,7 +344,8 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/components/CategoryEditor.vue      slug + per-language text + banner picker
   app/components/ProductEditor.vue       columns + per-language text + primary & gallery
   app/components/TranslationEditor.vue   a button per language, fields for the selected one
-  app/components/MediaPicker.vue         pick an existing file from the library, or upload
+  app/components/media/PickerModal.vue   pick an existing file from the library, or upload
+  app/utils/format.ts                    sizes, dates and prices through Intl in the UI locale
 tests/DotNetBoostSample.Tests/           the claim, as tests
 media/                                   file bytes at runtime (gitignored)
 ```
@@ -326,6 +362,14 @@ Each library maps its own, with no coordination between them:
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages` |
 | This application | `/api/categories`, `/api/products`, `/api/media-text/{id}`, `/api/media-text/resolve`, `/api/branding` |
+
+`GET /api/products` takes `page` and `pageSize` and answers `{ items, total, skip, take }` — the
+shape DotNetBoost.Media answers its own listings with, so the dashboard pages a catalogue the way
+it already pages the media library. Both parameters are optional: with no `pageSize` the API uses
+`CatalogSettings.PageSize`, which is how that setting reaches a screen at all, and `take` in the
+response says what it settled on. `MaxPageSize` caps whatever is asked for, because a page size is
+a caller's suggestion and an unbounded one is how a listing endpoint becomes a way to exhaust
+memory.
 
 Attachments are the media library's: `POST /api/media/{id}/attachments`,
 `DELETE /api/media/{id}/attachments/{attachmentId}`, `PUT /api/media/attachments/order` and
@@ -410,8 +454,8 @@ to be. Which is already how a refusal is shown — the same split, from `problem
 >
 > `DotNetBoost.Media.API`'s list endpoint returns `url` as a *signed, expiring* link, which is
 > null on the FileSystem backend. The dashboard therefore derives every URL from the file's id
-> (`app/utils/media.ts`) rather than reading the field — which also means switching to Azure or S3
-> changes no client code.
+> (`contentUrl` in `app/utils/format.ts`) rather than reading the field — which also means
+> switching to Azure or S3 changes no client code.
 
 ---
 
