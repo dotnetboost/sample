@@ -56,7 +56,11 @@ builder.Services
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
 // Rows in PostgreSQL, bytes on local disk under ./media. Switching to Azure or S3 is one line
 // here and nothing else — including nothing in MediaText.cs.
-var mediaRoot = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "media");
+// Overridable with Media__Root so a test run writes its bytes into its own temporary directory
+// rather than into the repository's media folder. Unset, it is the ./media beside the solution,
+// which is what `aspire run` uses and what the README documents.
+var mediaRoot = builder.Configuration["Media:Root"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "..", "media");
 
 builder.Services
     .AddMedia()
@@ -134,3 +138,14 @@ app.MapMediaTextEndpoints();                    // /api/media-text  — the comp
 app.MapBrandingEndpoints();                     // /api/branding    — a setting holding a file id
 
 app.Run();
+
+/// <summary>
+/// Named so the integration tests can boot this exact application through
+/// <c>WebApplicationFactory&lt;Program&gt;</c> — top-level statements otherwise compile to a class
+/// no other assembly can see.
+/// <para>
+/// It carries no code on purpose. The tests run the real Program.cs above, with the real three
+/// registrations, because a test that boots a different composition proves nothing about this one.
+/// </para>
+/// </summary>
+public partial class Program;

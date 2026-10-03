@@ -295,6 +295,11 @@ dotnet test
 - **`ZeroCouplingTests`** — no library references another, and none references a
   `DotNetBoost.Core` or `DotNetBoost.Abstractions`. A README sentence decays; a failing build does
   not.
+The first two groups read attributes and type metadata: no database, no host, milliseconds. They
+say what the code *is*. The third boots the application and says what it *does*.
+
+### What the code is
+
 - **`KeyFormatAgreementTests`** — Media and MultiLingual format the same `Guid`, `int`, `long` and
   `string` key to the same string, and cap it at the same length. It also pins the other half of
   the agreement: ids only find each other if both stores are asked about the same *entity name*, so
@@ -304,6 +309,43 @@ dotnet test
 - **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
   code uses is the one the attribute stores under, and the group's `Id` stays out of both the
   settings table and the JSON.
+
+### What the code does
+
+`tests/.../Integration/` boots **this exact `Program.cs`** through `WebApplicationFactory` against a
+throwaway PostgreSQL from Testcontainers, and drives it over HTTP. Only two things are overridden,
+both infrastructure rather than composition: the connection string, and `Media:Root` so uploaded
+bytes land in a temp directory instead of your `media/` folder.
+
+It exists because everything above is blind to the part that matters. That a plain `ToListAsync()`
+comes back translated, that alt text written through one library reads back beside a file owned by
+another, that a settings value changes what an endpoint answers without a restart — all of it is
+behaviour of three libraries sharing one `DbContext`, and none of it is provable without the
+database they share.
+
+- **`BrandingCompositionTests`** — reading branding in Arabic must not change what
+  `GET /api/settings/branding` answers. That is a regression test for a real bug: the endpoint used
+  to assign the translated name onto the instance `SettingManager` cached, writing one request's
+  language into the entry every later reader is served from. No metadata test could see it.
+- **`CatalogCompositionTests`** — entities come back in the request's language with nothing asking;
+  a missing translation falls back to the default; alt text stored as MultiLingual rows reads back
+  on a Media file; refusals and confirmations arrive in the language the content was read in
+  (asserted against the actual Arabic and French sentences); and deleting a product takes the alt
+  text that nothing cascades.
+- **`CatalogSettingsTests`** — `PageSize` changes the listing with no restart, a caller may
+  override it but not past the cap, `ShowProductsWithoutImages` filters *before* the count, and a
+  group answers with its values and nothing else.
+- **`MediaShapeTests`** — one file attached under two roles is **one** image in the listing and
+  **two** boxes in the editor; no shape carries a URL but the bytes are reachable from the id;
+  several languages of alt text are one write, and a null still removes its row; and the text
+  delete still works once the file itself is gone.
+
+Both regression tests were checked the only way that means anything: the fix was reverted, the test
+failed, the fix was put back.
+
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 33 fast
+tests and reports the other 17 as skipped, with the reason. The README already asks for Docker,
+OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
 ---
 
@@ -347,6 +389,8 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/components/media/PickerModal.vue   pick an existing file from the library, or upload
   app/utils/format.ts                    sizes, dates and prices through Intl in the UI locale
 tests/DotNetBoostSample.Tests/           the claim, as tests
+  Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL
+  Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
 media/                                   file bytes at runtime (gitignored)
 ```
 
