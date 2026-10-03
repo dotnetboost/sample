@@ -8,17 +8,29 @@ useHead({ title: () => t('nav.documentTitle', { page: t('nav.overview') }) })
 const api = useApi()
 
 const { data: categories } = await useAsyncData('overview-categories', () => api.categories.list())
-const { data: products } = await useAsyncData('overview-products', () => api.products.list())
+/**
+ * The overview counts across the catalogue rather than showing a page of it, so this is the one
+ * caller that asks for its own page size instead of letting `CatalogSettings.PageSize` decide.
+ *
+ * `MaxPageSize` on the API caps it at 200, so the two image stats below describe at most that many
+ * products — the headline count does not, because it reads `total`. And with
+ * `showProductsWithoutImages` turned off, `total` is what the catalogue lists rather than what the
+ * table holds, which is the number this panel is about.
+ */
+const { data: productPage } = await useAsyncData(
+  'overview-products', () => api.products.list({ pageSize: 200 }))
+
+const products = computed(() => productPage.value?.items ?? [])
 const { data: languages } = await useAsyncData('overview-languages', () => api.multiLingual.languages())
 // The media library's own endpoint, called directly — exactly as useMediaLibrary does.
 const { data: library } = await useAsyncData('overview-media', () =>
   $fetch<MediaPage>('/api/media', { query: { take: 1 } }))
 
 const withAltText = computed(() =>
-  (products.value ?? []).flatMap(p => p.images).filter(i => i.altText).length)
+  products.value.flatMap(p => p.images).filter(i => i.altText).length)
 
 const imageCount = computed(() =>
-  (products.value ?? []).reduce((total, p) => total + p.images.length, 0))
+  products.value.reduce((total, p) => total + p.images.length, 0))
 </script>
 
 <template>
@@ -51,7 +63,7 @@ const imageCount = computed(() =>
         />
         <UPageCard
           icon="i-lucide-package"
-          :title="String(products?.length ?? 0)"
+          :title="String(productPage?.total ?? 0)"
           :description="$t('overview.stats.products')"
           variant="subtle"
         />

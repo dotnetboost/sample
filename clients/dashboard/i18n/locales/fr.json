@@ -101,7 +101,10 @@
     "products": {
       "title": "Produits",
       "description": "Le nom et la description sont des lignes de traduction ; les images sont des pièces jointes dans la bibliothèque de médias. Ni l'une ni l'autre bibliothèque ne sait que l'autre existe.",
-      "empty": "Aucun produit pour l'instant."
+      "empty": "Aucun produit pour l'instant.",
+      "emptyImagesOnly": "Aucun produit n'a encore d'image. Désactivez « afficher les produits sans image » dans les Réglages pour lister les autres.",
+      "range": "{from}–{to} sur {total}",
+      "imagesOnly": "Les produits sans image sont masqués"
     },
     "productCount": "{n} produit | {n} produits",
     "imageCount": "{n} image | {n} images",

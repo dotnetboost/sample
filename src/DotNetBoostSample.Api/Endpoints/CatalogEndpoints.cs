@@ -1,10 +1,13 @@
 using DotNetBoost.Media.Core.Interfaces;
+using DotNetBoost.Media.Core.Metadata;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core.Interfaces;
+using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Api.Data;
 using DotNetBoostSample.Api.Entities;
 using DotNetBoostSample.Api.Integration;
 using DotNetBoostSample.Api.Localization;
+using DotNetBoostSample.Api.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -72,6 +75,17 @@ public static class CatalogEndpoints
 
     /// <summary>The role a product's remaining images are attached under.</summary>
     private const string GalleryRole = "gallery";
+
+    /// <summary>
+    /// The largest page the catalogue will answer with, whatever is asked for.
+    /// <para>
+    /// A page size is a caller's suggestion — DotNetBoost.Media says exactly that of its own
+    /// <c>Take</c> — and an unbounded one is how a listing endpoint becomes a way to exhaust the
+    /// server's memory. <c>CatalogSettings.PageSize</c> is the default within this; it is not a
+    /// way past it.
+    /// </para>
+    /// </summary>
+    private const int MaxPageSize = 200;
 
     public static void MapCatalogEndpoints(this IEndpointRouteBuilder app)
     {
@@ -238,18 +252,42 @@ public static class CatalogEndpoints
         products.MapGet("/", async (
             AppDbContext db,
             IMediaManager media,
+            ISettingManager settings,
             MediaText mediaText,
             int? categoryId,
+            int? page,
+            int? pageSize,
             CancellationToken ct) =>
         {
+            // How the catalogue is presented, editable at runtime on the Settings page. Read per
+            // request rather than captured at startup: "change it, reload, done" is the whole
+            // promise of DotNetBoost.Settings, and a value read once would quietly not keep it.
+            var catalog = await settings.For<CatalogSettings>().GetAsync(cancellationToken: ct);
+
+            // PageSize is the DEFAULT page, not a ceiling. A caller may ask for its own — which is
+            // how the dashboard's overview reads enough rows to count across more than one page —
+            // and the catalogue list sends neither parameter, so there the setting decides.
+            var take = Math.Clamp(pageSize ?? catalog.PageSize, 1, MaxPageSize);
+            var skip = (Math.Max(page ?? 1, 1) - 1) * take;
+
             var query = db.Products.AsQueryable();
 
             if (categoryId is not null)
                 query = query.Where(p => p.CategoryId == categoryId);
 
-            var rows = await query.OrderBy(p => p.Id).ToListAsync(ct);
+            // The setting's other half: a product with no image is not listed at all.
+            if (!catalog.ShowProductsWithoutImages)
+                query = query.Where(p => ProductsWithAnImage(db).Contains(p.Id.ToString()));
+
+            // Counted AFTER the filter, so a page is a page of what is actually being listed and
+            // the pager cannot offer a page that holds nothing.
+            var total = await query.CountAsync(ct);
+
+            var rows = await query.OrderBy(p => p.Id).Skip(skip).Take(take).ToListAsync(ct);
             var result = new List<object>(rows.Count);
 
+            // Still three media round trips per row, and now bounded by `take` rather than by the
+            // size of the table — which is the second thing PageSize buys.
             foreach (var product in rows)
             {
                 var attachments = media.For(product);
@@ -271,9 +309,11 @@ public static class CatalogEndpoints
                 });
             }
 
-            return Results.Ok(result);
+            // The same shape DotNetBoost.Media answers a listing with, so the dashboard pages a
+            // catalogue the way it already pages the media library.
+            return Results.Ok(new { Items = result, Total = total, Skip = skip, Take = take });
         })
-        .WithSummary("Products with translated text and per-language image alt text");
+        .WithSummary("One page of products, translated, with per-language image alt text");
 
         products.MapGet("/{id:int}", async (
             int id,
@@ -427,6 +467,51 @@ public static class CatalogEndpoints
     // ─────────────────────────────────────────────────────────────────────────
     //  Shared helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The ids of every product with at least one live file attached — the subquery behind
+    /// <c>CatalogSettings.ShowProductsWithoutImages</c>.
+    ///
+    /// <para><b>Why this reads the media library's rows instead of calling it.</b> "Has an image"
+    /// is a fact about DotNetBoost.Media's attachments, and the filter asks it of every product at
+    /// once, before a single row can be paged. The library addresses one owner at a time —
+    /// <c>media.For(product)</c> — and ships no bulk owner API, so going through the interface
+    /// means a query per product across the whole table just to decide what the first page holds.
+    /// That is not a filter; it is a scan with a filter printed on it.</para>
+    ///
+    /// <para>So this is the one place in the application that reads a library's own table rather
+    /// than its interface, and the cost is named rather than hidden: it depends on
+    /// <see cref="MediaAttachment"/>'s column shape, which a package upgrade may change and
+    /// <c>IMediaAccessor</c> may not. Nothing is being reached around — <see cref="AppDbContext"/>
+    /// already hosts Media's entities, because <c>ApplyMedia()</c> asks it to — the interface
+    /// simply cannot express this question. If it grows one, this method is the only caller to
+    /// change.</para>
+    ///
+    /// <para><b>The attachment table alone is the right answer, and that is a documented
+    /// guarantee rather than a guess.</b> Deleting a file removes every attachment of it outright
+    /// <i>even under soft delete</i> — the row may survive with <c>DeletedAt</c> set, as a record
+    /// that the file existed, but nothing is attached to it any more. So there is no live-file join
+    /// to make here: an attachment row existing IS the file being usable. This is the assumption to
+    /// re-read if Media's delete semantics ever change, and it is the reason this query is one
+    /// statement rather than a join. (The first version of this method did join, on
+    /// <c>!f.IsDeleted</c> — which does not even translate, because <c>IsDeleted</c> is computed
+    /// from <c>DeletedAt</c> and is not a column.)</para>
+    ///
+    /// <para>The owner id is compared as text because that is what an attachment stores. Both
+    /// libraries format an <c>int</c> key the same way and tests/KeyFormatAgreementTests.cs
+    /// asserts it, so <c>p.Id.ToString()</c> is the same string the attachment was written with.
+    /// The entity name is asked of Media rather than written out, so it cannot drift from the one
+    /// <c>media.For(product)</c> attaches under.</para>
+    /// </summary>
+    private static IQueryable<string> ProductsWithAnImage(AppDbContext db)
+    {
+        var ownerName = MediaEntityNames.For(typeof(Product));
+
+        return db.MediaAttachments
+            .Where(a => a.OwnerEntityName == ownerName)
+            .Select(a => a.OwnerEntityId)
+            .Distinct();
+    }
 
     /// <summary>
     /// Queues one language's values per call. Uses the by-name overload because the property names

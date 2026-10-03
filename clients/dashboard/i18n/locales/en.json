@@ -101,7 +101,10 @@
     "products": {
       "title": "Products",
       "description": "Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.",
-      "empty": "No products yet."
+      "empty": "No products yet.",
+      "emptyImagesOnly": "No products have an image yet. Turn off \"show products without images\" in Settings to list the rest.",
+      "range": "{from}–{to} of {total}",
+      "imagesOnly": "Products with no image are hidden"
     },
     "productCount": "{n} product | {n} products",
     "imageCount": "{n} image | {n} images",

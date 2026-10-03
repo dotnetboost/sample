@@ -14,11 +14,53 @@ const tab = ref('categories')
 
 const { data: languages } = await useAsyncData('catalog-languages', () => api.multiLingual.languages())
 const { data: categories, refresh: refreshCategories } = await useAsyncData('catalog-categories', () => api.categories.list())
-const { data: products, refresh: refreshProducts } = await useAsyncData('catalog-products', () => api.products.list())
+
+/**
+ * Which page of products is on screen.
+ *
+ * How MANY is not here: `api.products.list()` is called with no page size, so the API answers with
+ * `CatalogSettings.PageSize` and tells us what it used in `take`. Deciding it here as well would
+ * be a second answer to a question the settings group already answers, and the two would disagree
+ * the moment someone edited the setting.
+ */
+const page = ref(1)
+
+const { data: productPage, refresh: refreshProducts } = await useAsyncData(
+  'catalog-products',
+  () => api.products.list({ page: page.value }),
+  { watch: [page] })
+
+// `currencySymbol` for the price, and `showProductsWithoutImages` so a filtered list can say so.
+const { data: catalogSettings } = await useCatalogSettings()
+
+const products = computed(() => productPage.value?.items ?? [])
+const productTotal = computed(() => productPage.value?.total ?? 0)
+const pageSize = computed(() => productPage.value?.take ?? 0)
+const pageCount = computed(() =>
+  pageSize.value ? Math.ceil(productTotal.value / pageSize.value) : 1)
+
+const currencySymbol = computed(() => catalogSettings.value?.currencySymbol ?? '')
+const imagesOnly = computed(() => catalogSettings.value?.showProductsWithoutImages === false)
+
+const range = computed(() => productTotal.value
+  ? t('catalog.products.range', {
+      from: (productPage.value?.skip ?? 0) + 1,
+      to: (productPage.value?.skip ?? 0) + products.value.length,
+      total: productTotal.value
+    })
+  : '')
 
 // Re-read when the header language changes: these are the same rows, translated.
 watch(language, async () => {
   await Promise.all([refreshCategories(), refreshProducts()])
+})
+
+// A delete can empty the last page, which would otherwise leave a pager pointing past the end at
+// an empty list. Mirrors what useMediaLibrary does for the same reason.
+watch([productTotal, pageSize], () => {
+  if (page.value > pageCount.value) {
+    page.value = pageCount.value
+  }
 })
 
 const editingCategory = ref<number | null>(null)
@@ -244,7 +286,11 @@ const items = computed(() => [
           >
             {{ product.sku }}
           </UBadge>
-          <span class="text-sm">{{ product.price }}</span>
+          <!-- No `dir` override, unlike the SKU beside it: `formatPrice` asks Intl to place the
+               symbol for the reading locale and Intl marks the result's direction itself, so
+               Arabic gets "349.00 $" and forcing LTR here would undo that. A SKU is a Latin code
+               in every language and does need the override. -->
+          <span class="text-sm">{{ formatPrice(product.price, currencySymbol) }}</span>
           <UBadge variant="subtle" size="sm">
             {{ categoryName(product.categoryId) }}
           </UBadge>
@@ -262,11 +308,27 @@ const items = computed(() => [
           </UDropdownMenu>
         </UCard>
 
-        <UCard v-if="!products?.length">
+        <UCard v-if="!products.length">
           <p class="text-muted">
-            {{ $t('catalog.products.empty') }}
+            {{ imagesOnly ? $t('catalog.products.emptyImagesOnly') : $t('catalog.products.empty') }}
           </p>
         </UCard>
+
+        <div v-if="productTotal" class="flex items-center justify-between gap-3 pt-1">
+          <p class="text-sm text-muted">
+            {{ range }}
+            <!-- Said rather than left to be noticed: a short list under this filter looks exactly
+                 like a short catalogue. -->
+            <span v-if="imagesOnly">· {{ $t('catalog.products.imagesOnly') }}</span>
+          </p>
+
+          <UPagination
+            v-if="pageCount > 1"
+            v-model:page="page"
+            :total="productTotal"
+            :items-per-page="pageSize"
+          />
+        </div>
       </div>
 
       <CategoryEditor

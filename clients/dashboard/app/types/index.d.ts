@@ -220,6 +220,21 @@ export interface Product {
   images: EntityImage[]
 }
 
+/**
+ * One page of `GET api/products`.
+ *
+ * The same shape as {@link MediaPage}, because the API answers a catalogue listing the way
+ * DotNetBoost.Media answers its own. `take` is what the page actually holds — the
+ * `CatalogSettings.PageSize` setting when the caller asked for nothing — so a pager reads it from
+ * the response rather than needing to know the setting.
+ */
+export interface ProductPage {
+  items: Product[]
+  total: number
+  skip: number
+  take: number
+}
+
 /** A product for editing. */
 export interface ProductDetail {
   id: number

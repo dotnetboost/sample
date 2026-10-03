@@ -132,6 +132,30 @@ export function iconFor(contentType: string): string {
   return 'i-lucide-file'
 }
 
+/**
+ * A price in the UI locale, with the currency symbol from DotNetBoost.Settings.
+ *
+ * `Intl` needs a currency CODE to place a symbol, because placement is the locale's business and
+ * not the symbol's: English writes `$349.00`, French `349,00 $`, and each uses its own separators.
+ * The setting is a glyph and nothing else, so `USD` stands in purely to get that shape, and
+ * `formatToParts` swaps the symbol it resolved for the configured one. The digits, the separators
+ * and the position are the locale's; only the glyph is the setting's.
+ *
+ * Two decimals follow from the same stand-in, and that is the honest limit of a symbol: `$` says
+ * nothing about its currency's minor unit, so nothing here could know that yen takes none. A
+ * settings group holding a currency *code* could, and would not need this function.
+ */
+export function formatPrice(value: number, symbol: string): string {
+  if (!Number.isFinite(value)) {
+    return NO_VALUE
+  }
+
+  return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: 'USD' })
+    .formatToParts(value)
+    .map(part => (part.type === 'currency' ? symbol : part.value))
+    .join('')
+}
+
 /** The dashboard's own route to a file's bytes, which is proxied through to the API. */
 export function contentUrl(id: string, download = false): string {
   return `/api/media/${id}/content${download ? '?download=true' : ''}`

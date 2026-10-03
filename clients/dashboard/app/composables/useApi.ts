@@ -1,5 +1,5 @@
 import type {
-  Category, CategoryDetail, CreateResult, Language, MediaTextValues, Product, ProductDetail,
+  Category, CategoryDetail, CreateResult, Language, MediaTextValues, ProductDetail, ProductPage,
   Translations, WriteResult
 } from '~/types'
 
@@ -65,7 +65,15 @@ export function useApi() {
     },
 
     products: {
-      list: () => $fetch<Product[]>('/api/products', { headers: headers() }),
+      /**
+       * One page, newest page size first.
+       *
+       * Both parameters are omitted by the catalogue list on purpose: with no `pageSize` the API
+       * uses `CatalogSettings.PageSize`, which is the only way that setting reaches a screen.
+       * The overview passes one because it counts across pages rather than showing them.
+       */
+      list: (query: { page?: number, pageSize?: number } = {}) =>
+        $fetch<ProductPage>('/api/products', { query, headers: headers() }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
         $fetch<CreateResult>('/api/products', { method: 'POST', body, headers: headers() }),
