@@ -267,6 +267,49 @@ things are what storing an id in a setting buys, and they were given up delibera
 source of truth. If you need a file reference inside a settings group's versioning and audit, keep
 the id — and know that you are choosing to maintain the second record yourself.
 
+#### Why the store name is edited on two cards
+
+The Settings page shows branding's text twice: once as a field in the generated group form, and
+once in a **Store name** card beneath it with a box per language. (The card sits in the form's
+`extra` slot — the same slot the logo's media picker uses, and for the same reason: a form built
+from the values the API returns cannot know that one of them is translated, or where to put four
+languages of it.) That looks like two writers for one value, which is the thing the logo was just
+rescued from. It is not — they are split by **language**, and no language has two writers.
+
+| Where | Holds | Edited by |
+|---|---|---|
+| `Setting` row, in the branding group | the **default** language's text | the generated group form |
+| `Translation` rows, under `("Branding", "branding")` | **every other** language | the Store name card |
+
+The card leaves the default language out deliberately — `languages.filter(l => !l.isDefault)` — so
+the two never address the same cell. `GET /api/branding` then reads the setting row and overrides
+it only where a translation exists, which is also what makes the setting row the value every
+untranslated language falls back to.
+
+**Why it is not simply translation rows all the way down, like `Category.Name`.** A category's name
+is not stored anywhere else at all: `ApplyMultiLingual(this)` strips every `[MultiLingual]` string
+property off the entities in the model, so `Categories` has no `Name` column and *every* language,
+default included, is a translation row. It cannot do that here, because there is no column to
+strip — a settings group is not in the EF model. Its value is a `Setting` row that `SettingManager`
+owns, decomposed from the class, and the only question left is whether that row is the base value
+or dead weight beside a parallel translation.
+
+Making it the base value is what keeps the default language's text inside the machinery the
+settings group already has: its `ETag`, its conditional save, its audit trail. Translating it away
+would hand the group's own text to a store that has none of those.
+
+> This is also why `BrandingEndpoints` does **not** call `LocalizeAsync()`. Outside base-language
+> mode MultiLingual treats the translations as the only store, so it nulls a property it finds
+> nothing for — which would erase the branding name in every language nobody has translated yet.
+> Here the settings row *is* the base, so a missing translation must leave it alone.
+
+**What it costs.** Two cards instead of one, and `GET /api/settings/branding` answers with the
+default language's text rather than with what the header is currently rendering — so the group form
+and the sidebar can read differently while you are editing in Arabic. That is the price of the
+default language keeping its version history, and it is the mirror image of the trade on the logo
+just above: there, one record won and the audit trail was given up; here, the audit trail won and a
+second editing surface was accepted.
+
 ---
 
 ## What this costs
