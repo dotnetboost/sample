@@ -557,6 +557,13 @@ to be. Which is already how a refusal is shown — the same split, from `problem
 > endpoints, so writing translations over HTTP is the application's job —
 > `Endpoints/MediaTextEndpoints.cs` and `Endpoints/CatalogEndpoints.cs` do it.
 >
+> `IMediaAccessor` answers about one owner at a time, with no bulk form of any of its questions.
+> A listing therefore costs a query per row — and `ListWithRolesAsync` costs two, because it reads
+> the attachment rows and then the files they point at. Measured with EF command logging,
+> `GET /api/categories` is N + 3 and `GET /api/products` is 2N + 3. `PageSize` bounds the products
+> one; the categories one is unbounded. A `ListForOwnersAsync(name, ids)` would collapse both, and
+> would also remove the only place this application reads a library's table directly.
+>
 > `DotNetBoost.Media.API`'s list endpoint returns `url` as a *signed, expiring* link, which is
 > null on the FileSystem backend. The dashboard therefore derives every URL from the file's id
 > (`contentUrl` in `app/utils/format.ts`) rather than reading the field — which also means
