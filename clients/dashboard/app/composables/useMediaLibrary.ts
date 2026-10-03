@@ -27,6 +27,9 @@ export interface MediaLibraryOptions {
 export function useMediaLibrary(options: MediaLibraryOptions = {}) {
   const { notifySuccess, notifyFailure } = useNotify()
   const { t } = useI18n()
+  // Only for the alt-text cleanup a delete has to do. The listing itself stays on `/api/media`
+  // directly, which is the whole point of this composable.
+  const api = useApi()
 
   const query = reactive<MediaQuery>({
     search: '',
@@ -189,9 +192,37 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
    */
   const readOne = (id: string) => $fetch<MediaFile>(`/api/media/${id}`)
 
+  /**
+   * Deletes the file, and then the alt text and captions filed against it.
+   *
+   * Two calls, because they are two libraries. `DELETE api/media/{id}` is DotNetBoost.Media's own
+   * endpoint and it knows nothing about the translation rows this application files under the
+   * subject "MediaFile" — so nothing cascades, and before the second call every file deleted from
+   * this page left its alt text in the translations table for good. `DELETE api/products/{id}`
+   * has always written this cleanup out; this is the same cost on the path the application
+   * deliberately does not own.
+   *
+   * **The file goes first on purpose.** Either order can fail half way, and the two failures are
+   * not equally bad: text removed from a file that then survives the delete is visible loss on a
+   * live file, while a file removed whose text outlives it leaves rows nothing will ever read
+   * again. So the order is the one whose bad case is junk rather than damage.
+   *
+   * **And the cleanup cannot fail the delete.** By the time it runs the file is gone, so a failure
+   * toast would tell the user the opposite of what happened. It is logged and swallowed, and the
+   * delete still reports success.
+   */
   const remove = (file: MediaFile) => run(
     file.id,
-    () => $fetch(`/api/media/${file.id}`, { method: 'DELETE' }),
+    async () => {
+      await $fetch(`/api/media/${file.id}`, { method: 'DELETE' })
+
+      try {
+        await api.mediaText.remove(file.id)
+      } catch (error) {
+        console.error(
+          `Deleted media file ${file.id}, but its alt text could not be removed.`, error)
+      }
+    },
     () => t('media.toast.deleted', { fileName: file.fileName }),
     t('media.toast.deleteFailed')
   )

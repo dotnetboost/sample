@@ -91,7 +91,17 @@ export function useApi() {
       /** Alt text for many files in one call, in the current language. */
       resolve: (ids: string[]) =>
         $fetch<Record<string, MediaTextValues>>(
-          '/api/media-text/resolve', { method: 'POST', body: { ids }, headers: headers() })
+          '/api/media-text/resolve', { method: 'POST', body: { ids }, headers: headers() }),
+
+      /**
+       * Every language's text for a file, removed.
+       *
+       * Called when the file itself is deleted — see `useMediaLibrary`'s `remove`. Nothing
+       * cascades: `DELETE api/media/{id}` is the media library's own endpoint and it has never
+       * heard of these rows, so this is the only thing that takes them out.
+       */
+      remove: (mediaFileId: string) =>
+        $fetch(`/api/media-text/${mediaFileId}`, { method: 'DELETE' })
     },
 
     // ── The composition: Settings × Media ─────────────────────────────────
