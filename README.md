@@ -92,6 +92,12 @@ name and description are translation rows; the images are attachment rows — an
 detaching and reordering go straight to **the media library's own endpoints**, so this application
 has no attachment endpoints of its own.
 
+Saving and deleting are reported in **the API's words** rather than the dashboard's: a delete reads
+"تم حذف التصنيف coques-telephone." and not "Deleted", because the sentence naming the row comes back
+on the write's own response, in the language the list is being read in. A category that still has
+products is refused in the same language. [What a catalogue write answers
+with](#what-a-catalogue-write-answers-with) has the shapes.
+
 ## Run it
 
 Needs **.NET 10 SDK**, **Node 20+**, and a **container runtime** (Docker Desktop, OrbStack or
@@ -336,6 +342,65 @@ change to the dashboard. `DeclareRolesFrom(assembly)` scans a whole assembly if 
 every entity carried its own.
 
 Full reference at `/scalar` on the API.
+
+### What a catalogue write answers with
+
+`GET /api/products` comes back translated without anything asking it to, because MultiLingual's EF
+Core interceptors did it. The **API's own sentences** are a separate question: a 404, a 409, and
+"the category was saved" are not entity content, so no interceptor touches them.
+
+They are localized anyway — `src/DotNetBoostSample.Api/Localization/ApiMessages.cs` is the marker
+type they are injected under, and `Resources/{en,ar,fr}.json` beside it holds the words. What makes
+this different from `AddLocalization()` is which language it reads:
+
+```csharp
+builder.Services
+    .AddMultiLingual()
+    .UseEntityFrameworkCore<AppDbContext>()
+    .AddJsonLocalization()      // the API's own messages, same registration chain
+    .Build();
+```
+
+The standard localizer answers in `CultureInfo.CurrentUICulture`. This one answers in
+`IMultiLingualManager.CurrentLanguage` — the same language the interceptors just translated the row
+with, resolved from the same `Accept-Language` and falling back the same way. So a refusal and the
+content it was about cannot disagree about what language the caller reads.
+
+Every write says what it did, not only what it refused:
+
+| | Answers | Body |
+|---|---|---|
+| `POST /api/categories`, `POST /api/products` | `201` | `{ id, message }` |
+| `PUT /api/categories/{id}`, `PUT /api/products/{id}` | `200` | `{ message }` |
+| `DELETE /api/categories/{id}`, `DELETE /api/products/{id}` | `200` | `{ message }` |
+| `POST /api/products/{id}/images` | `200` | `{ id, fileName, size, message }` |
+
+The updates and deletes answer `200` rather than `204` for the obvious reason: a `204` is defined to
+have no body, so there is nowhere to put the sentence. Refusals carry the same words in the `detail`
+of RFC 7807 problem details, which is what MultiLingual's own endpoint filter already produces —
+through the very same localizer — so the dashboard reads one shape whether the application refused
+or the library did.
+
+```console
+$ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
+409  {"detail":"انقل منتجات هذا التصنيف أو احذفها أولًا."}
+
+$ curl -X DELETE /api/products/4 -H 'Accept-Language: fr'
+200  {"message":"Le produit CASE-002 a été supprimé."}
+
+$ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
+200  {"message":"تم حذف التصنيف coques-telephone."}
+```
+
+The message names the row by its **slug or SKU**, not by the id the request addressed it with —
+`"Category phone-cases was saved."` confirms the edit landed on the row the editor meant, where
+`"Category 7 was saved."` sends them to go and check. A 404 keeps using the id —
+`"La catégorie 3 est introuvable."` — because there the id is the only handle the caller has.
+
+The dashboard splits the toast accordingly: the **title** is its own i18n bundle, because a short
+label that is the same every time is what makes a toast scannable, and the **description** is the
+API's sentence, because it names the row and the API is the side that knows which row it turned out
+to be. Which is already how a refusal is shown — the same split, from `problemMessage(error)`.
 
 > **Two gaps this sample surfaced.**
 >
