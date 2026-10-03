@@ -476,6 +476,11 @@ to be. Which is already how a refusal is shown — the same split, from `problem
 > null on the FileSystem backend. The dashboard therefore derives every URL from the file's id
 > (`contentUrl` in `app/utils/format.ts`) rather than reading the field — which also means
 > switching to Azure or S3 changes no client code.
+>
+> This application's own image shapes carry no `url` at all, for the same reason. They used to
+> build `/api/media/{id}/content` server-side, which nothing read: every image on screen is
+> rendered from the id regardless, because the field that does exist cannot be trusted to. One
+> rule, one home.
 
 ---
 

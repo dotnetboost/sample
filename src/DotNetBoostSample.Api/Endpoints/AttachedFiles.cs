@@ -7,11 +7,24 @@ namespace DotNetBoostSample.Api.Endpoints;
 /// <summary>
 /// Describes one owner's attached files for the dashboard: each file with the role it is attached
 /// under, its position in that role, and its alt text.
-/// <para>
-/// Shared by the catalogue and by branding, because the shape is the same for every owner — which
-/// is the point. A category, a product and a settings group are all just two strings to the media
-/// library, so one description serves all three and the dashboard draws them with one component.
-/// </para>
+///
+/// <para>Shared by the catalogue and by branding, because the shape is the same for every owner —
+/// which is the point. A category, a product and a settings group are all just two strings to the
+/// media library, so one description serves all three and the dashboard draws them with one
+/// component.</para>
+///
+/// <para><b>No URL, deliberately.</b> These shapes used to carry
+/// <c>"/api/media/{id}/content"</c>, built here from the id that is already in them, while
+/// <c>contentUrl</c> in the dashboard's app/utils/format.ts built the identical string for every
+/// image it renders — and nothing ever read the one sent from here. Two copies of one rule, one of
+/// them dead.</para>
+///
+/// <para>The client's copy is the one that has to exist. DotNetBoost.Media's own <c>url</c> is a
+/// signed, expiring link that is <c>null</c> on the FileSystem backend and would 403 in a
+/// long-open tab on the others, so the dashboard cannot simply read a field — it derives the route
+/// from the id, which is also what keeps a move to Azure or S3 from touching any client code. A
+/// caller of these endpoints does the same: the id is here, and the route is one line of the
+/// README away.</para>
 /// </summary>
 internal static class AttachedFiles
 {
@@ -61,8 +74,7 @@ internal static class AttachedFiles
         file.ContentType,
         file.Size,
         AltText = text?.AltText,
-        Caption = text?.Caption,
-        Url     = $"/api/media/{file.Id}/content"
+        Caption = text?.Caption
     };
 
     /// <summary>
@@ -83,7 +95,6 @@ internal static class AttachedFiles
         Role      = role,
         SortOrder = sortOrder,
         AltText   = text?.AltText,
-        Caption   = text?.Caption,
-        Url       = $"/api/media/{file.Id}/content"
+        Caption   = text?.Caption
     };
 }

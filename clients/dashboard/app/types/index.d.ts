@@ -116,6 +116,10 @@ export interface AttachRequest {
  * **No role.** A role belongs to an attachment rather than to a file, and the media library lets
  * one file be attached several times over, so there is no single role for a listing to report.
  * {@link EntityImage} is the shape that has one, and only the detail endpoints return it.
+ *
+ * **No url either.** `contentUrl(id)` builds it — one rule, in one place. The API used to send the
+ * same string as well and nothing read it, because a signed backend URL expires and is null on
+ * local disk, so every image on screen is rendered from the id regardless.
  */
 export interface MediaRef {
   id: string
@@ -125,7 +129,6 @@ export interface MediaRef {
   /** Resolved in the request's language, with fallback to the default. */
   altText: string | null
   caption: string | null
-  url: string
 }
 
 /**
