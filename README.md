@@ -429,6 +429,7 @@ Every write says what it did, not only what it refused:
 | `PUT /api/categories/{id}`, `PUT /api/products/{id}` | `200` | `{ message }` |
 | `DELETE /api/categories/{id}`, `DELETE /api/products/{id}` | `200` | `{ message }` |
 | `POST /api/products/{id}/images` | `200` | `{ id, fileName, size, message }` |
+| `DELETE /api/media-text/{id}` | `200` | `{ removed, message }` |
 
 The updates and deletes answer `200` rather than `204` for the obvious reason: a `204` is defined to
 have no body, so there is nowhere to put the sentence. Refusals carry the same words in the `detail`
@@ -446,6 +447,14 @@ $ curl -X DELETE /api/products/4 -H 'Accept-Language: fr'
 $ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
 200  {"message":"تم حذف التصنيف coques-telephone."}
 ```
+
+`DELETE /api/media-text/{id}` is the one write that deliberately does **not** check its subject
+exists. The GET and POST beside it do, because they are about a file someone is looking at; the
+delete is cleanup *after* one is gone. The Media page deletes through DotNetBoost.Media's own
+endpoint, which has never heard of these rows, and then calls this — so by the time the request
+arrives the file is already deleted, and a 404 would reject the only caller there is and strand
+exactly the rows the endpoint exists to remove. It names the file by id for the same reason: there
+may be no file left to read a name from. `removed` is the count, and `0` is an ordinary answer.
 
 The message names the row by its **slug or SKU**, not by the id the request addressed it with —
 `"Category phone-cases was saved."` confirms the edit landed on the row the editor meant, where

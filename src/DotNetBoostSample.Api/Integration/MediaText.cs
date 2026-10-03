@@ -157,12 +157,18 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
         await translations.GetAllAsync(Subject, Key(mediaFileId), ct);
 
     /// <summary>
-    /// Removes every translation row for a file. The gap this fills: deleting a
+    /// Removes every translation row for a file, and answers how many went.
+    ///
+    /// <para>The gap this fills: deleting a
     /// <see cref="DotNetBoost.Media.Core.Models.MediaFile"/> does not delete its translations,
     /// because the media library has no idea they exist. Call this alongside the delete — see
-    /// Endpoints/MediaTextEndpoints.cs.
+    /// Endpoints/MediaTextEndpoints.cs and the dashboard's own media delete.</para>
+    ///
+    /// <para>The count is passed through rather than discarded because it is the only thing a
+    /// caller can be told about a file that may already be gone: its name cannot be read any
+    /// more, and zero is a perfectly ordinary answer — a file nobody wrote alt text for.</para>
     /// </summary>
-    public Task DeleteAsync(Guid mediaFileId, CancellationToken ct = default) =>
+    public Task<int> DeleteAsync(Guid mediaFileId, CancellationToken ct = default) =>
         translations.DeleteEntitiesAsync(Subject, [Key(mediaFileId)], ct);
 
     private static string? Pick(

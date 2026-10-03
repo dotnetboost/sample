@@ -16,7 +16,8 @@
   },
 
   "MediaText": {
-    "FileNotFound": "Le fichier média {0} est introuvable."
+    "FileNotFound": "Le fichier média {0} est introuvable.",
+    "Deleted": "Le texte du fichier média {0} a été supprimé dans toutes les langues."
   },
 
   // Les messages propres à DotNetBoost.MultiLingual, que la bibliothèque recherche ici. Voir en.json.

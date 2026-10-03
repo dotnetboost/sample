@@ -25,7 +25,8 @@
   },
 
   "MediaText": {
-    "FileNotFound": "Media file {0} was not found."
+    "FileNotFound": "Media file {0} was not found.",
+    "Deleted": "Every language's text for media file {0} was removed."
   },
 
   // DotNetBoost.MultiLingual's OWN refusals, which it looks up here itself.

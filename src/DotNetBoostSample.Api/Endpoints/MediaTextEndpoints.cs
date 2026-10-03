@@ -89,12 +89,34 @@ public static class MediaTextEndpoints
         group.MapDelete("/{mediaFileId:guid}", async (
             Guid mediaFileId,
             MediaText mediaText,
+            IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
-            await mediaText.DeleteAsync(mediaFileId, ct);
-            return Results.NoContent();
+            // ── The one handler here that does NOT check the file exists ─────
+            //
+            // The GET and POST above call media.FindAsync first, because they are about a file
+            // someone is looking at. This one is cleanup AFTER a file is gone: the Media page
+            // deletes through DotNetBoost.Media's own endpoint, which has never heard of these
+            // rows, and then calls this. By the time the request arrives the file is already
+            // deleted — so a 404 here would reject the only caller there is and strand exactly
+            // the rows this endpoint exists to remove. The asymmetry is the point, not an
+            // oversight.
+            var removed = await mediaText.DeleteAsync(mediaFileId, ct);
+
+            // 200 and a sentence rather than 204, like every other write in this API: a 204 is
+            // defined to have no body, so there is nowhere to put one. `removed` is the count,
+            // and zero is an ordinary answer — a file nobody ever wrote alt text for.
+            //
+            // The message names the file by id rather than by name, for the same reason the 404s
+            // do: by the time this runs there may be no file left to read a name from, and the id
+            // is the only handle certain to still exist.
+            return Results.Ok(new
+            {
+                Removed = removed,
+                Message = messages["MediaText.Deleted", mediaFileId].Value
+            });
         })
-        .WithSummary("Removes every language's text for a file");
+        .WithSummary("Removes every language's text for a file, whether or not the file is still there");
     }
 }
 

@@ -16,7 +16,8 @@
   },
 
   "MediaText": {
-    "FileNotFound": "ملف الوسائط {0} غير موجود."
+    "FileNotFound": "ملف الوسائط {0} غير موجود.",
+    "Deleted": "أُزيلت نصوص ملف الوسائط {0} بجميع اللغات."
   },
 
   // رسائل DotNetBoost.MultiLingual نفسها — تبحث عنها المكتبة هنا. انظر en.json.
