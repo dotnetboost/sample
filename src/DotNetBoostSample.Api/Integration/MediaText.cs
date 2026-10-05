@@ -1,5 +1,5 @@
 using DotNetBoost.MultiLingual.Core.Interfaces;
-using DotNetBoost.MultiLingual.Core.Models;
+using DotNetBoost.MultiLingual.Core.Metadata;
 
 namespace DotNetBoostSample.Api.Integration;
 
@@ -9,30 +9,31 @@ namespace DotNetBoostSample.Api.Integration;
 /// integration package between them.
 ///
 /// <para><b>How it works.</b> Both libraries address a subject by the same two strings: an entity
-/// name and an entity id. MultiLingual stores translations against
-/// <c>(EntityName, EntityId, PropertyName, LanguageCode)</c>; Media stores attachments against
-/// <c>(OwnerEntityName, OwnerEntityId)</c> and exposes
-/// <c>IMediaManager.For(string entityName, string entityId)</c> for callers that hold the pair
-/// rather than an object. That shared addressing convention is the whole integration surface.</para>
+/// name and an entity id, under the rules of DotNetBoost Entity Addressing v1. MultiLingual files
+/// translations against <c>(EntityName, EntityId, PropertyName, LanguageCode)</c>; Media files
+/// attachments against <c>(OwnerEntityName, OwnerEntityId)</c>. So this class declares one subject
+/// name — <see cref="Subject"/> — and uses a media file's own <see cref="Guid"/> as the entity id.
+/// The translation rows and the media row are about the same thing because this application says
+/// they are. Neither library has an opinion, and no new table is needed.</para>
 ///
-/// <para>So this class declares one subject name — <see cref="Subject"/> — and uses a media
-/// file's own <see cref="Guid"/> as the entity id. The translation rows and the media row are
-/// about the same thing because this application says they are. Neither library has an opinion,
-/// and no new table is needed: alt text lives in the translations table that MultiLingual already
-/// owns.</para>
+/// <para><b>What this used to be.</b> Four times this length. MultiLingual could only address an
+/// entity it owned the type of, so this class dropped to the raw <c>ITranslationStore</c> and
+/// reimplemented four things the library already knew: how to format a key, how to fall back from
+/// the current language to the default, how to read many subjects in one query, and how to build a
+/// batch write. The fallback copy was the dangerous one — the library's own rule, reimplemented
+/// here, free to drift from the interceptors that translate every entity. <c>For(name, id)</c> and
+/// <c>ForMany(name, ids)</c> arrived in preview.2 and all of it went.</para>
 ///
-/// <para><b>The one rule.</b> The id must be formatted the way both libraries format it. Both use
-/// <c>Guid.ToString("D")</c>, invariantly. <see cref="Key"/> is the single place this file relies
-/// on that, which is why it exists as its own method rather than being inlined — and why
-/// tests/DotNetBoostSample.Tests asserts the agreement rather than trusting it.</para>
+/// <para>What is left is the part that is genuinely this application's: the subject name, the two
+/// property names, and the shape the endpoints return. That is the whole integration surface.</para>
 /// </summary>
-public sealed class MediaText(ITranslationStore translations, IMultiLingualManager multiLingual)
+public sealed class MediaText(IMultiLingualManager multiLingual)
 {
     /// <summary>
-    /// The entity name these translation rows are filed under. Media resolves a
-    /// <c>MediaFile</c>'s own type name to the same string, so the two stores line up when read
-    /// side by side — and because it is a <c>const</c>, renaming it is one edit, not a search for
-    /// a scattered literal.
+    /// The entity name these translation rows are filed under. Media resolves a <c>MediaFile</c>'s
+    /// own type name to the same string, so the two stores line up when read side by side — and
+    /// because it is a <c>const</c>, renaming it is one edit rather than a search for a scattered
+    /// literal. tests/KeyFormatAgreementTests.cs asserts it is the name Media resolves.
     /// </summary>
     public const string Subject = "MediaFile";
 
@@ -43,74 +44,53 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
     public const string Caption = "Caption";
 
     /// <summary>
-    /// A media file's id as the string both libraries agree on: invariant, "D" format.
+    /// A media file's id as the string the rows are stored under — formatted by MultiLingual's own
+    /// <see cref="EntityKey"/> rather than by hand here, so this application is not a third
+    /// implementation of a rule two libraries already share.
     /// </summary>
-    private static string Key(Guid mediaFileId) => mediaFileId.ToString("D");
+    private static string Key(Guid mediaFileId) => EntityKey.ToKeyString(mediaFileId);
 
     /// <summary>
     /// Writes the alt text and caption of one file in every language supplied — one call, one
-    /// batch. A null value removes the stored row rather than storing a null, which is the store's
-    /// own contract and is unchanged by batching.
-    ///
-    /// <para><b>Why not one call per property per language.</b> This replaced a
-    /// <c>SetAsync(file, language, property, value)</c> that the endpoint called in a nested loop:
-    /// two awaits a language, so six round trips to save three languages of a single file, each one
-    /// wrapping a single row in an array for the batch API it was already calling.</para>
-    ///
-    /// <para>The cost that mattered was not the round trips though — it was that each was its own
-    /// write. A failure part-way left some languages saved and the rest not, with nothing in the
-    /// response to say where it stopped, on a screen whose whole purpose is editing several
-    /// languages at once. <c>UpsertManyAsync</c> takes the lot and is atomic where the backend
-    /// supports it, so the edit lands whole or not at all.</para>
+    /// batch, atomic where the backend supports it. A null value removes the stored row rather
+    /// than storing a null, which is the store's own contract.
     /// </summary>
     public Task SetManyAsync(
         Guid mediaFileId,
         IReadOnlyDictionary<string, MediaTextValues> byLanguage,
         CancellationToken ct = default)
     {
-        var entityId = Key(mediaFileId);
+        // No languages supplied, so no statement to send — rather than asking the store to write
+        // nothing.
+        if (byLanguage.Count == 0) return Task.CompletedTask;
 
-        var rows = byLanguage
-            .SelectMany(language => new[]
+        var subject = multiLingual.For(Subject, mediaFileId);
+
+        foreach (var (language, values) in byLanguage)
+        {
+            subject.Set(language, new Dictionary<string, string?>
             {
-                Row(entityId, language.Key, AltText, language.Value.AltText),
-                Row(entityId, language.Key, Caption, language.Value.Caption)
-            })
-            .ToArray();
+                [AltText] = values.AltText,
+                [Caption] = values.Caption
+            });
+        }
 
-        // No languages supplied, so no statement to send — the same answer GetManyAsync gives an
-        // empty id list, rather than asking the store to write nothing.
-        return rows.Length == 0 ? Task.CompletedTask : translations.UpsertManyAsync(rows, ct);
+        return subject.SaveAsync(ct);
     }
 
-    /// <summary>One row of the batch, so the four parts of a translation's key are named once.</summary>
-    private static Translation Row(
-        string entityId, string languageCode, string propertyName, string? value) => new()
-    {
-        EntityName   = Subject,
-        EntityId     = entityId,
-        PropertyName = propertyName,
-        LanguageCode = languageCode,
-        Value        = value
-    };
-
     /// <summary>
-    /// Alt text and caption for one file in the language this request resolved to, falling back
-    /// to the default language for anything missing.
-    /// <para>
-    /// One id through <see cref="GetManyAsync"/> rather than a read of its own: the fallback rule is
-    /// the thing here most worth having exactly one copy of, because a single file resolving it
-    /// differently from the list it sits in shows two alt texts for one image.
-    /// <see cref="GetManyAsync"/> answers for every id it is given, so the lookup cannot miss.
-    /// </para>
+    /// Alt text and caption for one file in the language this request resolved to, falling back to
+    /// the default language for anything missing — the library's own fallback rule, the same one
+    /// its EF Core interceptors apply to a translated entity. A file and the list it sits in
+    /// therefore cannot resolve its text differently.
     /// </summary>
     public async Task<MediaTextValues> GetAsync(Guid mediaFileId, CancellationToken ct = default) =>
-        (await GetManyAsync([mediaFileId], ct))[mediaFileId];
+        Values(await multiLingual.For(Subject, mediaFileId).GetAsync(ct));
 
     /// <summary>
     /// Alt text and captions for many files at once, in the current language — one query, not one
-    /// per file. The reason <see cref="ITranslationStore"/> is used directly here rather than the
-    /// friendlier <c>multiLingual.For(entity)</c>: there is no entity instance to pass, only ids.
+    /// per file. Every id asked about is present in the result, so a caller reading a file nobody
+    /// wrote text for gets empty values rather than a missing key.
     /// </summary>
     public async Task<IReadOnlyDictionary<Guid, MediaTextValues>> GetManyAsync(
         IReadOnlyCollection<Guid> mediaFileIds,
@@ -121,67 +101,45 @@ public sealed class MediaText(ITranslationStore translations, IMultiLingualManag
         // in its gallery. Keying a dictionary on a repeated id would throw.
         var ids = mediaFileIds.Distinct().ToArray();
 
-        if (ids.Length == 0)
-            return new Dictionary<Guid, MediaTextValues>();
+        if (ids.Length == 0) return new Dictionary<Guid, MediaTextValues>();
 
-        var current  = multiLingual.CurrentLanguage.Code;
-        var fallback = multiLingual.DefaultLanguage.Code;
+        var byId = await multiLingual.ForMany(Subject, [.. ids.Cast<object>()]).GetAsync(ct);
 
-        // Collapsed to one code when they are the same, so the query does not ask for a language
-        // twice. This is the only place the fallback pair is resolved — GetAsync comes through here.
-        var languages = current == fallback ? new[] { current } : [current, fallback];
-
-        var rows = await translations.GetAsync(
-            Subject, [.. ids.Select(Key)], languages, ct);
-
-        var byEntity = rows.GroupBy(r => r.EntityId).ToDictionary(g => g.Key, g => g.ToList());
-
-        return ids.ToDictionary(
-            id => id,
-            id =>
-            {
-                var forFile = byEntity.GetValueOrDefault(Key(id)) ?? [];
-                return new MediaTextValues(
-                    Pick(forFile, AltText, current, fallback),
-                    Pick(forFile, Caption, current, fallback));
-            });
+        return ids.ToDictionary(id => id, id => Values(byId.GetValueOrDefault(Key(id))));
     }
 
     /// <summary>
     /// Every language's values for one file — what an editor screen needs to show all languages
-    /// side by side.
+    /// side by side, as languageCode → (propertyName → value).
     /// </summary>
-    public async Task<IReadOnlyList<Translation>> GetAllLanguagesAsync(
+    public Task<IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>>> GetAllLanguagesAsync(
         Guid mediaFileId,
         CancellationToken ct = default) =>
-        await translations.GetAllAsync(Subject, Key(mediaFileId), ct);
+        multiLingual.For(Subject, mediaFileId).GetAllAsync(ct);
 
     /// <summary>
     /// Removes every translation row for a file, and answers how many went.
     ///
-    /// <para>The gap this fills: deleting a
-    /// <see cref="DotNetBoost.Media.Core.Models.MediaFile"/> does not delete its translations,
-    /// because the media library has no idea they exist. Call this alongside the delete — see
-    /// Endpoints/MediaTextEndpoints.cs and the dashboard's own media delete.</para>
-    ///
-    /// <para>The count is passed through rather than discarded because it is the only thing a
-    /// caller can be told about a file that may already be gone: its name cannot be read any
-    /// more, and zero is a perfectly ordinary answer — a file nobody wrote alt text for.</para>
+    /// <para>The gap this fills: deleting a <c>MediaFile</c> does not delete its translations,
+    /// because the media library has no idea they exist. Media's <c>IMediaFilesDeletedHandler</c>
+    /// is the registration that calls this for every delete — see
+    /// <see cref="MediaTextCleanup"/> — so no call site has to remember it.</para>
     /// </summary>
     public Task<int> DeleteAsync(Guid mediaFileId, CancellationToken ct = default) =>
-        translations.DeleteEntitiesAsync(Subject, [Key(mediaFileId)], ct);
+        multiLingual.For(Subject, mediaFileId).DeleteAsync(ct);
 
-    private static string? Pick(
-        IEnumerable<Translation> rows,
-        string propertyName,
-        string current,
-        string fallback)
-    {
-        var candidates = rows.Where(r => r.PropertyName == propertyName).ToList();
+    /// <summary>
+    /// The same for a batch of files, in one statement — what a delete of an entity with several
+    /// images needs, rather than a round trip per file.
+    /// </summary>
+    public Task<int> DeleteManyAsync(IReadOnlyCollection<Guid> mediaFileIds, CancellationToken ct = default) =>
+        mediaFileIds.Count == 0
+            ? Task.FromResult(0)
+            : multiLingual.ForMany(Subject, [.. mediaFileIds.Distinct().Cast<object>()]).DeleteAsync(ct);
 
-        return candidates.FirstOrDefault(r => r.LanguageCode == current)?.Value
-               ?? candidates.FirstOrDefault(r => r.LanguageCode == fallback)?.Value;
-    }
+    /// <summary>The two properties this application cares about, out of whatever is stored.</summary>
+    private static MediaTextValues Values(IReadOnlyDictionary<string, string?>? values) =>
+        new(values?.GetValueOrDefault(AltText), values?.GetValueOrDefault(Caption));
 }
 
 /// <summary>Alt text and caption resolved for one file in one language.</summary>

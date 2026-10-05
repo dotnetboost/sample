@@ -81,6 +81,12 @@ builder.Services
     .DeclareRoles<BrandingSettings>()
     .UseEntityFrameworkCore<AppDbContext>()
     .UseFileSystem(Path.GetFullPath(mediaRoot), isDefault: true)
+    // When a file goes, its per-language alt text goes with it. Registered once here rather than
+    // remembered beside every delete — including the deletes this application does not make, like
+    // DotNetBoost.Media's own DELETE /api/media/{id}, which used to strand those rows. The handler
+    // is told the files that were actually deleted and not the ones merely detached, so an image
+    // still in use somewhere else keeps its text. See Integration/MediaTextCleanup.cs.
+    .OnFilesDeleted<MediaTextCleanup>()
     .Build();
 
 // ── DotNetBoost.MultiLingual ─────────────────────────────────────────────────

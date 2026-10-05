@@ -44,11 +44,11 @@ public static class MediaTextEndpoints
                 MediaFileId = mediaFileId,
                 file.FileName,
                 Current = current,
+
+                // Already languageCode → (propertyName → value): the shape the editor draws, from
+                // the library. This used to be a GroupBy over a flat row list here, because the
+                // raw ITranslationStore was the only way in.
                 ByLanguage = all
-                    .GroupBy(t => t.LanguageCode)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.ToDictionary(t => t.PropertyName, t => t.Value))
             });
         })
         .WithSummary("Alt text and caption for a file: resolved, and every stored language");

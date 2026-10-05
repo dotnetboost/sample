@@ -143,12 +143,19 @@ public class MediaShapeTests(SampleApp app)
     }
 
     /// <summary>
-    /// The media-text delete is cleanup AFTER a file is gone, so it must not require one to exist —
-    /// the dashboard deletes through the media library's own endpoint first, and this runs second.
-    /// Adding the existence check its neighbours have would strand exactly the rows it removes.
+    /// Deleting a file now takes its alt text with it, through DotNetBoost.Media's OWN endpoint —
+    /// the path that used to strand those rows, because only the dashboard knew to follow up and a
+    /// direct API caller never did. <c>MediaTextCleanup</c> is registered as an
+    /// <c>IMediaFilesDeletedHandler</c>, so the cascade happens for every delete whatever triggered
+    /// it, and no call site has to remember it.
+    /// <para>
+    /// The media-text delete endpoint stays idempotent anyway: it is cleanup after a file is gone,
+    /// so it must not require one to exist, and it must answer plainly when there is nothing left
+    /// to remove. Both are still asserted below — the handler made it redundant, not wrong.
+    /// </para>
     /// </summary>
     [RequiresDockerFact]
-    public async Task The_text_delete_still_works_once_the_file_itself_is_gone()
+    public async Task Deleting_a_file_takes_its_alt_text_with_it()
     {
         var client = app.Client;
 
@@ -158,29 +165,25 @@ public class MediaShapeTests(SampleApp app)
         await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}",
             new { values = new Dictionary<string, object> { ["en"] = new { altText = "Briefly here", caption = (string?)null } } });
 
-        // The dashboard's order: the library's own delete first.
+        await app.WithDbAsync(async db =>
+            Assert.True(await CountAsync(db, fileId) > 0, "the text should have been stored"));
+
+        // DotNetBoost.Media's own delete, with nothing in this application telling it about
+        // translations. The handler is what connects the two.
         var fileDeleted = await client.SendJsonAsync(HttpMethod.Delete, $"/api/media/{fileId}");
         await fileDeleted.EnsureOkAsync("the media delete");
 
-        // Nothing cascaded, so the rows are still there.
         await app.WithDbAsync(async db =>
-            Assert.True(await CountAsync(db, fileId) > 0, "the media delete should not have touched the translations"));
+            Assert.Equal(0, await CountAsync(db, fileId)));
 
-        // And the cleanup call succeeds against a file that no longer exists.
+        // And the cleanup endpoint still succeeds against a file that no longer exists, reporting
+        // the nothing it found rather than refusing the only caller it has.
         var textDeleted = await client.SendJsonAsync(HttpMethod.Delete, $"/api/media-text/{fileId}", language: "fr");
         var body = await textDeleted.ReadJsonAsync("the text delete");
 
-        Assert.Equal(1, body.Int("removed"));
+        Assert.Equal(0, body.Int("removed"));
         Assert.Contains(fileId.ToString(), body.Str("message"));
         Assert.StartsWith("Le texte du fichier média", body.Str("message"));
-
-        await app.WithDbAsync(async db => Assert.Equal(0, await CountAsync(db, fileId)));
-
-        // Calling it again is ordinary rather than an error: nothing left to remove.
-        var again = await (await client.SendJsonAsync(HttpMethod.Delete, $"/api/media-text/{fileId}"))
-            .ReadJsonAsync("the second text delete");
-
-        Assert.Equal(0, again.Int("removed"));
     }
 
     private static Task<int> CountAsync(Api.Data.AppDbContext db, Guid fileId)

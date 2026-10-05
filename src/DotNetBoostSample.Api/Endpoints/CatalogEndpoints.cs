@@ -1,6 +1,7 @@
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.Media.EntityFrameworkCore;
 using DotNetBoost.Media.Core.Metadata;
+using MediaEntityKey = DotNetBoost.Media.Core.Metadata.EntityKey;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoost.Settings.Core.Interfaces;
@@ -114,27 +115,19 @@ public static class CatalogEndpoints
                 .Select(group => new { CategoryId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(row => row.CategoryId, row => row.Count, ct);
 
-            // One query per category, because the banner is an attachment and the media library
-            // addresses one owner at a time with no bulk form of the question. Nothing joins the
-            // two tables, which is the point — so the cost is paid here, in the open, and it is
-            // the only per-row cost left in this handler.
+            // Every banner in ONE query. Through media.For(category) this was a GetByRoleAsync
+            // per row — the library addressed one owner at a time and had no bulk form of the
+            // question, so the cost was paid here in the open and documented as the price of
+            // having no integration package. ForMany is the bulk form, and the price is gone.
             //
-            // Measured, with EF command logging on: this listing is N + 3 — the categories, the
-            // grouped product counts, one GetByRoleAsync per row, and one translations read for
-            // the whole page.
-            var banners = new Dictionary<int, MediaFileInfo>(rows.Count);
+            // Measured with EF command logging on: this listing is 4 queries whatever the page
+            // holds — the categories, the grouped product counts, the banners, and one
+            // translations read. It was N + 3.
+            var banners = await media.ForMany(rows).GetByRoleAsync(BannerRole, ct);
 
-            foreach (var category in rows)
-            {
-                if (await media.For(category).GetByRoleAsync(BannerRole, ct) is { } banner)
-                    banners[category.Id] = banner;
-            }
-
-            // And ONE query for every banner's alt text. This used to run per category, inside the
-            // loop above, which made the listing 2N rather than N for no reason: the translations
-            // are this application's own rows and nothing stopped them being read together.
-            // GetManyAsync exists to be called exactly once, with every id.
-            var altText = await mediaText.GetManyAsync([.. banners.Values.Select(b => b.Id)], ct);
+            // One query for every banner's alt text, for the same reason.
+            var altText = await mediaText.GetManyAsync(
+                [.. banners.Values.Where(b => b is not null).Select(b => b!.Id)], ct);
 
             return Results.Ok(rows.Select(category => new
             {
@@ -143,7 +136,10 @@ public static class CatalogEndpoints
                 category.Description,
                 category.Slug,
                 Products = productCounts.GetValueOrDefault(category.Id),
-                Banner = banners.TryGetValue(category.Id, out var file)
+
+                // ForMany answers for every owner it was asked about, so this reads a key that is
+                // always there and a value that is null when nothing holds the role.
+                Banner = banners[OwnerKey(category.Id)] is { } file
                     ? AttachedFiles.Describe(file, altText.GetValueOrDefault(file.Id))
                     : null
             }).ToList());
@@ -307,26 +303,15 @@ public static class CatalogEndpoints
             var total = await query.CountAsync(ct);
 
             var rows = await query.OrderBy(p => p.Id).Skip(skip).Take(take).ToListAsync(ct);
-            // One call per product on the page, for the same reason the categories listing above
-            // makes one per category — and `take` is what bounds how many that is.
+            // Every product's images in ONE read. Per link rather than per file, so the entry
+            // holding `primary` arrives with the rest and needs no GetByRoleAsync of its own.
             //
-            // ListWithRolesAsync is per LINK rather than per file, so the entry holding `primary`
-            // arrives with the rest and needs no GetByRoleAsync of its own.
-            //
-            // It costs TWO round trips though, not one: it reads the attachment rows and then the
-            // files they point at. So this listing measures 2N + 3, where the categories listing
-            // beside it is N + 3 — the difference is inside the library, not here, and only a bulk
-            // owner API would close it.
-            var attachedByProduct = new Dictionary<int, IReadOnlyList<MediaAttachedFile>>(rows.Count);
+            // Through media.For(product) this was a call per product, and each cost TWO round
+            // trips — the attachment rows, then the files they point at — so a page of fifty
+            // measured 2N + 3. ForMany is one, whatever the page holds.
+            var attachedByProduct = await media.ForMany(rows).ListWithRolesAsync(ct);
 
-            foreach (var product in rows)
-            {
-                attachedByProduct[product.Id] = await media.For(product).ListWithRolesAsync(ct);
-            }
-
-            // One query for the whole page's alt text. Inside the loop, as this was, it added one
-            // round trip per product on top of the two above — a page of twelve cost twelve reads
-            // of a table that answers all of them at once.
+            // One query for the whole page's alt text, for the same reason.
             var text = await mediaText.GetManyAsync(
                 [.. attachedByProduct.Values.SelectMany(files => files.Select(f => f.File.Id))], ct);
 
@@ -334,7 +319,9 @@ public static class CatalogEndpoints
 
             foreach (var product in rows)
             {
-                var attached = attachedByProduct[product.Id];
+                // Always present: ForMany answers for every owner it was asked about, with an
+                // empty list for one that has nothing attached.
+                var attached = attachedByProduct[OwnerKey(product.Id)];
 
                 var primary = attached.FirstOrDefault(a => a.Role == PrimaryRole)?.File;
 
@@ -489,22 +476,21 @@ public static class CatalogEndpoints
             int id,
             AppDbContext db,
             IMediaManager media,
-            MediaText mediaText,
             IStringLocalizer<ApiMessages> messages,
             CancellationToken ct) =>
         {
             var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
             if (product is null) return NotFound(messages, "Catalog.ProductNotFound", id);
 
-            // Nothing cascades across library boundaries — the honest cost of having no
-            // integration package, which is why this is written out rather than hidden.
-            var files = await media.For(product).ListAsync(ct);
-
-            foreach (var file in files)
-            {
-                await mediaText.DeleteAsync(file.Id, ct);
-                await media.DeleteAsync(file.Id, ct);
-            }
+            // Deletes the files this product was the ONLY holder of, and merely detaches the ones
+            // other products still reference — which is the difference between this and the loop
+            // it replaced. That loop called IMediaManager.DeleteAsync per file, which removes a
+            // file from every owner, so deleting one product pulled shared images out of the rest.
+            //
+            // The alt text is not deleted here: MediaTextCleanup is registered as an
+            // IMediaFilesDeletedHandler and is told exactly which files went, so a detached-but-
+            // surviving image keeps its text and a deleted one loses it.
+            await media.For(product).DeleteAllAsync(ct);
 
             // Read before the row goes, for the same reason as the category's slug.
             var sku = product.Sku;
@@ -516,12 +502,19 @@ public static class CatalogEndpoints
 
             return Wrote(messages, "Catalog.ProductDeleted", sku);
         })
-        .WithSummary("Deletes a product, its images, and their alt text");
+        .WithSummary("Deletes a product, the images only it held, and their alt text");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Shared helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// An owner's key as DotNetBoost.Media formats it, which is how a bulk read keys its answer.
+    /// Through the library's own formatter rather than <c>id.ToString()</c>, so this application is
+    /// not relying on the two happening to agree.
+    /// </summary>
+    private static string OwnerKey(int id) => MediaEntityKey.ToKeyString(id);
 
     /// <summary>
     /// Queues one language's values per call. Uses the by-name overload because the property names
