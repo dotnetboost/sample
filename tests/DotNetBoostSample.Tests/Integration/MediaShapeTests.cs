@@ -188,6 +188,7 @@ public class MediaShapeTests(SampleApp app)
         var key = fileId.ToString("D");
 
         return Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
-            db.Translations.Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
+            db.Set<DotNetBoost.MultiLingual.Core.Models.Translation>()
+                .Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
     }
 }

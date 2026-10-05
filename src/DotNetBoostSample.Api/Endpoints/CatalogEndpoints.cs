@@ -1,4 +1,5 @@
 using DotNetBoost.Media.Core.Interfaces;
+using DotNetBoost.Media.EntityFrameworkCore;
 using DotNetBoost.Media.Core.Metadata;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core.Interfaces;
@@ -288,8 +289,18 @@ public static class CatalogEndpoints
                 query = query.Where(p => p.CategoryId == categoryId);
 
             // The setting's other half: a product with no image is not listed at all.
+            //
+            // `OwnersWithMedia<Product>()` is DotNetBoost.Media's own subquery over its attachment
+            // table — the owner ids of every Product with something attached. It has to be a
+            // queryable rather than a set of ids, because the filter is applied BEFORE paging: a
+            // question about every product in the table, not about the ones on this page.
+            //
+            // This replaced the one place in the application that read a library's own table
+            // instead of its interface. The library had no way to express the question, so the
+            // application reached past it and said so in a comment; preview.2 added the API and the
+            // comment went with it.
             if (!catalog.ShowProductsWithoutImages)
-                query = query.Where(p => ProductsWithAnImage(db).Contains(p.Id.ToString()));
+                query = query.Where(p => db.OwnersWithMedia<Product>().Contains(p.Id.ToString()));
 
             // Counted AFTER the filter, so a page is a page of what is actually being listed and
             // the pager cannot offer a page that holds nothing.
@@ -511,51 +522,6 @@ public static class CatalogEndpoints
     // ─────────────────────────────────────────────────────────────────────────
     //  Shared helpers
     // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// The ids of every product with at least one live file attached — the subquery behind
-    /// <c>CatalogSettings.ShowProductsWithoutImages</c>.
-    ///
-    /// <para><b>Why this reads the media library's rows instead of calling it.</b> "Has an image"
-    /// is a fact about DotNetBoost.Media's attachments, and the filter asks it of every product at
-    /// once, before a single row can be paged. The library addresses one owner at a time —
-    /// <c>media.For(product)</c> — and ships no bulk owner API, so going through the interface
-    /// means a query per product across the whole table just to decide what the first page holds.
-    /// That is not a filter; it is a scan with a filter printed on it.</para>
-    ///
-    /// <para>So this is the one place in the application that reads a library's own table rather
-    /// than its interface, and the cost is named rather than hidden: it depends on
-    /// <see cref="MediaAttachment"/>'s column shape, which a package upgrade may change and
-    /// <c>IMediaAccessor</c> may not. Nothing is being reached around — <see cref="AppDbContext"/>
-    /// already hosts Media's entities, because <c>ApplyMedia()</c> asks it to — the interface
-    /// simply cannot express this question. If it grows one, this method is the only caller to
-    /// change.</para>
-    ///
-    /// <para><b>The attachment table alone is the right answer, and that is a documented
-    /// guarantee rather than a guess.</b> Deleting a file removes every attachment of it outright
-    /// <i>even under soft delete</i> — the row may survive with <c>DeletedAt</c> set, as a record
-    /// that the file existed, but nothing is attached to it any more. So there is no live-file join
-    /// to make here: an attachment row existing IS the file being usable. This is the assumption to
-    /// re-read if Media's delete semantics ever change, and it is the reason this query is one
-    /// statement rather than a join. (The first version of this method did join, on
-    /// <c>!f.IsDeleted</c> — which does not even translate, because <c>IsDeleted</c> is computed
-    /// from <c>DeletedAt</c> and is not a column.)</para>
-    ///
-    /// <para>The owner id is compared as text because that is what an attachment stores. Both
-    /// libraries format an <c>int</c> key the same way and tests/KeyFormatAgreementTests.cs
-    /// asserts it, so <c>p.Id.ToString()</c> is the same string the attachment was written with.
-    /// The entity name is asked of Media rather than written out, so it cannot drift from the one
-    /// <c>media.For(product)</c> attaches under.</para>
-    /// </summary>
-    private static IQueryable<string> ProductsWithAnImage(AppDbContext db)
-    {
-        var ownerName = MediaEntityNames.For(typeof(Product));
-
-        return db.MediaAttachments
-            .Where(a => a.OwnerEntityName == ownerName)
-            .Select(a => a.OwnerEntityId)
-            .Distinct();
-    }
 
     /// <summary>
     /// Queues one language's values per call. Uses the by-name overload because the property names

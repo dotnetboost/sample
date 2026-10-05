@@ -190,6 +190,7 @@ public class CatalogCompositionTests(SampleApp app)
         var key = fileId.ToString("D");
 
         return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
-            db.Translations.Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
+            db.Set<DotNetBoost.MultiLingual.Core.Models.Translation>()
+                .Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
     }
 }

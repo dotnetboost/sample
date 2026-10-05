@@ -1,8 +1,5 @@
-using DotNetBoost.Media.Core.Models;
 using DotNetBoost.Media.EntityFrameworkCore;
-using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoost.MultiLingual.EntityFrameworkCore;
-using DotNetBoost.Settings.Core.Models;
 using DotNetBoost.Settings.EntityFrameworkCore;
 using DotNetBoostSample.Api.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,30 +11,25 @@ namespace DotNetBoostSample.Api.Data;
 /// own two.
 /// <para>
 /// This class is the only place in the solution where all three libraries are named together —
-/// and note what that amounts to: implementing three independent interfaces and calling three
-/// independent <c>Apply*</c> methods. None of them requires the others, none of them knows the
-/// others are here, and removing any one of them means deleting its interface, its DbSets and its
-/// one line in <see cref="OnModelCreating"/>. Nothing else in the file changes.
+/// and note what that now amounts to: three independent <c>Apply*</c> calls in
+/// <see cref="OnModelCreating"/> and nothing else. No interface to implement and no <c>DbSet</c>
+/// to declare: each store reaches its own tables through <c>Set&lt;T&gt;()</c>, and this
+/// application goes through <c>ISettingManager</c>, <c>IMediaManager</c> and
+/// <c>IMultiLingualManager</c> rather than the tables. Removing a library means deleting its one
+/// line here. Nothing else in the file changes.
+/// </para>
+/// <para>
+/// Until preview.2 each library also asked for a marker interface and a pair of <c>DbSet</c>
+/// properties — six properties and three interfaces that the stores never read. They are gone,
+/// which is a better demonstration of the independence this sample is about than a class
+/// implementing three interfaces to prove it.
 /// </para>
 /// </summary>
-public class AppDbContext(DbContextOptions<AppDbContext> options)
-    : DbContext(options), ISettingDbContext, IMediaDbContext, IMultiLingualDbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     // ── The application's own entities ───────────────────────────────────────
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product>  Products   => Set<Product>();
-
-    // ── DotNetBoost.Settings (ISettingDbContext) ─────────────────────────────
-    public DbSet<Setting>           Settings      => Set<Setting>();
-    public DbSet<SettingAuditEntry> SettingAudits => Set<SettingAuditEntry>();
-
-    // ── DotNetBoost.Media (IMediaDbContext) ──────────────────────────────────
-    public DbSet<MediaFile>       MediaFiles       => Set<MediaFile>();
-    public DbSet<MediaAttachment> MediaAttachments => Set<MediaAttachment>();
-
-    // ── DotNetBoost.MultiLingual (IMultiLingualDbContext) ────────────────────
-    public DbSet<Translation> Translations => Set<Translation>();
-    public DbSet<Language>    Languages    => Set<Language>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

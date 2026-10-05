@@ -12,25 +12,25 @@
        and knows nothing about the others. tests/ asserts that stays true.
        ────────────────────────────────────────────────────────────────────────── -->
   <ItemGroup Label="DotNetBoost — Settings">
-    <PackageVersion Include="DotNetBoost.Settings.Core" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.Settings.EntityFrameworkCore" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.Settings.API" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.Settings.Core" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Settings.EntityFrameworkCore" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Settings.API" Version="1.0.0-preview.2" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — Media">
-    <PackageVersion Include="DotNetBoost.Media.Core" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.Media.EntityFrameworkCore" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.Media.FileSystem" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.Media.API" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.Media.Core" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Media.EntityFrameworkCore" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Media.FileSystem" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Media.API" Version="1.0.0-preview.2" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — MultiLingual">
-    <PackageVersion Include="DotNetBoost.MultiLingual.Core" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.MultiLingual.EntityFrameworkCore" Version="1.0.0-preview.1" />
-    <PackageVersion Include="DotNetBoost.MultiLingual.API" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.Core" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.EntityFrameworkCore" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.API" Version="1.0.0-preview.2" />
     <!-- IStringLocalizer over Resources/*.json, answering in the language the CONTENT is served
          in. Still one library's family, so the independence tests are unaffected. -->
-    <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.2" />
   </ItemGroup>
 
   <ItemGroup Label="Persistence — PostgreSQL through EF Core">
