@@ -65,9 +65,16 @@ type, its default, whether it is `[Sensitive]`, and the constraints its validato
 it. It used to be a literal in the client that matched nothing in C#, and that the API would have
 accepted any value outside. Try saving 500: refused with `400`, by the same rule the form drew.
 
-One flag the schema cannot carry is `[MultiLingual]` — another library's attribute, which the
-settings engine has never heard of — so `translated` is the single field hint still written in
-`clients/dashboard/app/utils/settings.ts`. The catalogue group's entry there is now empty.
+The **tabs** come from the class too. `GET /api/settings` names the registered groups, so adding a
+`[SettingGroup]` class in C# puts a working tab on this page with no change in the client at all:
+it gets a default icon and a form generated from its own schema, through one dynamic page. That is
+why there is no `pages/settings/catalog.vue` — there is a `[route].vue`. Branding keeps a page of
+its own only because it has more than a form: per-language text, and a logo.
+
+Two things stay in `clients/dashboard/app/utils/settings.ts`, and both are things a server cannot
+answer: which icon to draw, and `translated` — the flag mirroring `[MultiLingual]`, another
+library's attribute that the settings engine has never heard of. The catalogue group's entry is now
+an icon and nothing else.
 
 Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it back as `If-Match`, and a
 save that would overwrite someone else's is refused with `412`. The form then offers to re-apply
@@ -437,6 +444,7 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/pages/settings/index.vue           Branding tab: the group form plus its media
   app/pages/settings/catalog.vue         Catalog tab
   app/components/settings/GroupForm.vue  form generated from the group's own schema
+  app/pages/settings/[route].vue         any discovered group; branding.vue is the one exception
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
   app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
   app/utils/settings.ts                  the group registry — one entry per tab

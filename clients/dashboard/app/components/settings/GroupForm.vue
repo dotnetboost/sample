@@ -94,11 +94,11 @@ function field(key: string): SettingField {
  * the generated form makes about the controls themselves.
  */
 function label(key: string) {
-  return fieldLabel(props.group, key)
+  return fieldLabel(props.group.route, key)
 }
 
 function description(key: string) {
-  return fieldDescription(props.group, key) || undefined
+  return fieldDescription(props.group.route, key) || undefined
 }
 </script>
 
@@ -109,13 +109,13 @@ function description(key: string) {
     @submit="submit"
   >
     <UPageCard
-      :title="groupLabel(group)"
+      :title="groupLabel(group.route, group.name)"
       variant="naked"
       orientation="horizontal"
       class="mb-4"
     >
       <template #description>
-        <p>{{ groupDescription(group) }}</p>
+        <p>{{ groupDescription(group.route) }}</p>
 
         <UBadge
           color="neutral"

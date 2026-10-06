@@ -108,7 +108,7 @@ export function useSettingsGroup(group: SettingGroup) {
       await load()
 
       notifySuccess(
-        t('settings.form.toast.saved', { group: groupLabel(group) }),
+        t('settings.form.toast.saved', { group: groupLabel(group.route, group.name) }),
         t('settings.form.toast.savedDescription')
       )
 

@@ -365,8 +365,13 @@ export interface SettingGroup {
   route: string
   /** C# class name. Not translated: it is the identity the API and the C# source share. */
   name: string
+  /** Whether the group carries `[Authorize]`, as `GET /api/settings` reports it. */
+  requiresAuthorization: boolean
+  /** From `utils/settings.ts`, with a default for a group this dashboard has never heard of. */
   icon: string
-  /** Dashboard route for this group's tab. */
-  to: string
+  /**
+   * Client-only field hints — today just `translated`. Everything else about a property comes
+   * from `GET /api/settings/{route}/schema`; see `GroupForm`.
+   */
   fields: Record<string, SettingField>
 }

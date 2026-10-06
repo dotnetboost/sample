@@ -452,6 +452,8 @@
   },
 
   "settings": {
+    "noGroups": "Aucun groupe de réglages n'est enregistré.",
+    "unknownGroup": "Aucun groupe de réglages n'est monté sur « {route} ».",
     "groups": {
       "branding": {
         "label": "Identité",
@@ -467,7 +469,7 @@
           },
           "headerLogoSize": {
             "label": "Taille du logo d'en-tête",
-            "description": "La taille à laquelle le logo est dessiné dans l'en-tête de la barre latérale, en pixels. L'en-tête borne ce qu'il affiche entre 16 et 64."
+            "description": "La taille à laquelle le logo est dessiné dans l'en-tête de la barre latérale, en pixels. Doit être comprise entre 16 et 64 — l'API refuse toute autre valeur, et ce contrôle lit cette plage dans le schéma du groupe."
           }
         }
       },

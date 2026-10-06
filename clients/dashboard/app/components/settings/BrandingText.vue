@@ -27,7 +27,6 @@ const { languages, defaultLanguage, ensureLoaded } = useLanguages()
  * the same property in different languages. Taking the label from the same place the form takes it
  * is what keeps them identical when either is reworded.
  */
-const brandingGroup = findSettingsGroup('branding')!
 
 await ensureLoaded()
 
@@ -131,7 +130,7 @@ async function save() {
       <TranslationEditor
         v-model="draft"
         :languages="translatable"
-        :fields="[{ name: 'StoreName', label: fieldLabel(brandingGroup, 'storeName') }]"
+        :fields="[{ name: 'StoreName', label: fieldLabel('branding', 'storeName') }]"
       />
 
       <div class="flex items-center justify-between gap-4">

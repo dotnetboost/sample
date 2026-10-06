@@ -1,79 +1,82 @@
-import type { SettingGroup } from '~/types'
+import type { SettingField } from '~/types'
 
 /**
- * The settings groups the dashboard exposes, one tab each.
+ * The client's half of a settings tab: an icon, and the one field hint no server can supply.
  *
- * `route` must match the `[SettingGroup("…")]` attribute on the C# class — that is where
- * `MapSettingsEndpoints()` mounts the group. Everything else is presentation: the form fields come
- * from whatever the API returns, so a property added to the C# class appears without an entry
- * below, and a property removed from it disappears.
+ * **What is not here is the point.** This used to be the list of settings groups — the source of
+ * which tabs exist, and of every field's bounds. Both come from the API now:
  *
- * That last part is visible here: `BrandingSettings` used to carry a `LogoFileId`, and when it was
- * removed the field stopped rendering on its own. The logo is a media attachment now, which the
- * branding tab draws beneath the form.
+ *   • `GET /api/settings` names the registered `[SettingGroup]` classes, so adding one in C# puts
+ *     a tab on this page with no change here. See `useSettingGroups`.
+ *   • `GET /api/settings/{route}/schema` describes each property — its type, its default, whether
+ *     it is `[Sensitive]`, and the constraints its validators enforce. `headerLogoSize`'s 16–64
+ *     range used to be a literal in this file that matched nothing in C#, and that the API would
+ *     have accepted any value outside.
  *
- * **What is not here any more.** The labels and the help text used to be; they live in the message
- * bundles under `settings.groups.{route}`, addressed by `groupLabel`/`fieldLabel` below. And the
- * numeric bounds used to be — `headerLogoSize: { min: 16, max: 64 }` and
- * `pageSize: { min: 1, max: 200 }`, two ranges that appeared nowhere in C# and that the API would
- * happily have ignored. `GET /api/settings/{route}/schema` publishes them now, from the
- * FluentValidation rules in `Settings/SettingsValidators.cs`, along with each property's type, its
- * default and whether it is `[Sensitive]`. `GroupForm` reads that.
- *
- * So what is left per group is the nav — a route, the C# class name, an icon, a page to open — and
- * the one field flag a server cannot supply: `translated`, which mirrors `[MultiLingual]`.
- * DotNetBoost.Settings has never heard of that attribute; it belongs to another library, and the
- * settings engine does not know it exists. Which is the sample's whole subject in miniature.
+ * What is left is what a server genuinely cannot answer: which icon to draw, and `translated`.
+ * That flag mirrors `[MultiLingual]` — another library's attribute, which DotNetBoost.Settings has
+ * never heard of and cannot publish. A group with no entry below still works: it gets a default
+ * icon and no field hints, which is what makes discovery real rather than decorative.
  */
-export const settingsGroups: SettingGroup[] = [
-  {
-    route: 'branding',
-    name: 'BrandingSettings',
+interface SettingGroupHints {
+  icon?: string
+  fields?: Record<string, SettingField>
+}
+
+const hints: Record<string, SettingGroupHints> = {
+  branding: {
     icon: 'i-lucide-palette',
-    to: '/settings',
-    // Only `[MultiLingual]`, which the schema endpoint cannot know about. Everything else about
-    // these properties — including the 16–64 range this used to assert — comes from the API.
     fields: {
+      // `[MultiLingual]` on BrandingSettings.StoreName. The settings row holds the default
+      // language's value; the other languages are edited against the translations store, which is
+      // what SettingsBrandingText does.
       storeName: { translated: true }
     }
   },
-  {
-    route: 'catalog',
-    name: 'CatalogSettings',
-    icon: 'i-lucide-package',
-    to: '/settings/catalog',
-    // Nothing. Every one of this group's properties is described by the API, which is what the
-    // schema endpoint was for.
-    fields: {}
+  catalog: {
+    icon: 'i-lucide-package'
+    // No field hints at all: every one of this group's properties is described by the API.
   }
-]
+}
 
-export function findSettingsGroup(route: string): SettingGroup | undefined {
-  return settingsGroups.find(group => group.route === route)
+/** Shown for a group this dashboard has no icon for — a class added in C# and nowhere else. */
+const defaultIcon = 'i-lucide-sliders-horizontal'
+
+export function groupIcon(route: string): string {
+  return hints[route]?.icon ?? defaultIcon
+}
+
+export function groupFields(route: string): Record<string, SettingField> {
+  return hints[route]?.fields ?? {}
+}
+
+/** Where a group's tab goes. Derived, so a discovered group needs no entry to be reachable. */
+export function groupPath(route: string): string {
+  return `/settings/${route}`
 }
 
 /**
  * A group's and a property's visible text, addressed in the bundles by route and property name.
  *
- * Built at runtime rather than written out, because the key does not exist until the group does —
- * which is the same reason the form's fields come from the API's response rather than from a list
- * here. A property the bundles say nothing about still renders: it falls back to `humanizeKey`,
- * so adding one to the C# class puts a usable field on the form before anyone writes it a label.
+ * Addressed by route rather than by a group object, because the group now arrives from the API and
+ * the bundles are keyed on something stable. A property the bundles say nothing about still
+ * renders: it falls back to `humanizeKey`, so a property added to the C# class puts a usable field
+ * on the form before anyone writes it a label.
  */
-export function groupLabel(group: SettingGroup): string {
-  return uiText(`settings.groups.${group.route}.label`, group.name)
+export function groupLabel(route: string, fallback = ''): string {
+  return uiText(`settings.groups.${route}.label`, fallback || humanizeKey(route))
 }
 
-export function groupDescription(group: SettingGroup): string {
-  return uiText(`settings.groups.${group.route}.description`, '')
+export function groupDescription(route: string): string {
+  return uiText(`settings.groups.${route}.description`, '')
 }
 
-export function fieldLabel(group: SettingGroup, key: string): string {
-  return uiText(`settings.groups.${group.route}.fields.${key}.label`, humanizeKey(key))
+export function fieldLabel(route: string, key: string): string {
+  return uiText(`settings.groups.${route}.fields.${key}.label`, humanizeKey(key))
 }
 
-export function fieldDescription(group: SettingGroup, key: string): string {
-  return uiText(`settings.groups.${group.route}.fields.${key}.description`, '')
+export function fieldDescription(route: string, key: string): string {
+  return uiText(`settings.groups.${route}.fields.${key}.description`, '')
 }
 
 /** `useSsl` -> `Use Ssl`. Fallback label for properties the bundles do not name. */

@@ -4,14 +4,16 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const { apiReferenceUrl } = useRuntimeConfig().public
 const { t } = useI18n()
 
-// One tab per settings group. Adding a group to `settingsGroups` (and a page under
-// `pages/settings/`) is all it takes to get another — nothing here enumerates them.
+// One tab per registered [SettingGroup], discovered from GET /api/settings. Add a settings class
+// in C# and a tab appears here with no change in this client: it gets the default icon and a form
+// generated from its own schema. Nothing in the dashboard enumerates them any more.
+const { data: groups } = await useSettingGroups()
+
 const links = computed(() => [
-  settingsGroups.map(group => ({
-    label: groupLabel(group),
+  (groups.value ?? []).map(group => ({
+    label: groupLabel(group.route, group.name),
     icon: group.icon,
-    to: group.to,
-    exact: group.to === '/settings'
+    to: groupPath(group.route)
   })),
   [{
     label: t('nav.apiReference'),

@@ -452,6 +452,8 @@
   },
 
   "settings": {
+    "noGroups": "No settings groups are registered.",
+    "unknownGroup": "No settings group is mounted at \"{route}\".",
     "groups": {
       "branding": {
         "label": "Branding",
@@ -467,7 +469,7 @@
           },
           "headerLogoSize": {
             "label": "Header logo size",
-            "description": "How large the logo is drawn in the sidebar header, in pixels. The header clamps what it renders to 16–64."
+            "description": "How large the logo is drawn in the sidebar header, in pixels. Must be between 16 and 64 — the API refuses anything outside, and this control reads that range from the group's schema."
           }
         }
       },
