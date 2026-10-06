@@ -13,7 +13,11 @@ const props = defineProps<{
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
-const emit = defineEmits<{ saved: [] }>()
+/**
+ * `saved` carries the new row's id on a CREATE, and nothing on an update. The parent switches the
+ * open editor onto that id, which is what keeps a just-created product reachable — see `save()`.
+ */
+const emit = defineEmits<{ saved: [createdId?: number] }>()
 
 const api = useApi()
 const toast = useToast()
@@ -86,16 +90,26 @@ async function save() {
     // Media is NOT saved here: an attach, detach or reorder landed as its own request when it was
     // made, against the media library's own endpoints. A product's files are attachment rows
     // pointing at it, not columns on it.
-    const written = props.productId === null
-      ? await api.products.create(body)
-      : await api.products.update(props.productId, body)
+    if (props.productId === null) {
+      const created = await api.products.create(body)
 
-    // Title from here, sentence from the API — see CategoryEditor.
-    notifySuccess(
-      props.productId === null
-        ? t('productEditor.toast.created')
-        : t('productEditor.toast.saved'),
-      written.message)
+      // Title from here, sentence from the API — see CategoryEditor.
+      notifySuccess(t('productEditor.toast.created'), created.message)
+
+      // Deliberately STAYS OPEN, on the product just created. A product cannot hold media until
+      // it has a key, so this panel is the only place its first image can be attached — and with
+      // `CatalogSettings.ShowProductsWithoutImages` turned off, a product with no images is not
+      // listed at all. Closing here would drop it out of the list the instant it was created and
+      // leave no way back to it: the catalogue is the only route into this editor. So the parent
+      // swaps `productId` to the new id, the watcher above reloads, and the media sections that
+      // were showing "save first" become usable.
+      emit('saved', created.id)
+      return
+    }
+
+    const written = await api.products.update(props.productId, body)
+
+    notifySuccess(t('productEditor.toast.saved'), written.message)
 
     emit('saved')
     open.value = false

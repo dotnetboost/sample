@@ -81,6 +81,22 @@ function editProduct(id: number | null) {
   productOpen.value = true
 }
 
+/**
+ * A product was written. `createdId` is set only for a CREATE, and the editor stays open for one:
+ * a product cannot hold media until it has a key, so its first image can only be attached from
+ * that panel. Switching `editingProduct` onto the new id turns the open "new product" panel into
+ * an "edit product" one, and the media sections that were showing "save first" become usable.
+ *
+ * Without this the create was a dead end whenever `showProductsWithoutImages` is off: the product
+ * saved, dropped out of this list for having no images, and the catalogue is the only route back
+ * into the editor — so there was no way to attach the image that would have made it visible.
+ */
+async function onProductSaved(createdId?: number) {
+  if (createdId !== undefined) editingProduct.value = createdId
+
+  await Promise.all([refreshProducts(), refreshCategories()])
+}
+
 async function confirmDelete() {
   if (!confirming.value) return
 
@@ -343,7 +359,7 @@ const items = computed(() => [
         :product-id="editingProduct"
         :languages="languages ?? []"
         :categories="categories ?? []"
-        @saved="() => { refreshProducts(); refreshCategories() }"
+        @saved="onProductSaved"
       />
 
       <ConfirmModal
