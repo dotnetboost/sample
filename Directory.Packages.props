@@ -15,6 +15,10 @@
     <PackageVersion Include="DotNetBoost.Settings.Core" Version="1.0.0-preview.2" />
     <PackageVersion Include="DotNetBoost.Settings.EntityFrameworkCore" Version="1.0.0-preview.2" />
     <PackageVersion Include="DotNetBoost.Settings.API" Version="1.0.0-preview.2" />
+    <!-- Server-side rules for the settings groups, and the source of the constraints the
+         schema endpoint publishes — so the dashboard's generated form reads them rather than
+         hardcoding a range it guessed at. -->
+    <PackageVersion Include="DotNetBoost.Settings.FluentValidation" Version="1.0.0-preview.2" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — Media">

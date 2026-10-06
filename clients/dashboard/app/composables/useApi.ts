@@ -1,6 +1,6 @@
 import type {
   Category, CategoryDetail, CreateResult, Language, MediaTextValues, ProductDetail, ProductPage,
-  Translations, WriteResult
+  SettingGroupDescriptor, SettingGroupSchema, Translations, WriteResult
 } from '~/types'
 
 /**
@@ -54,6 +54,17 @@ export function useApi() {
       // Accept-Language on the settings endpoints too: the library ignores it, but the global
       // UseMultiLingual() middleware resolves it and the API's cache keys each group by it.
       get: <T>(group: string) => $fetch<T>(`/api/settings/${group}`, { headers: headers() }),
+
+      /** The registered groups. Routes and names only — no values. */
+      groups: () => $fetch<SettingGroupDescriptor[]>('/api/settings', { headers: headers() }),
+
+      /**
+       * What a group's properties are: types, defaults, `[Sensitive]`, and the constraints its
+       * validators enforce. This is what lets the settings form be generated from the class
+       * rather than from a guess about the shape of a response.
+       */
+      schema: (group: string) =>
+        $fetch<SettingGroupSchema>(`/api/settings/${group}/schema`, { headers: headers() }),
       /** The group's model, posted whole — the settings library validates it server side. */
       set: <T extends object>(group: string, body: T) =>
         $fetch(`/api/settings/${group}`, {

@@ -38,8 +38,52 @@ async function reapply() {
 
 const revealed = reactive<Record<string, boolean>>({})
 
+/**
+ * The group's schema, from `GET /api/settings/{route}/schema`.
+ *
+ * This is what makes the form generated from the C# class rather than from a guess about the shape
+ * of a response: the property list, each one's type and default, which are `[Sensitive]`, and the
+ * constraints the registered validators enforce.
+ */
+const api = useApi()
+const { data: schema } = await useAsyncData(
+  () => `settings-schema-${props.group.route}`,
+  () => api.settings.schema(props.group.route),
+  { watch: [() => props.group.route] })
+
+const described = computed(() =>
+  Object.fromEntries((schema.value?.properties ?? []).map(p => [p.name, p])))
+
+/**
+ * How one property is rendered: what the SERVER says about it, plus the two things only a client
+ * can know.
+ *
+ * `min`, `max`, `maxLength`, `pattern` and `sensitive` all come from the API — the bounds used to
+ * be hardcoded here and matched nothing in C#. What stays client-side is deliberate:
+ *
+ *   • `step` is a control's behaviour, not a rule. An integer steps by one; nothing server-side
+ *     has an opinion.
+ *   • `type` picks the input — `color` for an accent colour. The schema publishes the `pattern`
+ *     that validates it, but which widget to draw is presentation.
+ *   • `translated` mirrors `[MultiLingual]`, which DotNetBoost.Settings cannot publish: it is
+ *     another library's attribute, and the settings engine has never heard of it. This is the one
+ *     flag the registry still has to carry, and it is the sample's whole subject in miniature.
+ */
 function field(key: string): SettingField {
-  return props.group.fields[key] ?? {}
+  const own = props.group.fields[key] ?? {}
+  const described_ = described.value[key]
+
+  if (!described_) return own
+
+  const c = described_.constraints ?? {}
+
+  return {
+    ...own,
+    sensitive: described_.sensitive || own.sensitive,
+    min: typeof c.min === 'number' ? c.min : undefined,
+    max: typeof c.max === 'number' ? c.max : undefined,
+    step: own.step ?? (described_.type === 'Int32' ? 1 : undefined)
+  }
 }
 
 /**

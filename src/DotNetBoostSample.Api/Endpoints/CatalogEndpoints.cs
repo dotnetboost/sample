@@ -86,7 +86,12 @@ public static class CatalogEndpoints
     /// way past it.
     /// </para>
     /// </summary>
-    private const int MaxPageSize = 200;
+    /// <remarks>
+    /// Public because <c>CatalogSettingsValidator</c> bounds <c>PageSize</c> by it: a stored page
+    /// size larger than this cap would be clamped on every read, which is a setting that does not
+    /// do what it says. One number, named once.
+    /// </remarks>
+    internal const int MaxPageSize = 200;
 
     public static void MapCatalogEndpoints(this IEndpointRouteBuilder app)
     {

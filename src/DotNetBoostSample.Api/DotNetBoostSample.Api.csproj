@@ -5,6 +5,7 @@
     <PackageReference Include="DotNetBoost.Settings.Core" />
     <PackageReference Include="DotNetBoost.Settings.EntityFrameworkCore" />
     <PackageReference Include="DotNetBoost.Settings.API" />
+    <PackageReference Include="DotNetBoost.Settings.FluentValidation" />
 
     <!-- Media: file metadata in PostgreSQL, bytes on local disk. -->
     <PackageReference Include="DotNetBoost.Media.Core" />

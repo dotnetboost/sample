@@ -110,9 +110,10 @@ public class BrandingSettings
     /// the two are independent: this is a number whether or not a logo is attached.
     /// </para>
     /// <para>
-    /// The API accepts any <c>int</c>; the dashboard offers a sensible range and clamps what it
-    /// renders, so a careless value cannot break the layout. Enforcing it server-side would mean
-    /// adding <c>DotNetBoost.Settings.FluentValidation</c>, which this sample does not install.
+    /// Bounded 16–64 by <c>BrandingSettingsValidator</c>, so a careless value is refused rather
+    /// than clamped at render time — and <c>GET /api/settings/branding/schema</c> publishes that
+    /// range, which is where the dashboard's number control gets its own. The range used to live
+    /// only in the client and match nothing here.
     /// </para>
     /// </summary>
     public int HeaderLogoSize { get; set; } = 28;

@@ -54,9 +54,20 @@ is drawn at is another setting, and nothing but `BrandingEndpoints.cs` knows all
 any of them on the Settings page and the header follows on the next read — no restart, no redeploy.
 
 **Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
-*generated from whatever the group returns* rather than written out — a `bool` becomes a switch, an
-`int` a number spinner, a `string` an input. Add a property to the C# class and the field appears;
-remove one and it goes, which is exactly what happened when `LogoFileId` left `BrandingSettings`.
+*generated from what the group says about itself* rather than written out — a `bool` becomes a
+switch, an `int` a number spinner, a `string` an input. Add a property to the C# class and the field
+appears; remove one and it goes, which is exactly what happened when `LogoFileId` left
+`BrandingSettings`.
+
+The **bounds** come from the class too. `GET /api/settings/{group}/schema` publishes each property's
+type, its default, whether it is `[Sensitive]`, and the constraints its validators enforce — so
+`headerLogoSize`'s 16–64 range is `BrandingSettingsValidator`'s rule, read by the control that draws
+it. It used to be a literal in the client that matched nothing in C#, and that the API would have
+accepted any value outside. Try saving 500: refused with `400`, by the same rule the form drew.
+
+One flag the schema cannot carry is `[MultiLingual]` — another library's attribute, which the
+settings engine has never heard of — so `translated` is the single field hint still written in
+`clients/dashboard/app/utils/settings.ts`. The catalogue group's entry there is now empty.
 
 Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it back as `If-Match`, and a
 save that would overwrite someone else's is refused with `412`. The form then offers to re-apply
@@ -425,7 +436,7 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/pages/settings.vue                 tabbed shell — one tab per settings group
   app/pages/settings/index.vue           Branding tab: the group form plus its media
   app/pages/settings/catalog.vue         Catalog tab
-  app/components/settings/GroupForm.vue  form generated from whatever the group returns
+  app/components/settings/GroupForm.vue  form generated from the group's own schema
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
   app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
   app/utils/settings.ts                  the group registry — one entry per tab
@@ -452,7 +463,7 @@ Each library maps its own, with no coordination between them:
 
 | From | Route |
 |---|---|
-| `DotNetBoost.Settings.API` | `GET/POST /api/settings/{group}` |
+| `DotNetBoost.Settings.API` | `GET /api/settings`, `GET/POST /api/settings/{group}`, `GET /api/settings/{group}/schema` |
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages`, `/api/translations/{entityName}/{entityId}` |
 | This application | `/api/categories`, `/api/products`, `/api/branding` |

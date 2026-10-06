@@ -293,6 +293,46 @@ export type SettingValues = Record<string, SettingValue>
  * Presentation metadata for one property. Everything here is optional — the form is generated from
  * the values the API returns, so a property added to the C# class renders without an entry.
  */
+/**
+ * One property, as `GET /api/settings/{route}/schema` describes it.
+ *
+ * The server's half of a generated form: the property list, its CLR types, its compile-time
+ * defaults, which properties are `[Sensitive]`, and the constraints its validators enforce. Before
+ * this endpoint the client guessed at all of it — `headerLogoSize: { min: 16, max: 64 }` lived in
+ * `utils/settings.ts` and matched nothing in C#.
+ */
+export interface SettingPropertySchema {
+  /** camelCase, exactly as the group's own GET returns it. */
+  name: string
+  /** CLR type name — `Int32`, `String`, `Boolean`. */
+  type: string
+  nullable: boolean
+  /** `[SettingDefault]`, or the value a fresh instance initialises it to. Withheld when sensitive. */
+  default?: unknown
+  /** Mirrors `[Sensitive]` on the C# property. */
+  sensitive: boolean
+  /**
+   * What the registered validators enforce: `min`, `max`, `minLength`, `maxLength`, `pattern`,
+   * `required`, `exclusiveMin`, `exclusiveMax`. Absent when no `ISettingSchemaContributor` can
+   * describe the group.
+   */
+  constraints?: Record<string, unknown>
+}
+
+/** `GET /api/settings/{route}/schema`. */
+export interface SettingGroupSchema {
+  route: string
+  name: string
+  properties: SettingPropertySchema[]
+}
+
+/** One row of `GET /api/settings` — the registered groups, values excluded. */
+export interface SettingGroupDescriptor {
+  route: string
+  name: string
+  requiresAuthorization: boolean
+}
+
 export interface SettingField {
   /** Renders a masked input with a reveal toggle. Mirrors `[Sensitive]` on the C# property. */
   sensitive?: boolean

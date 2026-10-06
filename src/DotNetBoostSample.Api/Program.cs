@@ -63,6 +63,11 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 builder.Services
     .AddSettings()
     .UseEntityFrameworkCore<AppDbContext>()
+    // Scans this assembly for AbstractValidator<T>, so every write is checked — and registers an
+    // ISettingSchemaContributor over those same rules, so GET /api/settings/{group}/schema
+    // publishes them. See Settings/SettingsValidators.cs: the bounds the dashboard's form draws
+    // its controls from now come from here instead of being hardcoded in the client.
+    .UseFluentValidation(typeof(Program).Assembly)
     .Build();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
