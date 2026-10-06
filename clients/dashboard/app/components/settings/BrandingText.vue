@@ -34,6 +34,32 @@ await ensureLoaded()
 const translatable = computed(() =>
   languages.value.filter(l => !l.isDefault))
 
+/**
+ * Which of the group's properties are translated, from its own schema.
+ *
+ * `MultiLingualSchemaContributor` publishes `translated` for a property carrying
+ * `[MultiLingual]`, so adding a second one to `BrandingSettings` puts a box here with no change
+ * in this component. It used to be a one-element literal naming `StoreName`, which is exactly
+ * why adding `StoreDescription` showed a badge on the form above and nothing down here.
+ */
+const { data: schema } = await useAsyncData(
+  'branding-schema', () => api.settings.schema('branding'))
+
+const fields = computed(() =>
+  (schema.value?.properties ?? [])
+    .filter(p => p.constraints?.translated === true)
+    .map(p => ({ name: clrName(p.name), label: fieldLabel('branding', p.name) })))
+
+/**
+ * The schema names a property as the GET body spells it — camelCase — while a translation row
+ * keys on the CLR name. Capitalising the first character is the inverse of the JSON naming
+ * policy for an ordinary identifier, which every property here is. A name beginning with an
+ * acronym would not round-trip, and would need the schema to publish the CLR name outright.
+ */
+function clrName(wireName: string): string {
+  return wireName.charAt(0).toUpperCase() + wireName.slice(1)
+}
+
 const draft = ref<Translations>({})
 const original = ref('')
 const loading = ref(false)
@@ -61,19 +87,20 @@ await load()
 
 const dirty = computed(() => JSON.stringify(draft.value) !== original.value)
 
+// Missing means "short of at least one translated property", which is what the badge claims.
+// With one property that is the old behaviour; with two it is the only reading that stays true.
 const missing = computed(() =>
-  translatable.value.filter(l => !draft.value[l.code]?.StoreName?.trim()).length)
+  translatable.value.filter(language =>
+    fields.value.some(field => !draft.value[language.code]?.[field.name]?.trim())).length)
 
 async function save() {
   saving.value = true
 
   try {
-    // Only StoreName is translated today. Sending the whole draft keyed by language matches the
-    // endpoint, which takes languageCode -> value for the group's translated text.
-    const values = Object.fromEntries(
-      Object.entries(draft.value).map(([code, properties]) => [code, properties.StoreName ?? null]))
-
-    await api.branding.setText(values)
+    // The draft already IS languageCode -> (propertyName -> value), which is what the endpoint
+    // takes. It used to be flattened to one property on the way out, which is what made a second
+    // [MultiLingual] property impossible to save.
+    await api.branding.setText(draft.value)
     await load()
 
     notifySuccess(
@@ -130,7 +157,7 @@ async function save() {
       <TranslationEditor
         v-model="draft"
         :languages="translatable"
-        :fields="[{ name: 'StoreName', label: fieldLabel('branding', 'storeName') }]"
+        :fields="fields"
       />
 
       <div class="flex items-center justify-between gap-4">
@@ -143,7 +170,8 @@ async function save() {
           class="text-xs text-muted"
         >
           <template #subject>
-            <code>Branding · branding · StoreName</code>
+            <!-- Named from the schema, so it stays true as properties are added or removed. -->
+            <code>Branding · branding · {{ fields.map(f => f.name).join(', ') }}</code>
           </template>
         </i18n-t>
         <UButton

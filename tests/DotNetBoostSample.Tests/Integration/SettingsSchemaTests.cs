@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Net.Http;
 using Xunit;
 
@@ -132,6 +133,38 @@ public class SettingsSchemaTests(SampleApp app)
         // And from FluentValidation, in the same object rather than instead of it.
         Assert.True(constraints.GetProperty("required").GetBoolean());
         Assert.Equal(120, constraints.Int("maxLength"));
+    }
+
+    /// <summary>
+    /// The schema flags exactly the properties the C# class marks `[MultiLingual]` — reflected over
+    /// rather than listed, so adding or removing one is covered without touching this test.
+    /// <para>
+    /// Worth asserting as a set rather than on one known property: the dashboard's per-language
+    /// editor builds its boxes from this flag, and it used to hardcode a single name. Adding a
+    /// second translatable property then changed the schema correctly and the editor not at all.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Every_MultiLingual_property_is_flagged_translated_and_no_others()
+    {
+        var expected = typeof(Api.Settings.BrandingSettings)
+            .GetProperties()
+            .Where(p => p.GetCustomAttribute<DotNetBoost.MultiLingual.Core.Attributes.MultiLingualAttribute>() is not null)
+            .Select(p => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(p.Name))
+            .Order()
+            .ToList();
+
+        Assert.NotEmpty(expected);   // otherwise this would pass by describing nothing
+
+        var branding = await app.Client.GetJsonAsync("/api/settings/branding/schema");
+
+        var flagged = branding.GetProperty("properties").EnumerateArray()
+            .Where(p => p.GetProperty("constraints").TryGetProperty("translated", out var t) && t.GetBoolean())
+            .Select(p => p.Str("name"))
+            .Order()
+            .ToList();
+
+        Assert.Equal(expected, flagged);
     }
 
     [RequiresDockerFact]

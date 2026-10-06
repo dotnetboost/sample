@@ -16,8 +16,9 @@ import type {
  *
  * `MediaFile` and `Branding` are the two subject names the API exposes over HTTP — see
  * `.ExposeOverHttp(...)` in Program.cs; an unlisted name is not routed at all. The property names
- * are the C# ones (`MediaText.AltText`, `MediaText.Caption`, `BrandingSettings.StoreName`), because
- * a translation row's `PropertyName` is data rather than a bound field and is matched exactly.
+ * are the C# ones (`MediaText.AltText`, `MediaText.Caption`), because a translation row's
+ * `PropertyName` is data rather than a bound field and is matched exactly. Branding's are not
+ * listed: which of its properties are translated comes from the group's schema.
  *
  * Written here once, so the one place this client depends on those names is visible rather than
  * spread through the calls below.
@@ -26,7 +27,6 @@ const TRANSLATIONS = '/api/translations/MediaFile'
 const BRANDING_TEXT = '/api/translations/Branding/branding'
 const ALT_TEXT = 'AltText'
 const CAPTION = 'Caption'
-const STORE_NAME = 'StoreName'
 
 /**
  * The language the dashboard reads in. Sent as Accept-Language on every call.
@@ -169,16 +169,18 @@ export function useApi() {
         return translations ?? {}
       },
 
-      /** Writes one or more languages. The default language is NOT written here — it is a
-          setting, and lives in the settings row that the group form edits. Answers 204. */
-      setText: (values: Record<string, string | null>) =>
-        $fetch(BRANDING_TEXT, {
-          method: 'PUT',
-          body: {
-            translations: Object.fromEntries(
-              Object.entries(values).map(([code, value]) => [code, { [STORE_NAME]: value }]))
-          }
-        })
+      /**
+       * Writes one or more languages, as `languageCode → (propertyName → value)`. The default
+       * language is NOT written here — it is a setting, and lives in the settings row the group
+       * form edits. Answers 204.
+       *
+       * Takes the nested shape rather than one property's value per language: which properties
+       * are translated is the group's business, discovered from its schema, not something this
+       * client decides. It used to wrap a flat `Record<language, string>` around a hardcoded
+       * `StoreName`, so adding a second `[MultiLingual]` property silently went nowhere.
+       */
+      setText: (translations: Translations) =>
+        $fetch(BRANDING_TEXT, { method: 'PUT', body: { translations } })
     }
   }
 }
