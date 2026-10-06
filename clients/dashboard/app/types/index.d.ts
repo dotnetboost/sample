@@ -367,11 +367,10 @@ export interface SettingGroup {
   name: string
   /** Whether the group carries `[Authorize]`, as `GET /api/settings` reports it. */
   requiresAuthorization: boolean
-  /** From `utils/settings.ts`, with a default for a group this dashboard has never heard of. */
-  icon: string
   /**
-   * Client-only field hints — today just `translated`. Everything else about a property comes
-   * from `GET /api/settings/{route}/schema`; see `GroupForm`.
+   * From `utils/settings.ts`, with a default for a group this dashboard has never heard of — the
+   * one thing about a settings group that no API can answer. Everything else, down to which
+   * properties exist and what bounds they carry, comes from the group's own schema.
    */
-  fields: Record<string, SettingField>
+  icon: string
 }

@@ -113,6 +113,43 @@ public class SettingsSchemaTests(SampleApp app)
         }
     }
 
+    /// <summary>
+    /// The two contributors compose. DotNetBoost.Settings.FluentValidation describes the rules in
+    /// <c>BrandingSettingsValidator</c>; this application's <c>MultiLingualSchemaContributor</c>
+    /// describes <c>[MultiLingual]</c>, an attribute the settings library cannot know about because
+    /// it belongs to DotNetBoost.MultiLingual. Before preview.2 the schema endpoint took only the
+    /// first contributor, so registering the second would have deleted the first's constraints.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_translated_property_carries_its_validation_rules_as_well_as_the_flag()
+    {
+        var branding = await app.Client.GetJsonAsync("/api/settings/branding/schema");
+        var constraints = Property(branding, "storeName").GetProperty("constraints");
+
+        // From MultiLingualSchemaContributor.
+        Assert.True(constraints.GetProperty("translated").GetBoolean());
+
+        // And from FluentValidation, in the same object rather than instead of it.
+        Assert.True(constraints.GetProperty("required").GetBoolean());
+        Assert.Equal(120, constraints.Int("maxLength"));
+    }
+
+    [RequiresDockerFact]
+    public async Task A_property_with_no_MultiLingual_attribute_is_not_flagged()
+    {
+        var branding = await app.Client.GetJsonAsync("/api/settings/branding/schema");
+
+        // accentColor has validation rules but no [MultiLingual]: the flag must be absent, not
+        // false, so a client can tell "not translated" from "nobody said".
+        Assert.DoesNotContain("translated", Property(branding, "accentColor").GetProperty("constraints").Keys());
+
+        // And a group with no translatable property at all is described by one contributor only.
+        var catalog = await app.Client.GetJsonAsync("/api/settings/catalog/schema");
+
+        foreach (var property in catalog.GetProperty("properties").EnumerateArray())
+            Assert.DoesNotContain("translated", property.GetProperty("constraints").Keys());
+    }
+
     private static System.Text.Json.JsonElement Property(System.Text.Json.JsonElement schema, string name) =>
         schema.GetProperty("properties").EnumerateArray().Single(p => p.Str("name") == name);
 }

@@ -1,4 +1,5 @@
 using DotNetBoost.Media.API;
+using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoost.MultiLingual.API;
 using DotNetBoostSample.Api.Data;
 using DotNetBoostSample.Api.Endpoints;
@@ -69,6 +70,17 @@ builder.Services
     // its controls from now come from here instead of being hardcoded in the client.
     .UseFluentValidation(typeof(Program).Assembly)
     .Build();
+
+// One more schema contributor, this application's own: it publishes `translated` for a property
+// carrying [MultiLingual]. DotNetBoost.Settings cannot know that attribute exists — it belongs to
+// another library — so the schema endpoint takes it from here, and the dashboard's form stops
+// carrying the flag itself. See Settings/MultiLingualSchemaContributor.cs.
+//
+// The endpoint MERGES contributors, so storeName comes back with FluentValidation's `required` and
+// `maxLength` as well as this one's flag. Registered through plain DI rather than the builder:
+// DotNetBoost.Settings has .UseProjector<,>() and .UseWriteObserver<>() for its other ports but
+// nothing for this one, so the chain above cannot carry it.
+builder.Services.AddSingleton<ISettingSchemaContributor, MultiLingualSchemaContributor>();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
 // Rows in PostgreSQL, bytes on local disk under ./media. Switching to Azure or S3 is one line

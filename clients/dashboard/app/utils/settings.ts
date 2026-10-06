@@ -1,5 +1,3 @@
-import type { SettingField } from '~/types'
-
 /**
  * The client's half of a settings tab: an icon, and the one field hint no server can supply.
  *
@@ -13,41 +11,25 @@ import type { SettingField } from '~/types'
  *     range used to be a literal in this file that matched nothing in C#, and that the API would
  *     have accepted any value outside.
  *
- * What is left is what a server genuinely cannot answer: which icon to draw, and `translated`.
- * That flag mirrors `[MultiLingual]` — another library's attribute, which DotNetBoost.Settings has
- * never heard of and cannot publish. A group with no entry below still works: it gets a default
- * icon and no field hints, which is what makes discovery real rather than decorative.
+ * `translated` used to be here too — the flag mirroring `[MultiLingual]`, which
+ * DotNetBoost.Settings cannot publish because the attribute belongs to another library. The API
+ * publishes it now, through this application's own `MultiLingualSchemaContributor`, merged with
+ * the validation rules rather than replacing them.
+ *
+ * So what is left is one thing a server genuinely cannot answer: which icon to draw. A group with
+ * no entry below still works — it gets the default icon and a form generated entirely from its own
+ * schema, which is what makes discovery real rather than decorative.
  */
-interface SettingGroupHints {
-  icon?: string
-  fields?: Record<string, SettingField>
-}
-
-const hints: Record<string, SettingGroupHints> = {
-  branding: {
-    icon: 'i-lucide-palette',
-    fields: {
-      // `[MultiLingual]` on BrandingSettings.StoreName. The settings row holds the default
-      // language's value; the other languages are edited against the translations store, which is
-      // what SettingsBrandingText does.
-      storeName: { translated: true }
-    }
-  },
-  catalog: {
-    icon: 'i-lucide-package'
-    // No field hints at all: every one of this group's properties is described by the API.
-  }
+const icons: Record<string, string> = {
+  branding: 'i-lucide-palette',
+  catalog: 'i-lucide-package'
 }
 
 /** Shown for a group this dashboard has no icon for — a class added in C# and nowhere else. */
 const defaultIcon = 'i-lucide-sliders-horizontal'
 
 export function groupIcon(route: string): string {
-  return hints[route]?.icon ?? defaultIcon
-}
-
-export function groupFields(route: string): Record<string, SettingField> {
-  return hints[route]?.fields ?? {}
+  return icons[route] ?? defaultIcon
 }
 
 /** Where a group's tab goes. Derived, so a discovered group needs no entry to be reachable. */

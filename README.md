@@ -71,10 +71,17 @@ it gets a default icon and a form generated from its own schema, through one dyn
 why there is no `pages/settings/catalog.vue` — there is a `[route].vue`. Branding keeps a page of
 its own only because it has more than a form: per-language text, and a logo.
 
-Two things stay in `clients/dashboard/app/utils/settings.ts`, and both are things a server cannot
-answer: which icon to draw, and `translated` — the flag mirroring `[MultiLingual]`, another
-library's attribute that the settings engine has never heard of. The catalogue group's entry is now
-an icon and nothing else.
+Even `translated` comes from the class. That flag mirrors `[MultiLingual]` — DotNetBoost.MultiLingual's
+attribute, which the settings engine has never heard of and cannot publish on its own. So this
+application publishes it, in `Settings/MultiLingualSchemaContributor.cs`: about ten lines
+implementing `ISettingSchemaContributor`, asking `MultiLingualMetadata` which properties are
+translatable rather than reimplementing the rule. The schema endpoint **merges** contributors, so
+`storeName` comes back carrying `required` and `maxLength` from its validator *and* `translated`
+from here — until preview.2 it took only the first, and registering this would have silently
+deleted the bounds.
+
+Which leaves exactly one thing in `clients/dashboard/app/utils/settings.ts`: a map from route to
+icon. Nothing about any property, in any group.
 
 Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it back as `If-Match`, and a
 save that would overwrite someone else's is refused with `412`. The form then offers to re-apply

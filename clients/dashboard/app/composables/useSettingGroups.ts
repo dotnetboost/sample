@@ -14,9 +14,10 @@ export const SETTING_GROUPS_KEY = 'setting-groups'
  * of a page the reader may not open. Each group's values come from its own endpoint when its tab
  * is.
  *
- * Merged with `utils/settings.ts`'s hints on the way through: an icon, and `translated` for a
- * `[MultiLingual]` property, which the settings engine cannot know about because the attribute
- * belongs to another library.
+ * The only thing added on the way through is an icon, from `utils/settings.ts`, with a default for
+ * a group this dashboard has never heard of. Everything about a group's properties — including
+ * `translated`, which the settings engine cannot know about on its own — comes from that group's
+ * schema.
  */
 export function useSettingGroups() {
   const api = useApi()
@@ -28,8 +29,7 @@ export function useSettingGroups() {
       route: descriptor.route,
       name: descriptor.name,
       requiresAuthorization: descriptor.requiresAuthorization,
-      icon: groupIcon(descriptor.route),
-      fields: groupFields(descriptor.route)
+      icon: groupIcon(descriptor.route)
     }))
   })
 }
