@@ -144,54 +144,64 @@ flips the shell to RTL.
 
 ### 1. One database, three libraries — `src/DotNetBoostSample.Api/Data/AppDbContext.cs`
 
-The only place all three libraries are named together, and all it amounts to is implementing three
-independent interfaces and calling three independent `Apply*` methods:
+The only place all three libraries are named together, and all it amounts to is three independent
+`Apply*` calls:
 
 ```csharp
-public class AppDbContext(DbContextOptions<AppDbContext> options)
-    : DbContext(options), ISettingDbContext, IMediaDbContext, IMultiLingualDbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // ... the application's own Categories and Products
 
-        modelBuilder.ApplySettingsConfiguration(DatabaseProvider.PostgreSql);
+        modelBuilder.ApplySettingsConfiguration(this);
         modelBuilder.ApplyMedia();
         modelBuilder.ApplyMultiLingual(this);
     }
 }
 ```
 
-Remove a library and you delete its interface, its `DbSet`s, and its one line. Nothing else
-changes.
+Remove a library and you delete its one line. Nothing else changes.
+
+Each library used to ask for a marker interface and a pair of `DbSet` properties as well — six
+properties and three interfaces that the stores never read, since each reaches its own tables
+through `Set<T>()`. They are obsolete as of preview.2, and a context now declares only the
+application's own entities. Settings' engine is read off the context too, so switching provider in
+`Program.cs` needs no matching edit here.
 
 ### 2. Per-language alt text — `src/DotNetBoostSample.Api/Integration/MediaText.cs`
 
 The interesting one, because `MediaFile` has **no** alt-text or caption field, and alt text is both
 required for accessibility and inherently per-language.
 
-Both libraries address a subject by the same two strings — an entity name and an entity id.
-MultiLingual stores translations against `(EntityName, EntityId, PropertyName, LanguageCode)`;
-Media exposes `IMediaManager.For(string entityName, string entityId)` for callers holding the pair
-rather than an object. **That shared addressing convention is the entire integration surface.**
+Both libraries address a subject by the same two strings — an entity name and an entity id, under
+the rules of *DotNetBoost Entity Addressing v1*. MultiLingual files translations against
+`(EntityName, EntityId, PropertyName, LanguageCode)`; Media files attachments against
+`(OwnerEntityName, OwnerEntityId)`. **That shared addressing convention is the entire integration
+surface.**
 
 So the glue declares one subject name and uses a media file's own `Guid` as the entity id:
 
 ```csharp
 public const string Subject = "MediaFile";
 
-private static string Key(Guid mediaFileId) => mediaFileId.ToString("D");
-
-public Task SetAsync(Guid mediaFileId, string languageCode, string propertyName, string? value, …) =>
-    translations.UpsertManyAsync([new Translation
-    {
-        EntityName   = Subject,
-        EntityId     = Key(mediaFileId),
-        PropertyName = propertyName,     // "AltText" or "Caption"
-        LanguageCode = languageCode,
-        Value        = value             // null removes the row
-    }], ct);
+// One query for a whole page of files, in the request's language, with the default-language
+// fallback the library's own EF interceptors apply to a translated entity.
+public async Task<IReadOnlyDictionary<Guid, MediaTextValues>> GetManyAsync(…) =>
+    await multiLingual.ForMany(Subject, ids).GetAsync(ct) …
 ```
+
+**This file is a quarter of what it was.** It used to drop to the raw `ITranslationStore`, because
+MultiLingual could only address an entity it owned the type of — and reimplement four things the
+library already knew: how to format a key, how to fall back from the current language to the
+default, how to read many subjects in one query, and how to build a batch write. The fallback copy
+was the dangerous one: the library's own rule, living in application code, free to drift from the
+interceptors, so one file could resolve its alt text differently from the list it sat in.
+`For(entityName, entityId)` and `ForMany(…)` arrived in preview.2 and all of it went.
+
+Writing is gone too. The dashboard's alt-text editor calls MultiLingual's own
+`/api/translations/MediaFile/{id}`, so what is left here is the read this API needs in its *own*
+responses — a product listing carries its images' alt text, which no media endpoint can know about.
 
 No new table, no schema change in either library, and swapping media storage from local disk to
 Azure or S3 does not touch this file.
@@ -316,10 +326,10 @@ Being honest about the trade-off, because it is the point of the sample:
 
 | | |
 |---|---|
-| **Glue per app** | Every application writes `MediaText.cs` itself — about 100 lines here, most of it comment. |
-| **No cascade** | Deleting a `MediaFile` does not delete its alt text; the media library has no idea it exists. Both delete paths write that cleanup out by hand — `DELETE /api/products/{id}` for a product's files, and the Media page's own delete, which goes to the library's endpoint and so would otherwise strand the rows it never hears about. Two callers, because there are two ways to delete a file. |
+| **Glue per app** | Every application writes `Integration/MediaText.cs` and `MediaTextCleanup.cs` itself — about 35 lines of code between them, the rest comment. It was four times that before the libraries grew `For(entityName, entityId)` and a files-deleted hook. |
+| **Cascade is opt-in** | Deleting a `MediaFile` still does not know its alt text exists. One `IMediaFilesDeletedHandler`, registered once, connects the two — so the cleanup is exact and runs for every delete whatever triggered it, including the media library's own endpoint. Better than the call beside every delete it replaced, but still the application's job to know the two records are about one thing. |
 | **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
-| **No shared guarantee** | Both libraries must format keys identically. They do — but by a hand-maintained convention, which is why `tests/KeyFormatAgreementTests.cs` asserts it rather than trusting it. |
+| **Agreement by published spec** | Both libraries must address an entity identically, and now both implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. |
 
 None of these are capability limits. They are ergonomics, and they are the price of being able to
 install one library without the other two.
@@ -370,8 +380,9 @@ database they share.
 - **`CatalogCompositionTests`** — entities come back in the request's language with nothing asking;
   a missing translation falls back to the default; alt text stored as MultiLingual rows reads back
   on a Media file; refusals and confirmations arrive in the language the content was read in
-  (asserted against the actual Arabic and French sentences); and deleting a product takes the alt
-  text that nothing cascades.
+  (asserted against the actual Arabic and French sentences); and deleting a product takes its
+  images' alt text with it, through the handler that connects two libraries which still know
+  nothing about each other.
 - **`CatalogSettingsTests`** — `PageSize` changes the listing with no restart, a caller may
   override it but not past the cap, and a group answers with its values and nothing else.
 - **`MediaShapeTests`** — one file attached under two roles is **one** image in the listing and
@@ -397,6 +408,7 @@ src/DotNetBoostSample.Api/
   Entities/                              Category, Product — the app's own two entities
   Settings/BrandingSettings.cs           text in Settings, logo attached in Media
   Integration/MediaText.cs               Media × MultiLingual  ← the composition
+  Integration/MediaTextCleanup.cs        removes a file's text when the file goes
   Endpoints/                             catalogue, branding
   Program.cs                             three independent registrations
 
