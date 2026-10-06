@@ -77,6 +77,11 @@ builder.Services
     // `required` and `maxLength` as well as this one's flag. Order decides a collision — first
     // registered wins — and there is none here: the two describe different constraints.
     .UseSchemaContributor<MultiLingualSchemaContributor>()
+    // And the read-path shape for one group: GET /api/settings/branding answers with its text in
+    // the request's language and its logo, neither of which is a setting. Three libraries joined
+    // in one class, on the group's own endpoint, so there is one URL for branding rather than two.
+    // See Settings/BrandingProjector.cs.
+    .UseProjector<BrandingSettings, BrandingProjector>()
     .Build();
 
 // ── DotNetBoost.Media ────────────────────────────────────────────────────────
@@ -182,7 +187,6 @@ app.MapTranslationEndpoints();                  // /api/translations/{entityName
 
 // ── The application's own endpoints ──────────────────────────────────────────
 app.MapCatalogEndpoints();                      // /api/categories, /api/products
-app.MapBrandingEndpoints();                     // /api/branding    — a setting holding a file id
 
 app.Run();
 

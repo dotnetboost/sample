@@ -154,10 +154,17 @@ export function useApi() {
 
     // ── The composition: Settings × Media ─────────────────────────────────
     branding: {
-      // `images` is the same shape the catalogue returns, so branding's media is drawn by the very
-      // same component — the logo is an attachment like any other, on an owner with no table.
-      // Prefer useBranding(), which shares one fetch between the header and the settings page.
-      get: () => $fetch<Branding>('/api/branding', { headers: headers() }),
+      /**
+       * The branding group, read through its OWN settings endpoint.
+       *
+       * It answers with the group's values, its text in the request's language and its logo,
+       * because the API registers an `ISettingProjector<BrandingSettings>` that joins the three.
+       * There used to be a second endpoint, `/api/branding`, built when there was nowhere to put
+       * that join — so branding had two URLs that could disagree about what it was.
+       *
+       * Prefer useBranding(), which shares one fetch between the header and the settings page.
+       */
+      get: () => $fetch<Branding>('/api/settings/branding', { headers: headers() }),
 
       /**
        * Every stored language for the branding group's translated text, through MultiLingual's own

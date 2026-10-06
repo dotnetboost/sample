@@ -40,17 +40,25 @@ public class BrandingCompositionTests(SampleApp app)
                 ["ar"] = new Dictionary<string, string?> { ["StoreName"] = "متجر العينة" }
             } });
 
-        // Reading branding in Arabic is what used to poison the cache.
-        var arabic = await client.GetJsonAsync("/api/branding", "ar");
-        Assert.Equal("متجر العينة", arabic.Str("storeName"));
+        // Reading branding in Arabic resolves the name BESIDE the stored value, never over it.
+        var arabic = await client.GetJsonAsync("/api/settings/branding", "ar");
+        Assert.Equal("متجر العينة", arabic.GetProperty("resolved").Str("storeName"));
+
+        // The property itself still carries what is stored — which is what the settings form
+        // loads and posts back. Were the projector to replace it, editing branding while reading
+        // in Arabic would write the Arabic text into the default language's row.
+        Assert.Equal(stored, arabic.Str("storeName"));
 
         // The settings group must still answer with the stored value, in any language. Before the
         // fix this came back as "متجر العينة".
         Assert.Equal(stored, (await client.GetJsonAsync("/api/settings/branding")).Str("storeName"));
         Assert.Equal(stored, (await client.GetJsonAsync("/api/settings/branding", "ar")).Str("storeName"));
 
-        // And branding itself still falls back to the setting where no translation exists.
-        Assert.Equal(stored, (await client.GetJsonAsync("/api/branding", "fr")).Str("storeName"));
+        // And a language with no translation resolves nothing, so a renderer falls back to the
+        // stored value rather than being handed an empty string.
+        var french = await client.GetJsonAsync("/api/settings/branding", "fr");
+        Assert.Equal(stored, french.Str("storeName"));
+        Assert.DoesNotContain("storeName", french.GetProperty("resolved").Keys());
     }
 
     /// <summary>
@@ -73,7 +81,7 @@ public class BrandingCompositionTests(SampleApp app)
             replace = true
         });
 
-        var branding = await client.GetJsonAsync("/api/branding");
+        var branding = await client.GetJsonAsync("/api/settings/branding");
 
         Assert.Equal(fileId, branding.GetProperty("logo").Str("id"));
 

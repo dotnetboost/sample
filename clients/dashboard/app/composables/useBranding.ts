@@ -1,6 +1,10 @@
 import type { EntityImage, MediaRef } from '~/types'
 
 export interface Branding {
+  /**
+   * As STORED — the default language's value, which the settings row holds and the settings form
+   * edits. Use `resolved.storeName ?? storeName` to display it; see `resolved`.
+   */
   storeName: string
   accentColor: string
   /** How large to draw the logo in the header, in pixels. */
@@ -9,6 +13,17 @@ export interface Branding {
   images: EntityImage[]
   /** The file in the `logo` role, or null. The field name is the role, so the file does not repeat it. */
   logo: MediaRef | null
+  /**
+   * The group's `[MultiLingual]` properties in the language the request was read in, for the ones
+   * a translation exists for. Empty for a language nobody has written.
+   *
+   * Beside the stored values rather than over them, deliberately: the settings form loads this
+   * same response with the reader's language and posts it back, and the row it writes holds the
+   * DEFAULT language. If the projection replaced `storeName`, editing branding while reading in
+   * Arabic would save the Arabic text into the English row. So a renderer reads from here and
+   * falls back; an editor reads the property and is right without knowing any of this.
+   */
+  resolved: Partial<Record<'storeName', string>>
 }
 
 /** The key the header and the settings page share, so one refresh updates both. */

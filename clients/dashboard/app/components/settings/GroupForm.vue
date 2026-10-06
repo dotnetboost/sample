@@ -23,21 +23,6 @@ const defaultLanguageLabel = computed(() =>
     ? t('settings.form.defaultLanguageBadge', { code: defaultLanguage.value.code })
     : t('settings.form.defaultLanguageBadgeUnknown'))
 
-const {
-  keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
-  load, save, reset, retryOnLatest
-} = useSettingsGroup(props.group)
-
-async function submit() {
-  if (await save()) emit('saved')
-}
-
-async function reapply() {
-  if (await retryOnLatest()) emit('saved')
-}
-
-const revealed = reactive<Record<string, boolean>>({})
-
 /**
  * The group's schema, from `GET /api/settings/{route}/schema`.
  *
@@ -53,6 +38,30 @@ const { data: schema } = await useAsyncData(
 
 const described = computed(() =>
   Object.fromEntries((schema.value?.properties ?? []).map(p => [p.name, p])))
+
+/**
+ * The group's own property names, which is what the form draws boxes for.
+ *
+ * From the schema rather than from the keys of the values response: a projector may add keys that
+ * belong to the representation and not to the group — branding answers with its logo, a media
+ * attachment that is not a setting — and an input must not appear for those.
+ */
+const propertyNames = computed(() => (schema.value?.properties ?? []).map(p => p.name))
+
+const {
+  keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
+  load, save, reset, retryOnLatest
+} = useSettingsGroup(props.group, propertyNames)
+
+async function submit() {
+  if (await save()) emit('saved')
+}
+
+async function reapply() {
+  if (await retryOnLatest()) emit('saved')
+}
+
+const revealed = reactive<Record<string, boolean>>({})
 
 /**
  * How one property is rendered — entirely from what the API says about it.

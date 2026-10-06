@@ -27,7 +27,10 @@ const logoSize = computed(() => {
   return Math.min(Math.max(configured, 16), 64)
 })
 
-const name = computed(() => branding.value?.storeName || 'DotNetBoost')
+// The resolved name where the reading language has one, the stored value otherwise — which is
+// the default language's, and what every language falls back to.
+const name = computed(() =>
+  branding.value?.resolved?.storeName || branding.value?.storeName || 'DotNetBoost')
 </script>
 
 <template>

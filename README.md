@@ -315,9 +315,15 @@ rescued from. It is not — they are split by **language**, and no language has 
 | `Translation` rows, under `("Branding", "branding")` | **every other** language | the Store name card |
 
 The card leaves the default language out deliberately — `languages.filter(l => !l.isDefault)` — so
-the two never address the same cell. `GET /api/branding` then reads the setting row and overrides
-it only where a translation exists, which is also what makes the setting row the value every
-untranslated language falls back to.
+the two never address the same cell. `GET /api/settings/branding` then returns the setting row as
+stored **and** the translation for the request's language beside it, under `resolved`, which is
+what makes the setting row the value every untranslated language falls back to.
+
+The two travel separately on purpose. That endpoint is also what the settings form loads and posts
+back, and the row it writes is the default language's — so a projection that replaced `storeName`
+with the Arabic text would have the form save Arabic into the English row, from a screen that never
+mentions translation. A renderer reads `resolved.storeName ?? storeName`; an editor reads the
+property and is right without knowing any of this.
 
 **Why it is not simply translation rows all the way down, like `Category.Name`.** A category's name
 is not stored anywhere else at all: `ApplyMultiLingual(this)` strips every `[MultiLingual]` string
@@ -432,9 +438,10 @@ src/DotNetBoostSample.Api/
   Data/Seed.cs                           schema + languages + catalogue on first run
   Entities/                              Category, Product — the app's own two entities
   Settings/BrandingSettings.cs           text in Settings, logo attached in Media
+  Settings/BrandingProjector.cs          what GET /api/settings/branding answers with
   Integration/MediaText.cs               Media × MultiLingual  ← the composition
   Integration/MediaTextCleanup.cs        removes a file's text when the file goes
-  Endpoints/                             catalogue, branding
+  Endpoints/                             catalogue
   Program.cs                             three independent registrations
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
@@ -481,7 +488,7 @@ Each library maps its own, with no coordination between them:
 | `DotNetBoost.Settings.API` | `GET /api/settings`, `GET/POST /api/settings/{group}`, `GET /api/settings/{group}/schema` |
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages`, `/api/translations/{entityName}/{entityId}` |
-| This application | `/api/categories`, `/api/products`, `/api/branding` |
+| This application | `/api/categories`, `/api/products` |
 
 `GET /api/products` takes `page` and `pageSize` and answers `{ items, total, skip, take }` — the
 shape DotNetBoost.Media answers its own listings with, so the dashboard pages a catalogue the way
@@ -493,7 +500,7 @@ memory.
 
 **A file and a file-in-a-role are different shapes, and the API sends different ones.** A listing
 or a thumbnail — `images` and `primary` on `/api/products`, `banner` on `/api/categories`, `logo`
-on `/api/branding` — carries the file and its text, and no role: a role belongs to an attachment,
+on `/api/settings/branding` — carries the file and its text, and no role: a role belongs to an attachment,
 and the media library lets one file be attached several times over, so there is no single role to
 report. The detail endpoints carry `role` and `sortOrder`, because a role box is asking about links
 rather than files. It is the library's own distinction — `ListAsync` answers "what files does this

@@ -12,7 +12,7 @@ import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
  * `412 Precondition Failed` and nothing is written. Without that, whoever saved last would
  * silently revert the other person's edit.
  */
-export function useSettingsGroup(group: SettingGroup) {
+export function useSettingsGroup(group: SettingGroup, propertyNames: Ref<string[]>) {
   const toast = useToast()
   const { notifySuccess, notifyProblem } = useNotify()
   const { t } = useI18n()
@@ -66,7 +66,13 @@ export function useSettingsGroup(group: SettingGroup) {
 
     etag.value = response.headers.get('etag')
     values.value = next
-    keys.value = Object.keys(next)
+
+    // The GROUP'S PROPERTIES, from its schema — not whatever keys the response happens to carry.
+    // A projector may add keys that are part of the representation and not of the group: branding
+    // answers with its logo, which is a media attachment and not a setting. Drawing a box for
+    // every key would put an input on the form for it, which is the same way a read-only `Id`
+    // property once grew one.
+    keys.value = propertyNames.value.filter(name => name in next)
 
     for (const key of keys.value) {
       if (!keep.includes(key)) {
