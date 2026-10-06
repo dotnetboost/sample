@@ -75,12 +75,14 @@ public class CatalogCompositionTests(SampleApp app)
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary", "desk.png");
         var fileId = upload.Str("id");
 
-        await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}", new
+        // DotNetBoost.MultiLingual's own translation endpoint, against the subject MediaText
+        // files these rows under. The property names are MediaText.AltText and .Caption.
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}", new
         {
-            values = new Dictionary<string, object>
+            translations = new Dictionary<string, object>
             {
-                ["en"] = new { altText = "An oak writing desk", caption = "Front view" },
-                ["ar"] = new { altText = "مكتب كتابة من البلوط", caption = "من الأمام" }
+                ["en"] = new Dictionary<string, string?> { ["AltText"] = "An oak writing desk", ["Caption"] = "Front view" },
+                ["ar"] = new Dictionary<string, string?> { ["AltText"] = "مكتب كتابة من البلوط", ["Caption"] = "من الأمام" }
             }
         });
 
@@ -170,8 +172,11 @@ public class CatalogCompositionTests(SampleApp app)
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary");
         var fileId = Guid.Parse(upload.Str("id"));
 
-        await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}",
-            new { values = new Dictionary<string, object> { ["en"] = new { altText = "Gone soon", caption = (string?)null } } });
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}",
+            new { translations = new Dictionary<string, object>
+            {
+                ["en"] = new Dictionary<string, string?> { ["AltText"] = "Gone soon" }
+            } });
 
         await app.WithDbAsync(async db =>
             Assert.True(await TranslationCountAsync(db, fileId) > 0, "the alt text was never written"));

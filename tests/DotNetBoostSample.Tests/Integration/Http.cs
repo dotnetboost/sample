@@ -68,6 +68,22 @@ internal static class Http
     }
 
     /// <summary>
+    /// Sends a write that answers with <b>no body</b>, failing with the API's own sentence if it
+    /// refused. DotNetBoost.MultiLingual's translation <c>PUT</c> answers <c>204</c>, so
+    /// <see cref="SendJsonCheckedAsync"/> cannot be used for it — there is no JSON to read.
+    /// </summary>
+    public static async Task SendJsonOkAsync(
+        this HttpClient client,
+        HttpMethod method,
+        string url,
+        object? body = null,
+        string? language = null)
+    {
+        var response = await client.SendJsonAsync(method, url, body, language);
+        await response.EnsureOkAsync($"{method} {url}");
+    }
+
+    /// <summary>
     /// Uploads a small real PNG. Real rather than random bytes because the media library sniffs
     /// the content type from the leading bytes and refuses what it cannot recognise.
     /// </summary>

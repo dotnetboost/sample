@@ -24,8 +24,16 @@ namespace DotNetBoostSample.Api.Integration;
 /// here, free to drift from the interceptors that translate every entity. <c>For(name, id)</c> and
 /// <c>ForMany(name, ids)</c> arrived in preview.2 and all of it went.</para>
 ///
-/// <para>What is left is the part that is genuinely this application's: the subject name, the two
-/// property names, and the shape the endpoints return. That is the whole integration surface.</para>
+/// <para><b>And what it no longer does.</b> Writing and reading every language used to be here too,
+/// behind this application's own <c>/api/media-text</c> endpoints, because
+/// DotNetBoost.MultiLingual.API shipped none. It ships them now, so the dashboard's alt-text editor
+/// talks to <c>/api/translations/MediaFile/{id}</c> directly and the write side of this class went
+/// with the endpoints.</para>
+///
+/// <para>What is left is the read this application needs in its OWN responses — a product listing
+/// carries its images' alt text, which no media endpoint can know about — plus the cleanup on
+/// delete, and the subject name that ties the two stores together. That is the whole integration
+/// surface.</para>
 /// </summary>
 public sealed class MediaText(IMultiLingualManager multiLingual)
 {
@@ -49,34 +57,6 @@ public sealed class MediaText(IMultiLingualManager multiLingual)
     /// implementation of a rule two libraries already share.
     /// </summary>
     private static string Key(Guid mediaFileId) => EntityKey.ToKeyString(mediaFileId);
-
-    /// <summary>
-    /// Writes the alt text and caption of one file in every language supplied — one call, one
-    /// batch, atomic where the backend supports it. A null value removes the stored row rather
-    /// than storing a null, which is the store's own contract.
-    /// </summary>
-    public Task SetManyAsync(
-        Guid mediaFileId,
-        IReadOnlyDictionary<string, MediaTextValues> byLanguage,
-        CancellationToken ct = default)
-    {
-        // No languages supplied, so no statement to send — rather than asking the store to write
-        // nothing.
-        if (byLanguage.Count == 0) return Task.CompletedTask;
-
-        var subject = multiLingual.For(Subject, mediaFileId);
-
-        foreach (var (language, values) in byLanguage)
-        {
-            subject.Set(language, new Dictionary<string, string?>
-            {
-                [AltText] = values.AltText,
-                [Caption] = values.Caption
-            });
-        }
-
-        return subject.SaveAsync(ct);
-    }
 
     /// <summary>
     /// Alt text and caption for one file in the language this request resolved to, falling back to
@@ -109,28 +89,13 @@ public sealed class MediaText(IMultiLingualManager multiLingual)
     }
 
     /// <summary>
-    /// Every language's values for one file — what an editor screen needs to show all languages
-    /// side by side, as languageCode → (propertyName → value).
-    /// </summary>
-    public Task<IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>>> GetAllLanguagesAsync(
-        Guid mediaFileId,
-        CancellationToken ct = default) =>
-        multiLingual.For(Subject, mediaFileId).GetAllAsync(ct);
-
-    /// <summary>
-    /// Removes every translation row for a file, and answers how many went.
+    /// Removes every translation row for a batch of files, in one statement, and answers how many
+    /// went.
     ///
     /// <para>The gap this fills: deleting a <c>MediaFile</c> does not delete its translations,
-    /// because the media library has no idea they exist. Media's <c>IMediaFilesDeletedHandler</c>
-    /// is the registration that calls this for every delete — see
-    /// <see cref="MediaTextCleanup"/> — so no call site has to remember it.</para>
-    /// </summary>
-    public Task<int> DeleteAsync(Guid mediaFileId, CancellationToken ct = default) =>
-        multiLingual.For(Subject, mediaFileId).DeleteAsync(ct);
-
-    /// <summary>
-    /// The same for a batch of files, in one statement — what a delete of an entity with several
-    /// images needs, rather than a round trip per file.
+    /// because the media library has no idea they exist. <see cref="MediaTextCleanup"/> is
+    /// registered as an <c>IMediaFilesDeletedHandler</c> and calls this for every delete, so no
+    /// call site has to remember it.</para>
     /// </summary>
     public Task<int> DeleteManyAsync(IReadOnlyCollection<Guid> mediaFileIds, CancellationToken ct = default) =>
         mediaFileIds.Count == 0

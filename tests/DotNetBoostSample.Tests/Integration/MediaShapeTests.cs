@@ -1,3 +1,4 @@
+using DotNetBoostSample.Api.Integration;
 using Xunit;
 
 namespace DotNetBoostSample.Tests.Integration;
@@ -114,17 +115,18 @@ public class MediaShapeTests(SampleApp app)
         var upload = await client.UploadAsync("/api/media", "batch.png");
         var fileId = upload.Str("id");
 
-        await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}", new
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}", new
         {
-            values = new Dictionary<string, object>
+            translations = new Dictionary<string, object>
             {
-                ["en"] = new { altText = "English alt", caption = "English caption" },
-                ["ar"] = new { altText = "نص بديل", caption = "تعليق" },
-                ["fr"] = new { altText = "Texte alternatif", caption = "Légende" }
+                ["en"] = new Dictionary<string, string?> { ["AltText"] = "English alt", ["Caption"] = "English caption" },
+                ["ar"] = new Dictionary<string, string?> { ["AltText"] = "نص بديل", ["Caption"] = "تعليق" },
+                ["fr"] = new Dictionary<string, string?> { ["AltText"] = "Texte alternatif", ["Caption"] = "Légende" }
             }
         });
 
-        var stored = (await client.GetJsonAsync($"/api/media-text/{fileId}")).GetProperty("byLanguage");
+        var stored = (await client.GetJsonAsync($"/api/translations/MediaFile/{fileId}"))
+            .GetProperty("translations");
 
         Assert.Equal("English alt", stored.GetProperty("en").Str("AltText"));
         Assert.Equal("نص بديل", stored.GetProperty("ar").Str("AltText"));
@@ -132,11 +134,14 @@ public class MediaShapeTests(SampleApp app)
 
         // A null removes the row rather than storing a null — the store's contract, and it has to
         // survive batching alongside a value that is being written in the same call.
-        await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}",
-            new { values = new Dictionary<string, object> { ["fr"] = new { altText = (string?)null, caption = "Légende seule" } } });
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}",
+            new { translations = new Dictionary<string, object>
+            {
+                ["fr"] = new Dictionary<string, string?> { ["AltText"] = null, ["Caption"] = "Légende seule" }
+            } });
 
-        var afterNull = (await client.GetJsonAsync($"/api/media-text/{fileId}"))
-            .GetProperty("byLanguage").GetProperty("fr");
+        var afterNull = (await client.GetJsonAsync($"/api/translations/MediaFile/{fileId}"))
+            .GetProperty("translations").GetProperty("fr");
 
         Assert.DoesNotContain("AltText", afterNull.Keys());
         Assert.Equal("Légende seule", afterNull.Str("Caption"));
@@ -149,9 +154,10 @@ public class MediaShapeTests(SampleApp app)
     /// <c>IMediaFilesDeletedHandler</c>, so the cascade happens for every delete whatever triggered
     /// it, and no call site has to remember it.
     /// <para>
-    /// The media-text delete endpoint stays idempotent anyway: it is cleanup after a file is gone,
-    /// so it must not require one to exist, and it must answer plainly when there is nothing left
-    /// to remove. Both are still asserted below — the handler made it redundant, not wrong.
+    /// MultiLingual's own translation delete stays idempotent anyway: a subject is addressed by two
+    /// strings and the library never resolves them to a row, so deleting the translations of a file
+    /// that no longer exists is an ordinary call answering zero, not a 404. Asserted below, because
+    /// that is what let the cascade be the only caller without anything else breaking.
     /// </para>
     /// </summary>
     [RequiresDockerFact]
@@ -162,8 +168,11 @@ public class MediaShapeTests(SampleApp app)
         var upload = await client.UploadAsync("/api/media", "doomed.png");
         var fileId = Guid.Parse(upload.Str("id"));
 
-        await client.SendJsonCheckedAsync(HttpMethod.Post, $"/api/media-text/{fileId}",
-            new { values = new Dictionary<string, object> { ["en"] = new { altText = "Briefly here", caption = (string?)null } } });
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}",
+            new { translations = new Dictionary<string, object>
+            {
+                ["en"] = new Dictionary<string, string?> { ["AltText"] = "Briefly here" }
+            } });
 
         await app.WithDbAsync(async db =>
             Assert.True(await CountAsync(db, fileId) > 0, "the text should have been stored"));
@@ -176,14 +185,14 @@ public class MediaShapeTests(SampleApp app)
         await app.WithDbAsync(async db =>
             Assert.Equal(0, await CountAsync(db, fileId)));
 
-        // And the cleanup endpoint still succeeds against a file that no longer exists, reporting
-        // the nothing it found rather than refusing the only caller it has.
-        var textDeleted = await client.SendJsonAsync(HttpMethod.Delete, $"/api/media-text/{fileId}", language: "fr");
-        var body = await textDeleted.ReadJsonAsync("the text delete");
+        // And deleting the translations of a file that is already gone is an ordinary call
+        // answering zero, rather than a 404 about a subject the library never resolves.
+        var textDeleted = await client.SendJsonAsync(
+            HttpMethod.Delete, $"/api/translations/MediaFile/{fileId}");
+        var body = await textDeleted.ReadJsonAsync("the translation delete");
 
-        Assert.Equal(0, body.Int("removed"));
-        Assert.Contains(fileId.ToString(), body.Str("message"));
-        Assert.StartsWith("Le texte du fichier média", body.Str("message"));
+        Assert.Equal(0, body.Int("deletedTranslations"));
+        Assert.Equal(MediaText.Subject, body.Str("entityName"));
     }
 
     private static Task<int> CountAsync(Api.Data.AppDbContext db, Guid fileId)

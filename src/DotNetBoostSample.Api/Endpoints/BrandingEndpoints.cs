@@ -74,52 +74,7 @@ public static class BrandingEndpoints
         })
         .WithSummary("Branding text in the request's language, and the logo from its attachment");
 
-        // ── The group's text, per language ───────────────────────────────────
-        //
-        // This is the typed API, not the raw store MediaText had to use. A media file is not an
-        // entity, so alt text had to be addressed with literal strings; a settings group IS one as
-        // far as MultiLingual is concerned, now that it carries an Id — so the property is named
-        // by expression and the entity name comes from [MultiLingualEntity].
-        group.MapGet("/text", async (IMultiLingualManager multiLingual, CancellationToken ct) =>
-        {
-            var all = await multiLingual.For(Subject()).GetAllAsync(ct);
-
-            return Results.Ok(all);
-        })
-        .WithSummary("Every stored language for the branding group's translatable text");
-
-        group.MapPut("/text", async (
-            BrandingTextWrite body,
-            IMultiLingualManager multiLingual,
-            CancellationToken ct) =>
-        {
-            // A fresh instance with StoreName left null. SaveAsync writes the entity's translatable
-            // values for the CURRENT language as well as anything queued, and a null property means
-            // "not supplied" — so nothing is written for the request's own language by accident.
-            var accessor = multiLingual.For(Subject());
-
-            foreach (var (language, value) in body.Values)
-            {
-                accessor.Set(language, b => b.StoreName, value);
-            }
-
-            await accessor.SaveAsync(ct);
-
-            return Results.Ok(await multiLingual.For(Subject()).GetAllAsync(ct));
-        })
-        .WithSummary("Sets the branding group's text in one or more languages");
     }
-
-    /// <summary>
-    /// A bare instance to address the group by.
-    /// <para>
-    /// Its <c>Id</c> is a constant, so this is the same subject every time — no need to load the
-    /// group first. <c>StoreName</c> is left null deliberately: to <c>SaveAsync</c> a null property
-    /// means "not supplied", which keeps a write for one language from also writing the request's
-    /// own.
-    /// </para>
-    /// </summary>
-    private static BrandingSettings Subject() => new() { StoreName = null! };
 
     private static async Task<object?> LogoAsync(
         IMediaAccessor owner,
@@ -133,6 +88,3 @@ public static class BrandingEndpoints
             : AttachedFiles.Describe(logo, await mediaText.GetAsync(logo.Id, ct));
     }
 }
-
-/// <summary>The branding group's translatable text, keyed by language code.</summary>
-public sealed record BrandingTextWrite(Dictionary<string, string?> Values);

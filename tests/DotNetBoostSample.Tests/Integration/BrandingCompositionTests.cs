@@ -32,8 +32,13 @@ public class BrandingCompositionTests(SampleApp app)
         var stored = (await client.GetJsonAsync("/api/settings/branding")).Str("storeName");
 
         // Give the group an Arabic name, which is a translation row rather than a setting value.
-        await client.SendJsonCheckedAsync(HttpMethod.Put, "/api/branding/text",
-            new { values = new Dictionary<string, string> { ["ar"] = "متجر العينة" } });
+        // Through MultiLingual's own translation endpoint, addressing the settings group as the
+        // subject ("Branding", "branding") its [MultiLingualEntity] and Id declare.
+        await client.SendJsonOkAsync(HttpMethod.Put, "/api/translations/Branding/branding",
+            new { translations = new Dictionary<string, object>
+            {
+                ["ar"] = new Dictionary<string, string?> { ["StoreName"] = "متجر العينة" }
+            } });
 
         // Reading branding in Arabic is what used to poison the cache.
         var arabic = await client.GetJsonAsync("/api/branding", "ar");

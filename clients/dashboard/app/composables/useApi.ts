@@ -12,6 +12,23 @@ import type {
  */
 
 /**
+ * The translation routes and the property names behind them.
+ *
+ * `MediaFile` and `Branding` are the two subject names the API exposes over HTTP — see
+ * `.ExposeOverHttp(...)` in Program.cs; an unlisted name is not routed at all. The property names
+ * are the C# ones (`MediaText.AltText`, `MediaText.Caption`, `BrandingSettings.StoreName`), because
+ * a translation row's `PropertyName` is data rather than a bound field and is matched exactly.
+ *
+ * Written here once, so the one place this client depends on those names is visible rather than
+ * spread through the calls below.
+ */
+const TRANSLATIONS = '/api/translations/MediaFile'
+const BRANDING_TEXT = '/api/translations/Branding/branding'
+const ALT_TEXT = 'AltText'
+const CAPTION = 'Caption'
+const STORE_NAME = 'StoreName'
+
+/**
  * The language the dashboard reads in. Sent as Accept-Language on every call.
  *
  * Seeded with the default and then overwritten by `plugins/reading-language.ts` with whatever was
@@ -84,32 +101,44 @@ export function useApi() {
     },
 
     // ── The composition: Media × MultiLingual ─────────────────────────────
+    //
+    // DotNetBoost.MultiLingual's own translation endpoints, addressing a media file as the subject
+    // ("MediaFile", <the file's GUID>) the API files these rows under. The sample used to hand-write
+    // this CRUD as `/api/media-text`; the library ships it now, exposed per entity name in
+    // Program.cs, so what is left here is the two property names and the shape this editor wants.
     mediaText: {
-      get: (mediaFileId: string) =>
-        $fetch<{
-          mediaFileId: string
-          fileName: string
-          current: MediaTextValues
-          byLanguage: Record<string, Record<string, string | null>>
-        }>(`/api/media-text/${mediaFileId}`, { headers: headers() }),
+      /** Every stored language, as `{ altText, caption }` per language code. */
+      get: async (mediaFileId: string) => {
+        const { translations } = await $fetch<{ translations: Translations }>(
+          `${TRANSLATIONS}/${mediaFileId}`, { headers: headers() })
 
-      set: (mediaFileId: string, values: Record<string, MediaTextValues>) =>
-        $fetch(`/api/media-text/${mediaFileId}`, { method: 'POST', body: { values } }),
-
-      /** Alt text for many files in one call, in the current language. */
-      resolve: (ids: string[]) =>
-        $fetch<Record<string, MediaTextValues>>(
-          '/api/media-text/resolve', { method: 'POST', body: { ids }, headers: headers() }),
+        return Object.fromEntries(
+          Object.entries(translations ?? {}).map(([code, values]) => [code, {
+            altText: values[ALT_TEXT] ?? null,
+            caption: values[CAPTION] ?? null
+          } satisfies MediaTextValues])) as Record<string, MediaTextValues>
+      },
 
       /**
-       * Every language's text for a file, removed.
-       *
-       * Called when the file itself is deleted — see `useMediaLibrary`'s `remove`. Nothing
-       * cascades: `DELETE api/media/{id}` is the media library's own endpoint and it has never
-       * heard of these rows, so this is the only thing that takes them out.
+       * Writes every language supplied, as one batch. A null removes that row rather than storing
+       * a null. Answers 204, so there is nothing to read back.
        */
-      remove: (mediaFileId: string) =>
-        $fetch(`/api/media-text/${mediaFileId}`, { method: 'DELETE' })
+      set: (mediaFileId: string, values: Record<string, MediaTextValues>) =>
+        $fetch(`${TRANSLATIONS}/${mediaFileId}`, {
+          method: 'PUT',
+          body: {
+            translations: Object.fromEntries(
+              Object.entries(values).map(([code, v]) => [code, {
+                [ALT_TEXT]: v.altText?.trim() ? v.altText : null,
+                [CAPTION]: v.caption?.trim() ? v.caption : null
+              }]))
+          }
+        })
+
+      // No `remove`. Deleting a file takes its alt text with it: the API registers
+      // MediaTextCleanup as an IMediaFilesDeletedHandler, so the cascade happens for every delete
+      // whatever triggered it — including DotNetBoost.Media's own DELETE /api/media/{id}, which is
+      // the one this dashboard calls. Following up by hand is what that handler replaced.
     },
 
     // ── The composition: Settings × Media ─────────────────────────────────
@@ -119,13 +148,26 @@ export function useApi() {
       // Prefer useBranding(), which shares one fetch between the header and the settings page.
       get: () => $fetch<Branding>('/api/branding', { headers: headers() }),
 
-      /** Every stored language for the branding group's translated text. */
-      text: () => $fetch<Translations>('/api/branding/text'),
+      /**
+       * Every stored language for the branding group's translated text, through MultiLingual's own
+       * translation endpoint — the group is the subject ("Branding", "branding") that its
+       * [MultiLingualEntity] and Id declare. `/api/branding/text` used to hand-write this.
+       */
+      text: async () => {
+        const { translations } = await $fetch<{ translations: Translations }>(BRANDING_TEXT)
+        return translations ?? {}
+      },
 
       /** Writes one or more languages. The default language is NOT written here — it is a
-          setting, and lives in the settings row that the group form edits. */
+          setting, and lives in the settings row that the group form edits. Answers 204. */
       setText: (values: Record<string, string | null>) =>
-        $fetch<Translations>('/api/branding/text', { method: 'PUT', body: { values } })
+        $fetch(BRANDING_TEXT, {
+          method: 'PUT',
+          body: {
+            translations: Object.fromEntries(
+              Object.entries(values).map(([code, value]) => [code, { [STORE_NAME]: value }]))
+          }
+        })
     }
   }
 }

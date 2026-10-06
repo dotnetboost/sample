@@ -15,9 +15,16 @@ using Scalar.AspNetCore;
 //  integration package pairing any two of them: see Directory.Packages.props for the full list of
 //  what is installed, and tests/ for the assertion that none of them references another.
 //
-//  What ties them together is in exactly two places, both of them application code:
-//    • Data/AppDbContext.cs      — one database, three Apply* calls
-//    • Integration/MediaText.cs  — per-language alt text, via the (entityName, entityId) convention
+//  What ties them together is in exactly three places, all of them application code, and none of
+//  them large:
+//    • Data/AppDbContext.cs          — one database, three Apply* calls, nothing else
+//    • Integration/MediaText.cs      — reads a file's per-language alt text for this API's own
+//                                      responses, via the (entityName, entityId) convention both
+//                                      libraries address a subject by
+//    • Integration/MediaTextCleanup.cs — removes that text when Media says the file is gone
+//
+//  Writing alt text is not on that list any more: DotNetBoost.MultiLingual ships the translation
+//  endpoints now, and the dashboard's editor calls them directly.
 // ─────────────────────────────────────────────────────────────────────────────
 
 var builder = WebApplication.CreateBuilder(args);
@@ -102,9 +109,24 @@ builder.Services
     // one the EF interceptors just translated the row with — not CultureInfo.CurrentUICulture.
     // A refusal and the content it was about therefore cannot disagree.
     .AddJsonLocalization()
+    // Which subjects' translations are reachable over HTTP. Opt-in on purpose: the routes take an
+    // entity name in the path, so without a list they would be a write-anything surface over every
+    // translatable thing in the database. An unlisted name is not routed at all.
+    //
+    //   MediaFile  — alt text and captions for an uploaded file. A type this application does not
+    //                own, so it is named by string; MediaText.Subject is that one literal.
+    //   Branding   — the settings group's translated StoreName, by type, so the name comes from
+    //                its [MultiLingualEntity] rather than being written out again.
+    //
+    // Category and Product are deliberately NOT here. Their text is written as part of the product
+    // or category it belongs to, through the typed accessor in CatalogEndpoints, where it is saved
+    // in the same transaction as the SKU and the price. A second way in would be a second answer.
+    .ExposeOverHttp(entities => entities
+        .Allow(MediaText.Subject)
+        .Allow<BrandingSettings>())
     .Build();
 
-// ── The only integration code in the solution ────────────────────────────────
+// ── The integration code in the solution ─────────────────────────────────────
 builder.Services.AddScoped<MediaText>();
 
 // Problem details for the refusals the application writes itself. MultiLingual's own refusals
@@ -142,10 +164,10 @@ app.MapGroup("").WithTags("Settings")
    .MapSettingsEndpoints();                     // /api/settings/{group}
 app.MapMediaEndpoints();                        // /api/media
 app.MapLanguageEndpoints();                     // /api/languages
+app.MapTranslationEndpoints();                  // /api/translations/{entityName}/{entityId}
 
 // ── The application's own endpoints ──────────────────────────────────────────
 app.MapCatalogEndpoints();                      // /api/categories, /api/products
-app.MapMediaTextEndpoints();                    // /api/media-text  — the composition
 app.MapBrandingEndpoints();                     // /api/branding    — a setting holding a file id
 
 app.Run();

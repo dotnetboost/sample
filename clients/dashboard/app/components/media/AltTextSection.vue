@@ -7,8 +7,9 @@ import type { Language, MediaTextValues } from '~/types'
  *
  * None of this is media data. `MediaFile` has no alt-text field, and the media library never
  * learns that these rows exist: they are DotNetBoost.MultiLingual translations filed under the
- * subject "MediaFile" and this file's own GUID, written through the application's
- * `/api/media-text` endpoints. Two libraries acting on one subject, joined in application code.
+ * subject "MediaFile" and this file's own GUID, read and written through that library's own
+ * `/api/translations` endpoints. Two libraries acting on one subject, and the only thing joining
+ * them is the subject name — which the API declares in one place and exposes deliberately.
  *
  * A language button is ticked when that language has something stored, which is the fastest way to
  * see what is still missing — and alt text missing in a language is an accessibility defect, not a
@@ -34,16 +35,15 @@ async function load() {
   loading.value = true
 
   try {
-    const detail = await api.mediaText.get(props.mediaFileId)
+    const stored = await api.mediaText.get(props.mediaFileId)
 
+    // A row per language the system knows about, whether or not anything is stored for it: the
+    // buttons above are drawn from this, and a language with nothing yet is exactly what the
+    // editor is for.
     const next: Record<string, MediaTextValues> = {}
 
     for (const language of languages.value ?? []) {
-      const stored = detail.byLanguage[language.code] ?? {}
-      next[language.code] = {
-        altText: stored.AltText ?? null,
-        caption: stored.Caption ?? null
-      }
+      next[language.code] = stored[language.code] ?? { altText: null, caption: null }
     }
 
     draft.value = next
