@@ -116,8 +116,7 @@ public sealed class SampleApp : IAsyncLifetime
         Client.PostAsJsonChecked("/api/settings/catalog", new
         {
             pageSize = 12,
-            currencySymbol = "$",
-            showProductsWithoutImages = true
+            currencySymbol = "$"
         });
 }
 

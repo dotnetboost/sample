@@ -1,5 +1,4 @@
 using DotNetBoost.Media.Core.Interfaces;
-using DotNetBoost.Media.EntityFrameworkCore;
 using DotNetBoost.Media.Core.Metadata;
 using MediaEntityKey = DotNetBoost.Media.Core.Metadata.EntityKey;
 using DotNetBoost.Media.Core.Models;
@@ -284,22 +283,7 @@ public static class CatalogEndpoints
             if (categoryId is not null)
                 query = query.Where(p => p.CategoryId == categoryId);
 
-            // The setting's other half: a product with no image is not listed at all.
-            //
-            // `OwnersWithMedia<Product>()` is DotNetBoost.Media's own subquery over its attachment
-            // table — the owner ids of every Product with something attached. It has to be a
-            // queryable rather than a set of ids, because the filter is applied BEFORE paging: a
-            // question about every product in the table, not about the ones on this page.
-            //
-            // This replaced the one place in the application that read a library's own table
-            // instead of its interface. The library had no way to express the question, so the
-            // application reached past it and said so in a comment; preview.2 added the API and the
-            // comment went with it.
-            if (!catalog.ShowProductsWithoutImages)
-                query = query.Where(p => db.OwnersWithMedia<Product>().Contains(p.Id.ToString()));
-
-            // Counted AFTER the filter, so a page is a page of what is actually being listed and
-            // the pager cannot offer a page that holds nothing.
+            // Counted before paging, so the pager cannot offer a page that holds nothing.
             var total = await query.CountAsync(ct);
 
             var rows = await query.OrderBy(p => p.Id).Skip(skip).Take(take).ToListAsync(ct);

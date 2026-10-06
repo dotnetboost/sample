@@ -30,7 +30,7 @@ const { data: productPage, refresh: refreshProducts } = await useAsyncData(
   () => api.products.list({ page: page.value }),
   { watch: [page] })
 
-// `currencySymbol` for the price, and `showProductsWithoutImages` so a filtered list can say so.
+// `currencySymbol` for the price: the only catalogue setting a listing does not already carry.
 const { data: catalogSettings } = await useCatalogSettings()
 
 const products = computed(() => productPage.value?.items ?? [])
@@ -40,7 +40,6 @@ const pageCount = computed(() =>
   pageSize.value ? Math.ceil(productTotal.value / pageSize.value) : 1)
 
 const currencySymbol = computed(() => catalogSettings.value?.currencySymbol ?? '')
-const imagesOnly = computed(() => catalogSettings.value?.showProductsWithoutImages === false)
 
 const range = computed(() => productTotal.value
   ? t('catalog.products.range', {
@@ -84,12 +83,9 @@ function editProduct(id: number | null) {
 /**
  * A product was written. `createdId` is set only for a CREATE, and the editor stays open for one:
  * a product cannot hold media until it has a key, so its first image can only be attached from
- * that panel. Switching `editingProduct` onto the new id turns the open "new product" panel into
- * an "edit product" one, and the media sections that were showing "save first" become usable.
- *
- * Without this the create was a dead end whenever `showProductsWithoutImages` is off: the product
- * saved, dropped out of this list for having no images, and the catalogue is the only route back
- * into the editor — so there was no way to attach the image that would have made it visible.
+ * that panel, and closing would send you back to the list to find the row and reopen it.
+ * Switching `editingProduct` onto the new id turns the open "new product" panel into an "edit
+ * product" one, and the media sections that were showing "save first" become usable.
  */
 async function onProductSaved(createdId?: number) {
   if (createdId !== undefined) editingProduct.value = createdId
@@ -326,16 +322,13 @@ const items = computed(() => [
 
         <UCard v-if="!products.length">
           <p class="text-muted">
-            {{ imagesOnly ? $t('catalog.products.emptyImagesOnly') : $t('catalog.products.empty') }}
+            {{ $t('catalog.products.empty') }}
           </p>
         </UCard>
 
         <div v-if="productTotal" class="flex items-center justify-between gap-3 pt-1">
           <p class="text-sm text-muted">
             {{ range }}
-            <!-- Said rather than left to be noticed: a short list under this filter looks exactly
-                 like a short catalogue. -->
-            <span v-if="imagesOnly">· {{ $t('catalog.products.imagesOnly') }}</span>
           </p>
 
           <UPagination

@@ -127,9 +127,6 @@ public class CatalogSettings
     /// <summary>Products returned per page.</summary>
     public int PageSize { get; set; } = 12;
 
-    /// <summary>Whether products with no image are listed at all.</summary>
-    public bool ShowProductsWithoutImages { get; set; } = true;
-
     /// <summary>Currency symbol shown next to prices.</summary>
     public string CurrencySymbol { get; set; } = "$";
 }

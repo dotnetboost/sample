@@ -97,12 +97,10 @@ async function save() {
       notifySuccess(t('productEditor.toast.created'), created.message)
 
       // Deliberately STAYS OPEN, on the product just created. A product cannot hold media until
-      // it has a key, so this panel is the only place its first image can be attached — and with
-      // `CatalogSettings.ShowProductsWithoutImages` turned off, a product with no images is not
-      // listed at all. Closing here would drop it out of the list the instant it was created and
-      // leave no way back to it: the catalogue is the only route into this editor. So the parent
-      // swaps `productId` to the new id, the watcher above reloads, and the media sections that
-      // were showing "save first" become usable.
+      // it has a key, so this panel is the only place its first image can be attached — and
+      // closing here would send you back to the list to find the new row and reopen it before you
+      // could. The parent swaps `productId` to the new id, the watcher above reloads, and the
+      // media sections that were showing "save first" become usable.
       emit('saved', created.id)
       return
     }

@@ -13,9 +13,7 @@ const { data: categories } = await useAsyncData('overview-categories', () => api
  * caller that asks for its own page size instead of letting `CatalogSettings.PageSize` decide.
  *
  * `MaxPageSize` on the API caps it at 200, so the two image stats below describe at most that many
- * products — the headline count does not, because it reads `total`. And with
- * `showProductsWithoutImages` turned off, `total` is what the catalogue lists rather than what the
- * table holds, which is the number this panel is about.
+ * products — the headline count does not, because it reads `total`.
  */
 const { data: productPage } = await useAsyncData(
   'overview-products', () => api.products.list({ pageSize: 200 }))

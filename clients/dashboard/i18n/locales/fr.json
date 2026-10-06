@@ -102,9 +102,7 @@
       "title": "Produits",
       "description": "Le nom et la description sont des lignes de traduction ; les images sont des pièces jointes dans la bibliothèque de médias. Ni l'une ni l'autre bibliothèque ne sait que l'autre existe.",
       "empty": "Aucun produit pour l'instant.",
-      "emptyImagesOnly": "Aucun produit n'a encore d'image. Désactivez « afficher les produits sans image » dans les Réglages pour lister les autres.",
-      "range": "{from}–{to} sur {total}",
-      "imagesOnly": "Les produits sans image sont masqués"
+      "range": "{from}–{to} sur {total}"
     },
     "productCount": "{n} produit | {n} produits",
     "imageCount": "{n} image | {n} images",
@@ -484,10 +482,6 @@
           "currencySymbol": {
             "label": "Symbole monétaire",
             "description": "Affiché à côté des prix."
-          },
-          "showProductsWithoutImages": {
-            "label": "Lister les produits sans image",
-            "description": "Désactivé, un produit sans image attachée est exclu des listages."
           }
         }
       }

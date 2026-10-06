@@ -4,8 +4,6 @@ export interface CatalogSettings {
   pageSize: number
   /** Drawn beside a price. A glyph only — see `formatPrice`, which has to place it. */
   currencySymbol: string
-  /** When false, the API leaves products with no attached image out of the listing entirely. */
-  showProductsWithoutImages: boolean
 }
 
 /** The key the catalogue page and the settings tab share, so one refresh updates both. */
@@ -18,8 +16,7 @@ export const CATALOG_SETTINGS_KEY = 'catalog-settings'
  * Only the values a screen cannot infer from what it was already sent are read here.
  * `pageSize` is not one of them: the API applies it and answers with `take`, so a pager reads the
  * page it was actually given rather than re-deciding it. What the client genuinely needs is
- * `currencySymbol`, which no listing carries, and `showProductsWithoutImages`, so the page can say
- * that rows are being withheld rather than leaving a short list looking like the whole catalogue.
+ * `currencySymbol`, which no listing carries and which `formatPrice` needs in order to place.
  *
  * Shares `useBranding`'s pattern deliberately, including the key: `refreshNuxtData` after a save
  * on the Settings page updates the catalogue without either knowing about the other.

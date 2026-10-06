@@ -37,8 +37,7 @@ export const settingsGroups: SettingGroup[] = [
     to: '/settings/catalog',
     fields: {
       pageSize: { min: 1, max: 200, step: 1 },
-      currencySymbol: {},
-      showProductsWithoutImages: {}
+      currencySymbol: {}
     }
   }
 ]

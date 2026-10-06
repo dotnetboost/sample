@@ -70,7 +70,6 @@ that writes it — three values, each landing in a different place:
 |---|---|
 | `PageSize` | How many products `GET /api/products` answers with. The catalogue list asks for no page size, so this is the one that decides; the pager under the list follows it. |
 | `CurrencySymbol` | The glyph beside a price. Only the glyph — `Intl` places it, so the same `€` reads `€349.00` in English and `349.00 €` in Arabic. |
-| `ShowProductsWithoutImages` | Turn it off and a product with nothing attached is not listed at all. The list says so rather than leaving a short page looking like the whole catalogue. |
 
 Change `PageSize` from 12 to 2, reload the Catalog page, and it pages by two — no restart, no
 redeploy, which is the entire claim of a settings library and is worth seeing actually happen.
@@ -321,7 +320,6 @@ Being honest about the trade-off, because it is the point of the sample:
 | **No cascade** | Deleting a `MediaFile` does not delete its alt text; the media library has no idea it exists. Both delete paths write that cleanup out by hand — `DELETE /api/products/{id}` for a product's files, and the Media page's own delete, which goes to the library's endpoint and so would otherwise strand the rows it never hears about. Two callers, because there are two ways to delete a file. |
 | **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
 | **No shared guarantee** | Both libraries must format keys identically. They do — but by a hand-maintained convention, which is why `tests/KeyFormatAgreementTests.cs` asserts it rather than trusting it. |
-| **One query the interface cannot ask** | `ShowProductsWithoutImages` needs "has an image" for every product at once, before a page can be taken. Media addresses one owner at a time and ships no bulk API, so `CatalogEndpoints.ProductsWithAnImage` reads the `MediaAttachments` table directly rather than running a query per row. It is the only place in the application that reads a library's rows instead of its interface, and it is a schema dependency a package upgrade could break where `IMediaAccessor` could not. |
 
 None of these are capability limits. They are ergonomics, and they are the price of being able to
 install one library without the other two.
@@ -375,8 +373,7 @@ database they share.
   (asserted against the actual Arabic and French sentences); and deleting a product takes the alt
   text that nothing cascades.
 - **`CatalogSettingsTests`** — `PageSize` changes the listing with no restart, a caller may
-  override it but not past the cap, `ShowProductsWithoutImages` filters *before* the count, and a
-  group answers with its values and nothing else.
+  override it but not past the cap, and a group answers with its values and nothing else.
 - **`MediaShapeTests`** — one file attached under two roles is **one** image in the listing and
   **two** boxes in the editor; no shape carries a URL but the bytes are reachable from the id;
   several languages of alt text are one write, and a null still removes its row; and the text

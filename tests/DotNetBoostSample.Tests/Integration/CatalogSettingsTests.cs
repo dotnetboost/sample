@@ -32,7 +32,6 @@ public class CatalogSettingsTests(SampleApp app)
             {
                 pageSize = 2,
                 currencySymbol = "$",
-                showProductsWithoutImages = true
             });
 
             var after = await client.GetJsonAsync("/api/products");
@@ -73,76 +72,6 @@ public class CatalogSettingsTests(SampleApp app)
     }
 
     /// <summary>
-    /// <c>ShowProductsWithoutImages</c> crosses a library boundary: "has an image" is a fact about
-    /// Media's attachments, asked of every product before a page can be taken. It also has to be
-    /// applied BEFORE the count, or the pager offers pages that hold nothing.
-    /// </summary>
-    [RequiresDockerFact]
-    public async Task Products_with_no_image_can_be_left_out_of_the_listing_entirely()
-    {
-        var client = app.Client;
-
-        try
-        {
-            // A product nobody has attached anything to.
-            var bare = await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
-            {
-                sku = $"BARE-{Guid.NewGuid():N}"[..12],
-                price = 5.0m,
-                categoryId = 1,
-                translations = new Dictionary<string, Dictionary<string, string>>
-                {
-                    ["en"] = new() { ["Name"] = "No picture", ["Description"] = "None at all." }
-                }
-            });
-
-            var bareId = bare.Int("id");
-
-            // And one with an image.
-            var withImage = await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
-            {
-                sku = $"PIC-{Guid.NewGuid():N}"[..12],
-                price = 5.0m,
-                categoryId = 1,
-                translations = new Dictionary<string, Dictionary<string, string>>
-                {
-                    ["en"] = new() { ["Name"] = "Has a picture", ["Description"] = "One of them." }
-                }
-            });
-
-            var withImageId = withImage.Int("id");
-            await client.UploadAsync($"/api/products/{withImageId}/images?role=primary");
-
-            var showingAll = await client.GetJsonAsync("/api/products?pageSize=200");
-            Assert.Contains(showingAll.GetProperty("items").EnumerateArray(), p => p.Int("id") == bareId);
-
-            await client.PostAsJsonChecked("/api/settings/catalog", new
-            {
-                pageSize = 12,
-                currencySymbol = "$",
-                showProductsWithoutImages = false
-            });
-
-            var filtered = await client.GetJsonAsync("/api/products?pageSize=200");
-            var ids = filtered.GetProperty("items").EnumerateArray().Select(p => p.Int("id")).ToList();
-
-            Assert.DoesNotContain(bareId, ids);
-            Assert.Contains(withImageId, ids);
-
-            // Counted after the filter, so the total matches what is actually listed.
-            Assert.Equal(ids.Count, filtered.Int("total"));
-            Assert.True(filtered.Int("total") < showingAll.Int("total"));
-
-            await client.SendJsonAsync(HttpMethod.Delete, $"/api/products/{bareId}");
-            await client.SendJsonAsync(HttpMethod.Delete, $"/api/products/{withImageId}");
-        }
-        finally
-        {
-            await app.ResetCatalogSettingsAsync();
-        }
-    }
-
-    /// <summary>
     /// The settings form is generated from whatever the group returns, so the group's own property
     /// list is part of its contract with the dashboard — and the branding group deliberately keeps
     /// its addressing <c>Id</c> out of it.
@@ -153,7 +82,7 @@ public class CatalogSettingsTests(SampleApp app)
         var client = app.Client;
 
         Assert.Equal(
-            ["currencySymbol", "pageSize", "showProductsWithoutImages"],
+            ["currencySymbol", "pageSize"],
             (await client.GetJsonAsync("/api/settings/catalog")).Keys().Order());
 
         var branding = (await client.GetJsonAsync("/api/settings/branding")).Keys();
