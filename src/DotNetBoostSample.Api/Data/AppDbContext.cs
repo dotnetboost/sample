@@ -58,7 +58,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
 
         // ── Three independent calls, in any order ────────────────────────────
-        // Settings: the Settings and SettingAudits tables, with PostgreSQL column types.
+        // Settings: the Settings table, with PostgreSQL column types.
         // The engine read off the context rather than named here, so switching provider in
         // Program.cs needs no matching edit. The explicit
         // ApplySettings(DatabaseProvider.PostgreSql) overload is still there for
