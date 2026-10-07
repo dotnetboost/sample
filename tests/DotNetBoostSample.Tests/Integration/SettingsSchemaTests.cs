@@ -11,7 +11,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// This is what let the dashboard stop guessing. <c>clients/dashboard/app/utils/settings.ts</c>
 /// hardcoded <c>headerLogoSize: { min: 16, max: 64 }</c> and <c>pageSize: { min: 1, max: 200 }</c> —
 /// two ranges that appeared nowhere in C# and that the API would have accepted anything outside.
-/// They come from <c>Settings/SettingsValidators.cs</c> now, through
+/// They come from each group's own file under <c>Settings/</c> now, through
 /// <c>DotNetBoost.Settings.FluentValidation</c>'s schema contributor.
 /// </para>
 /// </summary>

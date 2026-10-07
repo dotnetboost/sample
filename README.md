@@ -437,8 +437,9 @@ src/DotNetBoostSample.Api/
   Data/AppDbContext.cs                   one database, three Apply* calls
   Data/Seed.cs                           schema + languages + catalogue on first run
   Entities/                              Category, Product — the app's own two entities
-  Settings/BrandingSettings.cs           text in Settings, logo attached in Media
-  Settings/BrandingProjector.cs          what GET /api/settings/branding answers with
+  Settings/BrandingSettings.cs           the group, its validator, and the projector
+                                         behind GET /api/settings/branding
+  Settings/CatalogSettings.cs            the second group, with its validator
   Integration/MediaText.cs               Media × MultiLingual  ← the composition
   Integration/MediaTextCleanup.cs        removes a file's text when the file goes
   Endpoints/                             catalogue

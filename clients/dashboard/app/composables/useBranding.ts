@@ -38,9 +38,8 @@ export const BRANDING_KEY = 'branding'
  *
  * It composes two libraries that know nothing of each other: the name and the logo size are
  * DotNetBoost.Settings values; the logo itself is a DotNetBoost.Media attachment on an owner with
- * no table. The API joins them in
- * `Settings/BrandingProjector.cs`, on the settings group's own endpoint, and publishes the joined
- * shape as `BrandingResponse`.
+ * no table. The API joins them in `BrandingProjector` (in `Settings/BrandingSettings.cs`), on
+ * the settings group's own endpoint, and publishes the joined shape as `BrandingResponse`.
  */
 export function useBranding() {
   const api = useApi()

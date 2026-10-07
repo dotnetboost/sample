@@ -51,9 +51,9 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 //
 // The library's own cache keys a group by its name, which is right while no value in a group
 // varies by language — and none does. `Setting` declares nothing translatable, so MultiLingual's
-// interceptor never sees a settings write, and branding's translated name is resolved in
-// BrandingProjector.cs by projecting a translation into the RESPONSE, leaving the cached
-// group untouched.
+// interceptor never sees a settings write, and branding's translated name is resolved by
+// BrandingProjector, in Settings/BrandingSettings.cs, by projecting a translation into the
+// RESPONSE, leaving the cached group untouched.
 //
 // This did carry a `.UseCustomCache<LanguageAwareSettingCache>()` that appended the request's
 // language to every key and evicted across all of them. It was correct, and it guarded nothing:
@@ -65,8 +65,9 @@ builder.Services
     .UseEntityFrameworkCore<AppDbContext>()
     // Scans this assembly for AbstractValidator<T>, so every write is checked — and registers an
     // ISettingSchemaContributor over those same rules, so GET /api/settings/{group}/schema
-    // publishes them. See Settings/SettingsValidators.cs: the bounds the dashboard's form draws
-    // its controls from now come from here instead of being hardcoded in the client.
+    // publishes them. Each group's rules sit beside the group — see
+    // BrandingSettingsValidator in Settings/BrandingSettings.cs: the bounds the dashboard's form
+    // draws its controls from now come from here instead of being hardcoded in the client.
     .UseFluentValidation(typeof(Program).Assembly)
     // And one of this application's own, publishing `translated` for a property carrying
     // [MultiLingual]. DotNetBoost.Settings cannot know that attribute exists — it belongs to
@@ -80,7 +81,7 @@ builder.Services
     // And the read-path shape for one group: GET /api/settings/branding answers with its text in
     // the request's language and its logo, neither of which is a setting. Three libraries joined
     // in one class, on the group's own endpoint, so there is one URL for branding rather than two.
-    // See Settings/BrandingProjector.cs.
+    // See BrandingProjector, in Settings/BrandingSettings.cs.
     .UseProjector<BrandingSettings, BrandingProjector>()
     .Build();
 
