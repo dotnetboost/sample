@@ -36,7 +36,7 @@ internal static class AttachedFiles
     /// set is resolved in one query.
     /// </para>
     /// </summary>
-    public static async Task<IReadOnlyList<object>> DescribeAsync(
+    public static async Task<IReadOnlyList<AttachedFileInRole>> DescribeAsync(
         IMediaAccessor accessor,
         MediaText mediaText,
         CancellationToken ct)
@@ -56,45 +56,64 @@ internal static class AttachedFiles
         ];
     }
 
-    /// <summary>
-    /// One file on its own — the shape a listing and a thumbnail carry.
-    ///
-    /// <para><b>No role, and that is the point.</b> A role belongs to an ATTACHMENT, not to a file:
-    /// the media library lets one file be attached several times over, so a product's primary image
-    /// can also sit in its gallery. A listing answers "what files does this product have", which has
-    /// no single role to report. The products list used to send <c>role: ""</c> and
-    /// <c>sortOrder: 0</c> here — the same field names the detail endpoint fills with real values,
-    /// carrying the one value a role can never truthfully take. Absent beats blank: a reader that
-    /// needs roles now gets a 404 on the property instead of a plausible empty string.</para>
-    /// </summary>
-    public static object Describe(MediaFileInfo file, MediaTextValues? text) => new
-    {
-        file.Id,
-        file.FileName,
-        file.ContentType,
-        file.Size,
-        AltText = text?.AltText,
-        Caption = text?.Caption
-    };
+    /// <summary>One file on its own — the shape a listing and a thumbnail carry.</summary>
+    public static AttachedFile Describe(MediaFileInfo file, MediaTextValues? text) =>
+        new(file.Id, file.FileName, file.ContentType, file.Size, text?.AltText, text?.Caption);
 
-    /// <summary>
-    /// One file in one of an entity's roles — what the dashboard's role boxes read.
-    ///
-    /// <para>The same shape as <see cref="Describe(MediaFileInfo, MediaTextValues?)"/> plus the two
-    /// fields that only exist once a file is attached to something. The duplication is deliberate
-    /// and small: an anonymous object cannot be extended, and nesting the file under a property
-    /// would change the JSON every caller reads. Add a field to one and add it to the other.</para>
-    /// </summary>
-    public static object DescribeInRole(
-        MediaFileInfo file, string role, int sortOrder, MediaTextValues? text) => new
-    {
-        file.Id,
-        file.FileName,
-        file.ContentType,
-        file.Size,
-        Role      = role,
-        SortOrder = sortOrder,
-        AltText   = text?.AltText,
-        Caption   = text?.Caption
-    };
+    /// <summary>One file in one of an entity's roles — what the dashboard's role boxes read.</summary>
+    public static AttachedFileInRole DescribeInRole(
+        MediaFileInfo file, string role, int sortOrder, MediaTextValues? text) =>
+        new(file.Id, file.FileName, file.ContentType, file.Size, role, sortOrder,
+            text?.AltText, text?.Caption);
 }
+
+/// <summary>
+/// One stored file as this API describes it: the media row's public facts plus the alt text and
+/// caption, which are translation rows rather than file columns.
+///
+/// <para><b>A named record rather than an anonymous object.</b> These were anonymous, which is
+/// invisible to OpenAPI: a response built out of <c>new { … }</c> has no type to generate a schema
+/// from, so the document described the endpoint's body as an untyped object — or, where some other
+/// type was declared for it, described the wrong one. The JSON is unchanged, field for field and
+/// in the same order; what changed is that the document can now say what it is. Branding needed it
+/// first: <see cref="DotNetBoostSample.Api.Settings.BrandingResponse"/> carries these two, and a
+/// schema naming them is only worth as much as the shapes inside it.</para>
+///
+/// <para><b>The size is a number of bytes</b>, and the id is the media file's own — the route to
+/// its content is derived from it by the caller, as the class above explains.</para>
+/// </summary>
+public sealed record AttachedFile(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    long Size,
+    string? AltText,
+    string? Caption);
+
+/// <summary>
+/// One file in one of an entity's roles — <see cref="AttachedFile"/> plus the two facts that only
+/// exist once a file is attached to something.
+///
+/// <para><b>Role is on the attachment, not on the file, and that is why this is a second type
+/// rather than two nullable fields on the first.</b> The media library lets one file be attached
+/// several times over, so a product's primary image can also sit in its gallery: a listing answers
+/// "what files does this product have", which has no single role to report. The products list used
+/// to send <c>role: ""</c> and <c>sortOrder: 0</c> — the same field names the detail endpoint fills
+/// with real values, carrying the one value a role can never truthfully take. Absent beats blank: a
+/// reader that needs roles now gets a 404 on the property instead of a plausible empty string, and
+/// the schema says which responses have them.</para>
+///
+/// <para>The repeated fields are deliberate and small. Deriving from <see cref="AttachedFile"/>
+/// would group a file's own facts under a base type in the document and buy nothing on the wire;
+/// nesting the file under a property would change the JSON every caller reads. Add a field to one
+/// and add it to the other.</para>
+/// </summary>
+public sealed record AttachedFileInRole(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    long Size,
+    string Role,
+    int SortOrder,
+    string? AltText,
+    string? Caption);

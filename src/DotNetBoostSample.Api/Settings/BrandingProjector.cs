@@ -33,6 +33,14 @@ namespace DotNetBoostSample.Api.Settings;
 /// name onto the group would write one request's language into an object the caller owns — the
 /// mistake the old endpoint carried ten lines of comment to avoid.</para>
 ///
+/// <para><b>The shape is declared, not just returned.</b> This implements
+/// <c>ISettingProjector&lt;BrandingSettings, BrandingResponse&gt;</c>, so <c>GET</c>'s published 200
+/// is <see cref="BrandingResponse"/> rather than the stored group. The untyped interface returns
+/// <c>object</c> and leaves the generated endpoint declaring the group, which described three
+/// properties for a body carrying six — a wrong schema, which is worse than none because it is
+/// specific and believed. Here the type the method returns IS the type published, so they cannot
+/// drift.</para>
+///
 /// <para><b>No property is named here.</b> The values are read off the type and the translatable
 /// ones come from <c>MultiLingualMetadata</c>, so adding a property to
 /// <see cref="BrandingSettings"/> — translatable or not — needs no edit in this file. Naming them
@@ -41,29 +49,17 @@ namespace DotNetBoostSample.Api.Settings;
 public sealed class BrandingProjector(
     IMultiLingualManager multiLingual,
     IMediaManager media,
-    MediaText mediaText) : ISettingProjector<BrandingSettings>
+    MediaText mediaText) : ISettingProjector<BrandingSettings, BrandingResponse>
 {
     /// <inheritdoc/>
-    public async Task<object> ProjectAsync(BrandingSettings group, CancellationToken ct = default)
+    public async Task<BrandingResponse> ProjectAsync(BrandingSettings group, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(group);
 
         var stored = await multiLingual.For(group).GetAllAsync(ct);
 
-        // Every value the settings engine maps, by the same rule it uses: readable and writable.
-        // Built rather than listed, so adding a property to BrandingSettings needs no edit here —
-        // which is exactly what naming them cost the dashboard's per-language editor.
-        var values = new Dictionary<string, object?>(StringComparer.Ordinal);
-
-        foreach (var property in typeof(BrandingSettings).GetProperties())
-        {
-            if (!property.CanRead || !property.CanWrite) continue;
-
-            values[JsonNamingPolicy.CamelCase.ConvertName(property.Name)] = property.GetValue(group);
-        }
-
-        // The translatable ones resolved for this request, under a SEPARATE key — never over the
-        // stored value above.
+        // The translatable properties resolved for this request, under a SEPARATE key — never over
+        // the stored value.
         //
         // This is the whole shape of the thing. The settings form loads this endpoint with the
         // reader's Accept-Language and posts the values back, and the settings row holds the
@@ -74,7 +70,11 @@ public sealed class BrandingProjector(
         // Stored values stay stored; the resolution travels beside them. A caller rendering
         // branding reads `resolved.storeName ?? storeName`; a caller EDITING it reads `storeName`
         // and is right by default.
-        var resolved = new Dictionary<string, object?>(StringComparer.Ordinal);
+        //
+        // The keys are camel-cased here because these are dictionary KEYS: JsonSerializerDefaults
+        // .Web camel-cases property names and leaves dictionary keys alone, so `resolved` would
+        // otherwise answer `StoreName` beside a `storeName` it is meant to pair with.
+        var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var translatable in MultiLingualMetadata.For(typeof(BrandingSettings)))
         {
@@ -82,20 +82,34 @@ public sealed class BrandingProjector(
                 resolved[JsonNamingPolicy.CamelCase.ConvertName(translatable.Name)] = translated;
         }
 
-        values["resolved"] = resolved;
-
         var owner = media.For(BrandingSettings.MediaOwnerName, BrandingSettings.MediaOwnerId);
         var logo  = await owner.GetByRoleAsync(BrandingSettings.LogoRole, ct);
 
-        // The media, which is not a setting and is deliberately keyed outside the group's own
+        // The media, which is not a setting and is deliberately not among the group's own
         // properties — GroupForm draws its boxes from the schema's property list, so these two
         // travel in the same response without becoming inputs on the form.
-        values["images"] = await AttachedFiles.DescribeAsync(owner, mediaText, ct);
-        values["logo"]   = logo is null
-            ? null
-            : AttachedFiles.Describe(logo, await mediaText.GetAsync(logo.Id, ct));
+        var response = new BrandingResponse
+        {
+            Resolved = resolved,
+            Images   = await AttachedFiles.DescribeAsync(owner, mediaText, ct),
+            Logo     = logo is null
+                ? null
+                : AttachedFiles.Describe(logo, await mediaText.GetAsync(logo.Id, ct))
+        };
 
-        return values;
+        // The group's own values, copied by the same rule the settings engine maps them by:
+        // readable and writable. Copied rather than listed, so adding a property to
+        // BrandingSettings needs no edit here — which is exactly what naming them cost the
+        // dashboard's per-language editor. BrandingResponse derives from the group, so the property
+        // being copied is the same property, and the response has nowhere to put a typo.
+        foreach (var property in typeof(BrandingSettings).GetProperties())
+        {
+            if (!property.CanRead || !property.CanWrite) continue;
+
+            property.SetValue(response, property.GetValue(group));
+        }
+
+        return response;
     }
 
     /// <summary>

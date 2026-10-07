@@ -52,8 +52,8 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 // The library's own cache keys a group by its name, which is right while no value in a group
 // varies by language — and none does. `Setting` declares nothing translatable, so MultiLingual's
 // interceptor never sees a settings write, and branding's translated name is resolved in
-// BrandingEndpoints.cs by projecting a translation into the RESPONSE, leaving the cached group
-// untouched.
+// BrandingProjector.cs by projecting a translation into the RESPONSE, leaving the cached
+// group untouched.
 //
 // This did carry a `.UseCustomCache<LanguageAwareSettingCache>()` that appended the request's
 // language to every key and evicted across all of them. It was correct, and it guarded nothing:
@@ -153,6 +153,10 @@ builder.Services.AddScoped<MediaText>();
 // looks the title and detail up through the localizer registered above.
 builder.Services.AddProblemDetails();
 
+// The OpenAPI document. Nothing to correct in it: BrandingProjector declares its response type
+// through ISettingProjector<BrandingSettings, BrandingResponse>, so the generated GET publishes the
+// projection rather than the stored group. This used to be nine lines and an operation transformer
+// rewriting that one schema by route — the library takes the declaration now.
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
