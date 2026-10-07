@@ -179,7 +179,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         // ... the application's own Categories and Products
 
-        modelBuilder.ApplySettingsConfiguration(this);
+        modelBuilder.ApplySettings(this);
         modelBuilder.ApplyMedia();
         modelBuilder.ApplyMultiLingual(this);
     }

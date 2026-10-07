@@ -61,9 +61,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // Settings: the Settings and SettingAudits tables, with PostgreSQL column types.
         // The engine read off the context rather than named here, so switching provider in
         // Program.cs needs no matching edit. The explicit
-        // ApplySettingsConfiguration(DatabaseProvider.PostgreSql) overload is still there for
+        // ApplySettings(DatabaseProvider.PostgreSql) overload is still there for
         // pinning it — a model built against one engine and migrated onto another.
-        modelBuilder.ApplySettingsConfiguration(this);
+        modelBuilder.ApplySettings(this);
 
         // Media: the MediaFiles and MediaAttachments tables.
         modelBuilder.ApplyMedia();
