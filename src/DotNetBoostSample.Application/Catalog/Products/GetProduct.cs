@@ -63,6 +63,8 @@ public static class GetProduct
                     CancellationToken ct) =>
                 (await dispatcher.SendAsync(new Query(id), ct)).ToHttpResult(messages))
                .WithTags("Products")
+               .Produces<ProductDetail>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
                .WithSummary("One product with every language's text and its images");
     }
 }

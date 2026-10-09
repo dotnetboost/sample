@@ -67,6 +67,10 @@ public static class GetCategory
                     CancellationToken ct) =>
                 (await dispatcher.SendAsync(new Query(id), ct)).ToHttpResult(messages))
                .WithTags("Categories")
+               // Declared, because an endpoint answering 200-or-404 has to return IResult and the
+               // document cannot infer a thing from that.
+               .Produces<CategoryDetail>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
                .WithSummary("One category with every language's text and its banner");
     }
 }

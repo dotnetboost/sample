@@ -72,6 +72,9 @@ public static class UpdateProduct
                     .ToHttpResult(messages, sku => Results.Ok(
                         new MessageResponse(messages["Catalog.ProductUpdated", sku].Value))))
                .WithTags("Products")
+               .Produces<MessageResponse>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
+               .ProducesValidationProblem()
                .WithSummary("Updates a product and any language's text");
     }
 }

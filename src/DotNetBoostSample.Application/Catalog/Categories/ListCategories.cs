@@ -86,8 +86,11 @@ public static class ListCategories
     {
         /// <inheritdoc/>
         public void Map(IEndpointRouteBuilder app) =>
-            app.MapGet("/api/categories", async (IDispatcher dispatcher, CancellationToken ct) =>
-                   Results.Ok(await dispatcher.SendAsync(new Query(), ct)))
+            // Returns the list rather than Results.Ok(list), which is what lets the generated
+            // OpenAPI document describe the 200 as CategoryListItem[]. Wrapped in an IResult the
+            // document can only say "OK" — the shape is there, and nothing can see it.
+            app.MapGet("/api/categories", (IDispatcher dispatcher, CancellationToken ct) =>
+                   dispatcher.SendAsync(new Query(), ct))
                .WithTags("Categories")
                .WithSummary("Categories, translated into the request's language");
     }

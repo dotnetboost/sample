@@ -8,6 +8,14 @@
 // Nested objects join into dotted keys: "Catalog.CategoryNotFound". Arguments fill {0}, {1}, … as
 // in string.Format. Comments and trailing commas are allowed.
 {
+  // The shape of a request was wrong, rather than the state of the thing it named. Thrown by
+  // ValidationBehavior and shaped by ValidationExceptionHandler; the per-field messages beneath
+  // these are FluentValidation's own.
+  "Validation": {
+    "Title": "The request was not valid",
+    "Detail": "One or more fields were not accepted. See errors."
+  },
+
   "Catalog": {
     "CategoryNotFound": "Category {0} was not found.",
     "ProductNotFound": "Product {0} was not found.",

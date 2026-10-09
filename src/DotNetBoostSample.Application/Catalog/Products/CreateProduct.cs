@@ -85,6 +85,8 @@ public static class CreateProduct
                             messages["Catalog.ProductCreated", created.Sku].Value));
                 })
                .WithTags("Products")
+               .Produces<CreatedResponse>(StatusCodes.Status201Created)
+               .ProducesValidationProblem()
                .WithSummary("Creates a product in one or more languages");
     }
 }

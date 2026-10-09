@@ -1,6 +1,7 @@
 using DotNetBoost.Media.API;
 using DotNetBoost.MultiLingual.API;
 using DotNetBoostSample.Application;
+using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Settings;
@@ -102,18 +103,25 @@ builder.Services.AddInfrastructure(
 // ── The dispatcher, the eleven slices, the behaviors, the composition ────────
 builder.Services.AddApplication();
 
-// Problem details for the refusals the application writes itself — ResultExtensions turns an
-// Error into one, and ASP.NET turns a ValidationException from ValidationBehavior into one too.
-// MultiLingual's own refusals need nothing here: its endpoint filter turns them into problem
+// Problem details for the refusals the application writes itself. ResultExtensions turns an Error
+// into one; ValidationExceptionHandler does the same for the ValidationException that
+// ValidationBehavior throws, which ASP.NET does NOT map by itself — without it an empty SKU is a
+// 500. MultiLingual's own refusals need nothing here: its endpoint filter turns them into problem
 // details, and that mapping already looks the title and detail up through the localizer registered
 // in AddInfrastructure.
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 
 // The OpenAPI document. Nothing to correct in it: BrandingProjector declares its response type
 // through ISettingProjector<BrandingSettings, BrandingResponse>, so the generated GET publishes the
-// projection rather than the stored group — and every slice names its own response record, so the
-// catalogue's shapes are described rather than guessed at. This used to be nine lines and an
-// operation transformer rewriting one schema by route.
+// projection rather than the stored group. This used to be nine lines and an operation transformer
+// rewriting one schema by route.
+//
+// The catalogue's own shapes are published because each slice SAYS so, which is a thing naming a
+// record does not do by itself: an endpoint returning IResult describes its 200 as "OK" and
+// nothing more. The two listings return their value directly and are inferred; the nine that
+// answer 200-or-404 carry .Produces<T>() and .ProducesProblem(). Worth knowing, because a comment
+// here claimed the records were enough until the document was actually read.
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));

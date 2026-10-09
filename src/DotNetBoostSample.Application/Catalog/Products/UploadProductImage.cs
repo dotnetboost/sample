@@ -88,6 +88,8 @@ public static class UploadProductImage
                 })
                .DisableAntiforgery()
                .WithTags("Products")
+               .Produces<UploadedImageResponse>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
                .WithSummary("Uploads an image and attaches it to the product");
     }
 }

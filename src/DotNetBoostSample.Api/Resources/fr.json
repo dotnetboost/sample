@@ -1,5 +1,10 @@
 // Les messages propres à l'API, dans la langue où le contenu est servi. Voir en.json.
 {
+  "Validation": {
+    "Title": "La requête n'est pas valide",
+    "Detail": "Un ou plusieurs champs ont été refusés. Voir errors."
+  },
+
   "Catalog": {
     "CategoryNotFound": "La catégorie {0} est introuvable.",
     "ProductNotFound": "Le produit {0} est introuvable.",

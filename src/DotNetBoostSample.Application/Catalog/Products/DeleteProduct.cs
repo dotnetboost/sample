@@ -64,6 +64,8 @@ public static class DeleteProduct
                     .ToHttpResult(messages, sku => Results.Ok(
                         new MessageResponse(messages["Catalog.ProductDeleted", sku].Value))))
                .WithTags("Products")
+               .Produces<MessageResponse>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
                .WithSummary("Deletes a product, the images only it held, and their alt text");
     }
 }

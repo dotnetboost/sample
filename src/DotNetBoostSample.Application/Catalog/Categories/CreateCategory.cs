@@ -81,6 +81,8 @@ public static class CreateCategory
                             messages["Catalog.CategoryCreated", created.Slug].Value));
                 })
                .WithTags("Categories")
+               .Produces<CreatedResponse>(StatusCodes.Status201Created)
+               .ProducesValidationProblem()
                .WithSummary("Creates a category in one or more languages");
     }
 }

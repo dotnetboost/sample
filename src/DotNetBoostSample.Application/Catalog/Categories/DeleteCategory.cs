@@ -64,6 +64,10 @@ public static class DeleteCategory
                     .ToHttpResult(messages, slug => Results.Ok(
                         new MessageResponse(messages["Catalog.CategoryDeleted", slug].Value))))
                .WithTags("Categories")
+               .Produces<MessageResponse>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
+               // The one endpoint with a 409: a category that still has products.
+               .ProducesProblem(StatusCodes.Status409Conflict)
                .WithSummary("Deletes a category that has no products");
     }
 }

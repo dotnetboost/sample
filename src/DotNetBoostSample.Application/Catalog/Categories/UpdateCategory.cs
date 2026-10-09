@@ -66,6 +66,9 @@ public static class UpdateCategory
                     .ToHttpResult(messages, slug => Results.Ok(
                         new MessageResponse(messages["Catalog.CategoryUpdated", slug].Value))))
                .WithTags("Categories")
+               .Produces<MessageResponse>(StatusCodes.Status200OK)
+               .ProducesProblem(StatusCodes.Status404NotFound)
+               .ProducesValidationProblem()
                .WithSummary("Updates a category's slug and any language's text");
     }
 }

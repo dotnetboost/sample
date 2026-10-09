@@ -139,13 +139,14 @@ public static class ListProducts
     {
         /// <inheritdoc/>
         public void Map(IEndpointRouteBuilder app) =>
-            app.MapGet("/api/products", async (
+            // Returns the page rather than Results.Ok(page) — see ListCategories for why.
+            app.MapGet("/api/products", (
                     int? categoryId,
                     int? page,
                     int? pageSize,
                     IDispatcher dispatcher,
                     CancellationToken ct) =>
-                Results.Ok(await dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct)))
+                dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
                .WithTags("Products")
                .WithSummary("One page of products, translated, with per-language image alt text");
     }

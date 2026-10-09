@@ -13,11 +13,13 @@ namespace DotNetBoostSample.Application.Abstractions.Cqrs;
 /// better refused than silently rewritten. The bounds now sit in each slice's
 /// <c>Validator</c>, and this is what runs them.</para>
 ///
-/// <para>The failure is thrown rather than returned, because ASP.NET Core's problem-details
-/// handler already turns a <see cref="ValidationException"/> into a 400 carrying the failures.
+/// <para>The failure is thrown rather than returned, and <see cref="ValidationExceptionHandler"/>
+/// is what turns it into a 400 naming the fields. ASP.NET Core does <b>not</b> do that by itself —
+/// a <see cref="ValidationException"/> is an ordinary exception to the framework, and this comment
+/// said otherwise for one commit, which bought an empty SKU a 500. Throwing is still right:
 /// <c>Result&lt;T&gt;</c> is for refusals the application has something to SAY about — a missing
-/// category, a category that still has products — and those are localized. A page index below one
-/// needs no sentence from the resource files.</para>
+/// category, a category that still has products — and those carry a message key. A field that is
+/// the wrong shape needs the field's name, not a sentence.</para>
 /// </summary>
 public sealed class ValidationBehavior<TRequest, TResponse>(
     IEnumerable<IValidator<TRequest>> validators) : IPipelineBehavior<TRequest, TResponse>
