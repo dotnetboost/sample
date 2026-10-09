@@ -50,7 +50,7 @@ without a unit name being written down anywhere.
 
 The sidebar header is the whole sample in miniature: the store's **name** is a
 DotNetBoost.Settings value, its **logo** is a DotNetBoost.Media attachment, the **size** that logo
-is drawn at is another setting, and nothing but `BrandingEndpoints.cs` knows all three exist. Change
+is drawn at is another setting, and nothing but `BrandingProjector` knows all three exist. Change
 any of them on the Settings page and the header follows on the next read — no restart, no redeploy.
 
 **Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
@@ -167,6 +167,21 @@ flips the shell to RTL.
 
 ## Where the composition happens
 
+Five files, all of them application code, none of them large. Each is a place where this
+application says two libraries are talking about the same thing — which is the only way they ever
+find out, since none of them references another:
+
+| | File | Joins | What it says |
+|---|---|---|---|
+| 1 | `Data/AppDbContext.cs` | all three | these tables live in one database |
+| 2 | `Integration/MediaText.cs` | Media × MultiLingual | a file's alt text is a translation of the subject `("MediaFile", <id>)` |
+| 3 | `Integration/MediaTextCleanup.cs` | Media → MultiLingual | when the file goes, that text goes |
+| 4 | `Settings/MultiLingualSchemaContributor.cs` | Settings × MultiLingual | this settings property is translated |
+| 5 | `Settings/BrandingSettings.cs` | all three | branding's name, its other languages and its logo are one thing |
+
+Five rather than a rounder number because every file that joins two libraries is on the list. A
+sixth would mean the claim had quietly stopped being true, so it is worth counting honestly.
+
 ### 1. One database, three libraries — `src/DotNetBoostSample.Api/Data/AppDbContext.cs`
 
 The only place all three libraries are named together, and all it amounts to is three independent
@@ -231,7 +246,74 @@ responses — a product listing carries its images' alt text, which no media end
 No new table, no schema change in either library, and swapping media storage from local disk to
 Azure or S3 does not touch this file.
 
-### 3. Branding: text from one library, its logo from another — `src/.../Settings/BrandingSettings.cs`
+### 3. Deleting a file deletes its alt text — `src/.../Integration/MediaTextCleanup.cs`
+
+The other half of the subject above: MultiLingual stores rows about `("MediaFile", <id>)`, Media
+deletes the file those rows are about, and **neither knows the other exists**. Something has to say
+so. One class, registered once:
+
+```csharp
+// Program.cs, inside the Media block.
+.OnFilesDeleted<MediaTextCleanup>()
+
+public sealed class MediaTextCleanup(MediaText mediaText) : IMediaFilesDeletedHandler
+{
+    public Task OnDeletedAsync(IReadOnlyCollection<Guid> mediaFileIds, CancellationToken ct = default) =>
+        mediaText.DeleteManyAsync(mediaFileIds, ct);
+}
+```
+
+**This replaced a data-loss bug, not just some duplication.** Every endpoint that deleted a file
+used to delete its translation rows too, in a loop beside the delete — and the sample got that
+wrong in two directions at once:
+
+- The product delete called `IMediaManager.DeleteAsync` per file, which is the *remove it from the
+  library* operation: it takes the file out of **every** owner. The sample attaches one file under
+  several owners on purpose, so deleting one product pulled shared images out of the others.
+- A file deleted through DotNetBoost.Media's own `DELETE /api/media/{id}` cleaned up nothing at
+  all, because only the dashboard knew to follow up, and that route is not the dashboard's to
+  follow.
+
+The handler fixes both, because it is told **which files actually went**. `DeleteAllAsync` deletes
+the files this owner alone held and merely *detaches* the ones others still reference, and it
+reports only the first kind — so an image still in use somewhere else keeps its alt text, and the
+cleanup runs for every delete whatever triggered it. A handler's exceptions are logged and
+swallowed by the library, which is right here: the bytes are already gone, so failing would report
+a completed delete as a failure.
+
+### 4. One library's attribute in another's schema — `src/.../Settings/MultiLingualSchemaContributor.cs`
+
+`GET /api/settings/{route}/schema` is what the dashboard generates its settings form from. It can
+say a property is a `string`, that it is required, and that it is at most 120 characters, because
+those are DotNetBoost.Settings' business. It cannot say the property is **translated**, because
+`[MultiLingual]` belongs to another library and the settings engine has never heard of it.
+
+`ISettingSchemaContributor` is the port for exactly that, and the whole implementation is this:
+
+```csharp
+public bool CanDescribe(Type type) => MultiLingualMetadata.IsMultiLingual(type);
+
+public IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> Describe(Type type) =>
+    MultiLingualMetadata.For(type).ToDictionary(
+        property => property.Name,
+        property => (IReadOnlyDictionary<string, object?>)
+            new Dictionary<string, object?> { ["translated"] = true },
+        StringComparer.Ordinal);
+```
+
+Two things make it more than a cast. It **asks** which properties are translatable rather than
+reading the attribute itself — `[MultiLingual]` may sit on the property or on the class, and
+`MultiLingualMetadata.For` is the library's own resolution of that, so this cannot drift from what
+the translation store actually writes. And it **merges**: `DotNetBoost.Settings.FluentValidation`
+registers a contributor over the validation rules, the schema endpoint composes every applicable
+one, and `storeName` comes back with `required` and `maxLength` from those rules *and* `translated`
+from here. Until preview.2 it was first-match-wins, and registering this would have silently
+deleted the bounds.
+
+The flag used to live in `clients/dashboard/app/utils/settings.ts`, hand-written, kept in step with
+the C# class by nothing at all.
+
+### 5. Branding: text from one library, its logo from another — `src/.../Settings/BrandingSettings.cs`
 
 The branding settings group holds text. Its logo is a **media attachment**, on an owner that has no
 table anywhere:
@@ -263,9 +345,10 @@ var logo     = await media.For("Branding", "branding").GetByRoleAsync("logo");
 > **Do not assign to what `GetAsync` hands you.** It is the instance `SettingManager` cached, not a
 > copy, so `branding.StoreName = translated` writes one request's language into the entry every
 > later reader of the group is served from — and `GET /api/settings/branding` hands it back as
-> though it were the stored value. `BrandingEndpoints.cs` resolves the translated name into a local
-> and projects it into the response instead, which is the only thing preventing that. It is pinned
-> by an integration test, because nothing else would notice.
+> though it were the stored value. That was a real bug here, in the `/api/branding` endpoint this
+> group's projector replaced. `BrandingProjector` returns a new `BrandingResponse` instead of
+> touching the group, so there is nothing to assign to; it is still pinned by an integration test,
+> because nothing else would notice.
 
 **This is the sharpest demonstration of the attachment model in the sample.** Products show
 attaching to rows, which any schema can do with a foreign key. Branding has no row at all — it is a
@@ -337,7 +420,7 @@ Making it the base value is what keeps the default language's text inside the ma
 settings group already has: its `ETag`, its conditional save, its audit trail. Translating it away
 would hand the group's own text to a store that has none of those.
 
-> This is also why `BrandingEndpoints` does **not** call `LocalizeAsync()`. Outside base-language
+> This is also why `BrandingProjector` does **not** call `LocalizeAsync()`. Outside base-language
 > mode MultiLingual treats the translations as the only store, so it nulls a property it finds
 > nothing for — which would erase the branding name in every language nobody has translated yet.
 > Here the settings row *is* the base, so a missing translation must leave it alone.
@@ -357,7 +440,7 @@ Being honest about the trade-off, because it is the point of the sample:
 
 | | |
 |---|---|
-| **Glue per app** | Every application writes `Integration/MediaText.cs` and `MediaTextCleanup.cs` itself — about 35 lines of code between them, the rest comment. It was four times that before the libraries grew `For(entityName, entityId)` and a files-deleted hook. |
+| **Glue per app** | Every application writes the join itself. Here it is 49 lines of code across three files — `Integration/MediaText.cs` (28), `MultiLingualSchemaContributor.cs` (14) and `MediaTextCleanup.cs` (7) — in 189 lines of file, so the comment outweighs the code three to one. The code was four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
 | **Cascade is opt-in** | Deleting a `MediaFile` still does not know its alt text exists. One `IMediaFilesDeletedHandler`, registered once, connects the two — so the cleanup is exact and runs for every delete whatever triggered it, including the media library's own endpoint. Better than the call beside every delete it replaced, but still the application's job to know the two records are about one thing. |
 | **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
 | **Agreement by published spec** | Both libraries must address an entity identically, and now both implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. |

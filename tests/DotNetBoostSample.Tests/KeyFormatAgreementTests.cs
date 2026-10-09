@@ -34,10 +34,12 @@ public class KeyFormatAgreementTests
         // including a change that is invisible from inside a single library, which is exactly the
         // kind that silently stops two stores addressing the same subject.
         //
-        // Both libraries also ship the full conformance suite as a TestSupport package
-        // (DotNetBoost.Media.TestSupport, DotNetBoost.MultiLingual.TestSupport). Not taken here:
-        // this sample installs the three libraries the way the README says an application does,
-        // and the constant is the whole dependency.
+        // Both libraries carry the full conformance suite — EntityAddressingConformance in
+        // DotNetBoost.Media.TestSupport, EntityAddressing.KeyCases and AssertAgreesWith in
+        // DotNetBoost.MultiLingual.TestSupport — and an application cannot use either: both
+        // projects are IsPackable=false, so neither reaches a feed. Their READMEs suggest
+        // deriving from them, which is a promise no consumer can take up today. Hence the
+        // constants, which are public and are enough.
         Assert.Equal(MultiLingualKey.AddressingVersion, MediaKey.AddressingVersion);
     }
 

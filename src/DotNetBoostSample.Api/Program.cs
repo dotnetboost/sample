@@ -15,16 +15,30 @@ using Scalar.AspNetCore;
 //  integration package pairing any two of them: see Directory.Packages.props for the full list of
 //  what is installed, and tests/ for the assertion that none of them references another.
 //
-//  What ties them together is in exactly three places, all of them application code, and none of
-//  them large:
-//    • Data/AppDbContext.cs          — one database, three Apply* calls, nothing else
-//    • Integration/MediaText.cs      — reads a file's per-language alt text for this API's own
-//                                      responses, via the (entityName, entityId) convention both
-//                                      libraries address a subject by
-//    • Integration/MediaTextCleanup.cs — removes that text when Media says the file is gone
+//  What ties them together is five files, all of them application code, none of them large, and
+//  each one a place where this application says two libraries are talking about the same thing:
 //
-//  Writing alt text is not on that list any more: DotNetBoost.MultiLingual ships the translation
-//  endpoints now, and the dashboard's editor calls them directly.
+//    • Data/AppDbContext.cs            — all three. One database, three Apply* calls, nothing else.
+//    • Integration/MediaText.cs        — Media × MultiLingual. Reads a file's per-language alt text
+//                                        for this API's own responses, via the (entityName,
+//                                        entityId) convention both libraries address a subject by.
+//    • Integration/MediaTextCleanup.cs — Media → MultiLingual. Removes that text when Media says
+//                                        the file is gone.
+//    • Settings/MultiLingualSchemaContributor.cs — Settings × MultiLingual. Publishes `translated`
+//                                        on a settings property carrying [MultiLingual], which the
+//                                        settings library cannot know about.
+//    • Settings/BrandingSettings.cs    — all three, in BrandingProjector. Answers one settings
+//                                        group with its text in the request's language and its
+//                                        logo.
+//
+//  Three of those are registered in the blocks below — each in its own library's block, one line
+//  each, which is what makes them look like configuration rather than coordination. The count is
+//  five rather than a rounder number because every file joining two libraries is on the list; a
+//  sixth would mean the claim had quietly stopped being true.
+//
+//  It was more. Writing alt text is not here any more — DotNetBoost.MultiLingual ships the
+//  translation endpoints now, and the dashboard's editor calls them directly — and branding was a
+//  second endpoint of its own before ISettingProjector gave the join somewhere to live.
 // ─────────────────────────────────────────────────────────────────────────────
 
 var builder = WebApplication.CreateBuilder(args);
