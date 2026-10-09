@@ -1,27 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup Label="DotNetBoost — three independent libraries, installed side by side">
-    <!-- Settings: runtime-editable configuration, stored in PostgreSQL. -->
-    <PackageReference Include="DotNetBoost.Settings.Core" />
-    <PackageReference Include="DotNetBoost.Settings.EntityFrameworkCore" />
+  <PropertyGroup>
+    <!-- net10.0 only. Aspire 13.5 and the Npgsql EF Core 10 provider both require it, so the host
+         cannot follow the class libraries onto net8.0 — which is where multi-targeting is worth
+         having anyway: the slices are proved against DotNetBoost's own net8.0 TFM. -->
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup Label="Each library's own HTTP endpoints — mapped, not written">
     <PackageReference Include="DotNetBoost.Settings.API" />
-    <PackageReference Include="DotNetBoost.Settings.FluentValidation" />
-
-    <!-- Media: file metadata in PostgreSQL, bytes on local disk. -->
-    <PackageReference Include="DotNetBoost.Media.Core" />
-    <PackageReference Include="DotNetBoost.Media.EntityFrameworkCore" />
-    <PackageReference Include="DotNetBoost.Media.FileSystem" />
     <PackageReference Include="DotNetBoost.Media.API" />
-
-    <!-- MultiLingual: per-language entity translations, stored in PostgreSQL. -->
-    <PackageReference Include="DotNetBoost.MultiLingual.Core" />
-    <PackageReference Include="DotNetBoost.MultiLingual.EntityFrameworkCore" />
     <PackageReference Include="DotNetBoost.MultiLingual.API" />
-    <PackageReference Include="DotNetBoost.MultiLingual.Localization" />
   </ItemGroup>
 
-  <ItemGroup Label="Persistence">
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  <ItemGroup Label="Aspire">
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
@@ -30,6 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../DotNetBoostSample.Application/DotNetBoostSample.Application.csproj" />
+    <ProjectReference Include="../DotNetBoostSample.Infrastructure/DotNetBoostSample.Infrastructure.csproj" />
     <ProjectReference Include="../../aspire/DotNetBoostSample.ServiceDefaults/DotNetBoostSample.ServiceDefaults.csproj" />
   </ItemGroup>
 

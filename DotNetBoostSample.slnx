@@ -4,6 +4,9 @@
     <Project Path="aspire/DotNetBoostSample.ServiceDefaults/DotNetBoostSample.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/DotNetBoostSample.Domain/DotNetBoostSample.Domain.csproj" />
+    <Project Path="src/DotNetBoostSample.Application/DotNetBoostSample.Application.csproj" />
+    <Project Path="src/DotNetBoostSample.Infrastructure/DotNetBoostSample.Infrastructure.csproj" />
     <Project Path="src/DotNetBoostSample.Api/DotNetBoostSample.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">

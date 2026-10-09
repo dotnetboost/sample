@@ -1,0 +1,84 @@
+using DotNetBoost.MultiLingual.Core.Interfaces;
+using DotNetBoostSample.Application.Abstractions.Endpoints;
+using DotNetBoostSample.Application.Abstractions.Messaging;
+using DotNetBoostSample.Application.Abstractions.Persistence;
+using DotNetBoostSample.Application.Abstractions.Results;
+using DotNetBoostSample.Application.Catalog.Shared;
+using DotNetBoostSample.Application.Localization;
+using FluentValidation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+
+namespace DotNetBoostSample.Application.Catalog.Products;
+
+/// <summary>Updates a product and any language's text.</summary>
+public static class UpdateProduct
+{
+    public sealed record Command(
+        int Id,
+        string Sku,
+        decimal Price,
+        int CategoryId,
+        Dictionary<string, Dictionary<string, string?>>? Translations) : ICommand<Result<string>>;
+
+    /// <inheritdoc cref="CreateProduct.Validator"/>
+    public sealed class Validator : AbstractValidator<Command>
+    {
+        public Validator()
+        {
+            RuleFor(p => p.Sku).NotEmpty().MaximumLength(64);
+            RuleFor(p => p.Price).GreaterThanOrEqualTo(0);
+        }
+    }
+
+    public sealed class Handler(
+        IAppDbContext db,
+        IMultiLingualManager multiLingual) : IRequestHandler<Command, Result<string>>
+    {
+        /// <summary>Answers with the SKU, which is what the message is named after.</summary>
+        public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
+        {
+            var product = await db.Products.FirstOrDefaultAsync(p => p.Id == request.Id, ct);
+
+            if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
+
+            product.Sku        = request.Sku;
+            product.Price      = request.Price;
+            product.CategoryId = request.CategoryId;
+
+            TranslationWrites.Apply(multiLingual.For(product), request.Translations);
+
+            await db.SaveChangesAsync(ct);
+
+            return product.Sku;
+        }
+    }
+
+    public sealed class Endpoint : IEndpoint
+    {
+        /// <inheritdoc/>
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapPut("/api/products/{id:int}", async (
+                    int id,
+                    UpdateProductBody body,
+                    IDispatcher dispatcher,
+                    IStringLocalizer<ApiMessages> messages,
+                    CancellationToken ct) =>
+                (await dispatcher.SendAsync(
+                        new Command(id, body.Sku, body.Price, body.CategoryId, body.Translations), ct))
+                    .ToHttpResult(messages, sku => Results.Ok(
+                        new MessageResponse(messages["Catalog.ProductUpdated", sku].Value))))
+               .WithTags("Products")
+               .WithSummary("Updates a product and any language's text");
+    }
+}
+
+/// <inheritdoc cref="Categories.UpdateCategoryBody"/>
+public sealed record UpdateProductBody(
+    string Sku,
+    decimal Price,
+    int CategoryId,
+    Dictionary<string, Dictionary<string, string?>>? Translations);

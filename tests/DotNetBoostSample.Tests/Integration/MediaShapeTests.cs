@@ -1,5 +1,6 @@
-using DotNetBoostSample.Api.Integration;
+using DotNetBoostSample.Application.Composition;
 using Xunit;
+using DotNetBoostSample.Infrastructure.Persistence;
 
 namespace DotNetBoostSample.Tests.Integration;
 
@@ -195,7 +196,7 @@ public class MediaShapeTests(SampleApp app)
         Assert.Equal(MediaText.Subject, body.Str("entityName"));
     }
 
-    private static Task<int> CountAsync(Api.Data.AppDbContext db, Guid fileId)
+    private static Task<int> CountAsync(AppDbContext db, Guid fileId)
     {
         var key = fileId.ToString("D");
 

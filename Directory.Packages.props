@@ -37,10 +37,46 @@
     <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.2" />
   </ItemGroup>
 
-  <ItemGroup Label="Persistence — PostgreSQL through EF Core">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3" />
+  <!-- ──────────────────────────────────────────────────────────────────────────
+       Persistence — PostgreSQL through EF Core, one version per target framework.
+
+       Domain, Application and Infrastructure multi-target net8.0;net10.0, matching the TFMs the
+       DotNetBoost packages themselves ship. EF Core does not: 10.x requires net10.0. So the
+       version is chosen per TFM — these conditions are evaluated once per pass of the outer
+       build, which is what makes central package management work across frameworks at all.
+
+       The versions are the ones the DotNetBoost EF packages ask for on each TFM (8.0.30 and
+       10.0.11). Naming a lower one would be a package DOWNGRADE against a transitive
+       requirement — NU1605, an error — which is the trap to know about when adding a direct
+       reference to something a library already depends on.
+       ────────────────────────────────────────────────────────────────────────── -->
+  <ItemGroup Label="Persistence — net8.0" Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.30" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.30" />
+    <!-- The provider's own 8.x line tops out at 8.0.11, which wants EF 8.0.11 — an UPGRADE to
+         8.0.30 above, not a downgrade, so the two sit together without complaint. -->
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup Label="Persistence — net10.0" Condition="'$(TargetFramework)' != 'net8.0'">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <!-- ──────────────────────────────────────────────────────────────────────────
+       Request validation.
+
+       DotNetBoost.Settings.FluentValidation already brings this in for the settings groups'
+       rules. Application takes it DIRECTLY as well, for the validators that bound a command or
+       query before its handler runs — a different job, done by the same library, and a direct
+       reference is how a project says it uses something rather than inheriting it.
+
+       Pinned to the version that library resolves to, so there is one FluentValidation in the
+       build rather than two opinions about it.
+       ────────────────────────────────────────────────────────────────────────── -->
+  <ItemGroup Label="Validation">
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
   </ItemGroup>
 
   <ItemGroup Label="Aspire — AppHost (orchestration)">

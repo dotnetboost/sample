@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup Label="Where each library's data actually goes">
+    <PackageReference Include="DotNetBoost.Settings.EntityFrameworkCore" />
+    <PackageReference Include="DotNetBoost.Settings.FluentValidation" />
+    <PackageReference Include="DotNetBoost.Media.EntityFrameworkCore" />
+    <PackageReference Include="DotNetBoost.Media.FileSystem" />
+    <PackageReference Include="DotNetBoost.MultiLingual.EntityFrameworkCore" />
+    <PackageReference Include="DotNetBoost.MultiLingual.Localization" />
+  </ItemGroup>
+
+  <ItemGroup Label="PostgreSQL">
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../DotNetBoostSample.Application/DotNetBoostSample.Application.csproj" />
+  </ItemGroup>
+
+</Project>

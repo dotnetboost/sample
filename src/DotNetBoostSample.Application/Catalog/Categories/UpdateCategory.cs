@@ -1,0 +1,84 @@
+using DotNetBoost.MultiLingual.Core.Interfaces;
+using DotNetBoostSample.Application.Abstractions.Endpoints;
+using DotNetBoostSample.Application.Abstractions.Messaging;
+using DotNetBoostSample.Application.Abstractions.Persistence;
+using DotNetBoostSample.Application.Abstractions.Results;
+using DotNetBoostSample.Application.Catalog.Shared;
+using DotNetBoostSample.Application.Localization;
+using FluentValidation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+
+namespace DotNetBoostSample.Application.Catalog.Categories;
+
+/// <summary>Updates a category's slug and any language's text.</summary>
+public static class UpdateCategory
+{
+    public sealed record Command(
+        int Id,
+        string Slug,
+        Dictionary<string, Dictionary<string, string?>>? Translations) : ICommand<Result<string>>;
+
+    /// <inheritdoc cref="CreateCategory.Validator"/>
+    public sealed class Validator : AbstractValidator<Command>
+    {
+        public Validator()
+        {
+            RuleFor(c => c.Slug).NotEmpty().MaximumLength(128);
+        }
+    }
+
+    public sealed class Handler(
+        IAppDbContext db,
+        IMultiLingualManager multiLingual) : IRequestHandler<Command, Result<string>>
+    {
+        /// <summary>Answers with the slug, which is what the message is named after.</summary>
+        public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
+        {
+            var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == request.Id, ct);
+
+            if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
+
+            category.Slug = request.Slug;
+
+            TranslationWrites.Apply(multiLingual.For(category), request.Translations);
+
+            await db.SaveChangesAsync(ct);
+
+            return category.Slug;
+        }
+    }
+
+    public sealed class Endpoint : IEndpoint
+    {
+        /// <inheritdoc/>
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapPut("/api/categories/{id:int}", async (
+                    int id,
+                    UpdateCategoryBody body,
+                    IDispatcher dispatcher,
+                    IStringLocalizer<ApiMessages> messages,
+                    CancellationToken ct) =>
+                (await dispatcher.SendAsync(new Command(id, body.Slug, body.Translations), ct))
+                    .ToHttpResult(messages, slug => Results.Ok(
+                        new MessageResponse(messages["Catalog.CategoryUpdated", slug].Value))))
+               .WithTags("Categories")
+               .WithSummary("Updates a category's slug and any language's text");
+    }
+}
+
+/// <summary>
+/// The PUT body, without the id — which arrives in the route.
+///
+/// <para>A separate type from <see cref="UpdateCategory.Command"/> on purpose. Binding the command
+/// straight from the body would put <c>id</c> in the published request schema as well as in the
+/// path, and leave the two free to disagree: a body saying <c>"id": 9</c> on
+/// <c>PUT /api/categories/3</c> has to be either ignored or honoured, and both are surprising. The
+/// route is the only id, and the endpoint is where the two halves meet.</para>
+/// </summary>
+public sealed record UpdateCategoryBody(
+    string Slug,
+    Dictionary<string, Dictionary<string, string?>>? Translations);

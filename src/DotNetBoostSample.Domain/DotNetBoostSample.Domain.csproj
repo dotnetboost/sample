@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup Label="The only package a domain entity needs">
+    <!-- [MultiLingual] and [NotMultiLingual] sit on Category and Product. A purist would call an
+         attribute from a library a persistence concern on a domain type; it is one MIT,
+         abstraction-only package, declaring which properties are translated at all — the same
+         bargain a domain entity carrying [Required] already makes. Nothing else is referenced
+         here, and nothing else should be. -->
+    <PackageReference Include="DotNetBoost.MultiLingual.Core" />
+  </ItemGroup>
+
+</Project>

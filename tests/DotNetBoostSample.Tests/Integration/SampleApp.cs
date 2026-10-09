@@ -1,4 +1,4 @@
-using DotNetBoostSample.Api.Data;
+using DotNetBoostSample.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;

@@ -1,5 +1,6 @@
 using System.Net;
 using Xunit;
+using DotNetBoostSample.Infrastructure.Persistence;
 
 namespace DotNetBoostSample.Tests.Integration;
 
@@ -185,12 +186,12 @@ public class CatalogCompositionTests(SampleApp app)
         await deleted.EnsureOkAsync("the product delete");
 
         // The product's own translations go through MultiLingual's SaveChanges interceptor; the
-        // file's alt text does not, and is the part CatalogEndpoints has to remove by hand.
+        // file's alt text does not, and is the part MediaTextCleanup has to remove.
         await app.WithDbAsync(async db =>
             Assert.Equal(0, await TranslationCountAsync(db, fileId)));
     }
 
-    private static async Task<int> TranslationCountAsync(Api.Data.AppDbContext db, Guid fileId)
+    private static async Task<int> TranslationCountAsync(AppDbContext db, Guid fileId)
     {
         var key = fileId.ToString("D");
 

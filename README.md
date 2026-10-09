@@ -173,16 +173,23 @@ find out, since none of them references another:
 
 | | File | Joins | What it says |
 |---|---|---|---|
-| 1 | `Data/AppDbContext.cs` | all three | these tables live in one database |
-| 2 | `Integration/MediaText.cs` | Media × MultiLingual | a file's alt text is a translation of the subject `("MediaFile", <id>)` |
-| 3 | `Integration/MediaTextCleanup.cs` | Media → MultiLingual | when the file goes, that text goes |
-| 4 | `Settings/MultiLingualSchemaContributor.cs` | Settings × MultiLingual | this settings property is translated |
-| 5 | `Settings/BrandingSettings.cs` | all three | branding's name, its other languages and its logo are one thing |
+| 1 | `Infrastructure/Persistence/AppDbContext.cs` | all three | these tables live in one database |
+| 2 | `Application/Composition/MediaText.cs` | Media × MultiLingual | a file's alt text is a translation of the subject `("MediaFile", <id>)` |
+| 3 | `Application/Composition/MediaTextCleanup.cs` | Media → MultiLingual | when the file goes, that text goes |
+| 4 | `Application/Composition/MultiLingualSchemaContributor.cs` | Settings × MultiLingual | this settings property is translated |
+| 5 | `Application/Settings/BrandingSettings.cs` | all three | branding's name, its other languages and its logo are one thing |
 
 Five rather than a rounder number because every file that joins two libraries is on the list. A
 sixth would mean the claim had quietly stopped being true, so it is worth counting honestly.
 
-### 1. One database, three libraries — `src/DotNetBoostSample.Api/Data/AppDbContext.cs`
+**And note where four of the five sit.** `MediaText`, `MediaTextCleanup`,
+`MultiLingualSchemaContributor` and `BrandingProjector` name `DotNetBoost.*.Core` and nothing else
+— no EF Core, no ASP.NET, no provider — so they live in the application layer, in a folder called
+`Composition`. Only `AppDbContext` is infrastructure. That split is not a filing convention; it is
+the finding. Joining two libraries is not a persistence concern. Joining them **in one database**
+is, and that is one file.
+
+### 1. One database, three libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
 
 The only place all three libraries are named together, and all it amounts to is three independent
 `Apply*` calls:
@@ -209,7 +216,7 @@ through `Set<T>()`. They are obsolete as of preview.2, and a context now declare
 application's own entities. Settings' engine is read off the context too, so switching provider in
 `Program.cs` needs no matching edit here.
 
-### 2. Per-language alt text — `src/DotNetBoostSample.Api/Integration/MediaText.cs`
+### 2. Per-language alt text — `src/DotNetBoostSample.Application/Composition/MediaText.cs`
 
 The interesting one, because `MediaFile` has **no** alt-text or caption field, and alt text is both
 required for accessibility and inherently per-language.
@@ -246,7 +253,7 @@ responses — a product listing carries its images' alt text, which no media end
 No new table, no schema change in either library, and swapping media storage from local disk to
 Azure or S3 does not touch this file.
 
-### 3. Deleting a file deletes its alt text — `src/.../Integration/MediaTextCleanup.cs`
+### 3. Deleting a file deletes its alt text — `src/.../Application/Composition/MediaTextCleanup.cs`
 
 The other half of the subject above: MultiLingual stores rows about `("MediaFile", <id>)`, Media
 deletes the file those rows are about, and **neither knows the other exists**. Something has to say
@@ -281,7 +288,7 @@ cleanup runs for every delete whatever triggered it. A handler's exceptions are 
 swallowed by the library, which is right here: the bytes are already gone, so failing would report
 a completed delete as a failure.
 
-### 4. One library's attribute in another's schema — `src/.../Settings/MultiLingualSchemaContributor.cs`
+### 4. One library's attribute in another's schema — `src/.../Application/Composition/MultiLingualSchemaContributor.cs`
 
 `GET /api/settings/{route}/schema` is what the dashboard generates its settings form from. It can
 say a property is a `string`, that it is required, and that it is at most 120 characters, because
@@ -313,7 +320,7 @@ deleted the bounds.
 The flag used to live in `clients/dashboard/app/utils/settings.ts`, hand-written, kept in step with
 the C# class by nothing at all.
 
-### 5. Branding: text from one library, its logo from another — `src/.../Settings/BrandingSettings.cs`
+### 5. Branding: text from one library, its logo from another — `src/.../Application/Settings/BrandingSettings.cs`
 
 The branding settings group holds text. Its logo is a **media attachment**, on an owner that has no
 table anywhere:
@@ -440,7 +447,7 @@ Being honest about the trade-off, because it is the point of the sample:
 
 | | |
 |---|---|
-| **Glue per app** | Every application writes the join itself. Here it is 49 lines of code across three files — `Integration/MediaText.cs` (28), `MultiLingualSchemaContributor.cs` (14) and `MediaTextCleanup.cs` (7) — in 189 lines of file, so the comment outweighs the code three to one. The code was four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
+| **Glue per app** | Every application writes the join itself. Here it is 49 lines of code across three files — `Composition/MediaText.cs` (28), `Composition/MultiLingualSchemaContributor.cs` (14) and `Composition/MediaTextCleanup.cs` (7) — in 189 lines of file, so the comment outweighs the code three to one. The code was four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
 | **Cascade is opt-in** | Deleting a `MediaFile` still does not know its alt text exists. One `IMediaFilesDeletedHandler`, registered once, connects the two — so the cleanup is exact and runs for every delete whatever triggered it, including the media library's own endpoint. Better than the call beside every delete it replaced, but still the application's job to know the two records are about one thing. |
 | **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
 | **Agreement by published spec** | Both libraries must address an entity identically, and now both implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. |
@@ -516,19 +523,43 @@ OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 ## Layout
 
 ```
-src/DotNetBoostSample.Api/
-  Data/AppDbContext.cs                   one database, three Apply* calls
-  Data/Seed.cs                           schema + languages + catalogue on first run
-  Entities/                              Category, Product — the app's own two entities
+src/DotNetBoostSample.Domain/            net8.0;net10.0 — two entities, one package
+  Catalog/Category.cs                    [MultiLingual] — Name and Description are not columns
+  Catalog/Product.cs
+
+src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the composition
+  Abstractions/Messaging/Messaging.cs    IRequest, IQuery, ICommand, IRequestHandler,
+                                         IPipelineBehavior, IDispatcher, Dispatcher —
+                                         ~70 lines, and why it is not MediatR
+  Abstractions/Messaging/ValidationBehavior.cs   FluentValidation on every request, once
+  Abstractions/Persistence/IAppDbContext.cs      two DbSets and SaveChangesAsync
+  Abstractions/Endpoints/                IEndpoint, and the scan that maps them all
+  Abstractions/Results/                  Result<T>, Error — and the one method that turns
+                                         either into a localized RFC 7807 response
+  Catalog/Categories/                    List, Get, Create, Update, Delete — one file each,
+                                         query + response + bounds + handler + route
+  Catalog/Products/                      List, Get, Create, Update, UploadImage, Delete
+  Catalog/Shared/AttachedFiles.cs        one owner's files, with roles and alt text
+  Composition/MediaText.cs               Media × MultiLingual  ← the composition
+  Composition/MediaTextCleanup.cs        removes a file's text when the file goes
+  Composition/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
+                                         `translated` on a [MultiLingual] property
   Settings/BrandingSettings.cs           the group, its validator, and the projector
                                          behind GET /api/settings/branding
   Settings/CatalogSettings.cs            the second group, with its validator
-  Settings/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
-                                         `translated` on a [MultiLingual] property
-  Integration/MediaText.cs               Media × MultiLingual  ← the composition
-  Integration/MediaTextCleanup.cs        removes a file's text when the file goes
-  Endpoints/                             catalogue
-  Program.cs                             three independent registrations
+  DependencyInjection.cs                 AddApplication() — handlers, behaviors, validators
+
+src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
+  Persistence/AppDbContext.cs            one database, three Apply* calls
+  Persistence/Configurations/            one IEntityTypeConfiguration per entity
+  Persistence/DatabaseInitialiser.cs     schema + languages + catalogue on first run
+  DependencyInjection.cs                 AddInfrastructure() — three independent
+                                         registrations, in three blocks, in any order
+
+src/DotNetBoostSample.Api/               net10.0 — the host, and nothing else
+  Program.cs                             read configuration, then say in what order the
+                                         pieces go together
+  Resources/{en,ar,fr}.json              the API's own messages, one file per language
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
@@ -620,7 +651,7 @@ Full reference at `/scalar` on the API.
 Core interceptors did it. The **API's own sentences** are a separate question: a 404, a 409, and
 "the category was saved" are not entity content, so no interceptor touches them.
 
-They are localized anyway — `src/DotNetBoostSample.Api/Localization/ApiMessages.cs` is the marker
+They are localized anyway — `src/DotNetBoostSample.Application/Localization/ApiMessages.cs` is the marker
 type they are injected under, and `Resources/{en,ar,fr}.json` beside it holds the words. What makes
 this different from `AddLocalization()` is which language it reads:
 

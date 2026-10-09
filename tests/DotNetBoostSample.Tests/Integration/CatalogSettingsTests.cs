@@ -67,7 +67,7 @@ public class CatalogSettingsTests(SampleApp app)
 
         Assert.Equal(1, (await client.GetJsonAsync("/api/products?pageSize=1")).Int("take"));
 
-        // MaxPageSize in CatalogEndpoints. A page size is a caller's suggestion.
+        // CatalogRoles.MaxPageSize. A page size is a caller's suggestion.
         Assert.Equal(200, (await client.GetJsonAsync("/api/products?pageSize=99999")).Int("take"));
     }
 

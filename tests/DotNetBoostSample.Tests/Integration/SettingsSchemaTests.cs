@@ -49,7 +49,7 @@ public class SettingsSchemaTests(SampleApp app)
         var catalog = await app.Client.GetJsonAsync("/api/settings/catalog/schema");
         var pageSize = Property(catalog, "pageSize");
 
-        // The upper bound is CatalogEndpoints.MaxPageSize: a stored page size above the cap would
+        // The upper bound is CatalogRoles.MaxPageSize: a stored page size above the cap would
         // be clamped on every read, so the validator refuses it rather than storing a lie.
         Assert.Equal(1, pageSize.GetProperty("constraints").Int("min"));
         Assert.Equal(200, pageSize.GetProperty("constraints").Int("max"));
@@ -147,7 +147,7 @@ public class SettingsSchemaTests(SampleApp app)
     [RequiresDockerFact]
     public async Task Every_MultiLingual_property_is_flagged_translated_and_no_others()
     {
-        var expected = typeof(Api.Settings.BrandingSettings)
+        var expected = typeof(DotNetBoostSample.Application.Settings.BrandingSettings)
             .GetProperties()
             .Where(p => p.GetCustomAttribute<DotNetBoost.MultiLingual.Core.Attributes.MultiLingualAttribute>() is not null)
             .Select(p => System.Text.Json.JsonNamingPolicy.CamelCase.ConvertName(p.Name))

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <!-- Wired into every service the AppHost starts; never shipped to NuGet. -->
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsAspireSharedProject>true</IsAspireSharedProject>
   </PropertyGroup>

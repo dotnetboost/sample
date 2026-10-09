@@ -1,7 +1,7 @@
 using System.Reflection;
 using DotNetBoost.Media.Core.Attributes;
 using DotNetBoost.Media.Core.Metadata;
-using DotNetBoostSample.Api.Settings;
+using DotNetBoostSample.Application.Settings;
 using Xunit;
 
 namespace DotNetBoostSample.Tests;

@@ -1,0 +1,86 @@
+using DotNetBoost.MultiLingual.Core.Interfaces;
+using DotNetBoostSample.Application.Abstractions.Endpoints;
+using DotNetBoostSample.Application.Abstractions.Messaging;
+using DotNetBoostSample.Application.Abstractions.Persistence;
+using DotNetBoostSample.Application.Catalog.Shared;
+using DotNetBoostSample.Application.Localization;
+using DotNetBoostSample.Domain.Catalog;
+using FluentValidation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Localization;
+
+namespace DotNetBoostSample.Application.Catalog.Categories;
+
+/// <summary>Creates a category in one or more languages.</summary>
+public static class CreateCategory
+{
+    /// <param name="Translations">languageCode → (propertyName → value), straight from the editor.</param>
+    public sealed record Command(
+        string Slug,
+        Dictionary<string, Dictionary<string, string?>>? Translations) : ICommand<CategoryCreated>;
+
+    /// <summary>The new row's id, and the slug the message is named after.</summary>
+    public sealed record CategoryCreated(int Id, string Slug);
+
+    /// <summary>
+    /// The shape the database already enforces, stated where a caller can be told about it.
+    ///
+    /// <para>The slug column is <c>HasMaxLength(128).IsRequired()</c> with a unique index, so an
+    /// empty or oversized slug used to come back as a 500 from the provider. These two rules make
+    /// it a 400 with the field named. Uniqueness is deliberately NOT checked here: a query that
+    /// says "no such slug yet" is already stale by the time the insert runs, so the index stays the
+    /// thing that decides.</para>
+    /// </summary>
+    public sealed class Validator : AbstractValidator<Command>
+    {
+        public Validator()
+        {
+            RuleFor(c => c.Slug).NotEmpty().MaximumLength(128);
+        }
+    }
+
+    public sealed class Handler(
+        IAppDbContext db,
+        IMultiLingualManager multiLingual) : IRequestHandler<Command, CategoryCreated>
+    {
+        /// <inheritdoc/>
+        public async Task<CategoryCreated> HandleAsync(Command request, CancellationToken ct)
+        {
+            var category = new Category { Slug = request.Slug };
+
+            db.Categories.Add(category);
+
+            TranslationWrites.Apply(multiLingual.For(category), request.Translations);
+
+            // One SaveChanges for the row and every language's text: MultiLingual's interceptor
+            // writes the queued translations in the same transaction as the insert.
+            await db.SaveChangesAsync(ct);
+
+            return new CategoryCreated(category.Id, category.Slug);
+        }
+    }
+
+    public sealed class Endpoint : IEndpoint
+    {
+        /// <inheritdoc/>
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapPost("/api/categories", async (
+                    Command command,
+                    IDispatcher dispatcher,
+                    IStringLocalizer<ApiMessages> messages,
+                    CancellationToken ct) =>
+                {
+                    var created = await dispatcher.SendAsync(command, ct);
+
+                    return Results.Created(
+                        $"/api/categories/{created.Id}",
+                        new CreatedResponse(
+                            created.Id,
+                            messages["Catalog.CategoryCreated", created.Slug].Value));
+                })
+               .WithTags("Categories")
+               .WithSummary("Creates a category in one or more languages");
+    }
+}

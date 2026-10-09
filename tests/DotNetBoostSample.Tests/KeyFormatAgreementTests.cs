@@ -2,7 +2,7 @@ using Xunit;
 using DotNetBoost.Media.Core.Metadata;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core.Metadata;
-using DotNetBoostSample.Api.Integration;
+using DotNetBoostSample.Application.Composition;
 using MediaKey = DotNetBoost.Media.Core.Metadata.EntityKey;
 using MultiLingualKey = DotNetBoost.MultiLingual.Core.Metadata.EntityKey;
 
