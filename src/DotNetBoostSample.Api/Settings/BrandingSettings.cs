@@ -3,6 +3,7 @@ using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.MultiLingual.Core.Attributes;
 using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoost.MultiLingual.Core.Metadata;
+using DotNetBoost.Settings.Core;
 using DotNetBoost.Settings.Core.Attributes;
 using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Api.Endpoints;
@@ -338,17 +339,17 @@ public sealed class BrandingProjector(
                 : AttachedFiles.Describe(logo, await mediaText.GetAsync(logo.Id, ct))
         };
 
-        // The group's own values, copied by the same rule the settings engine maps them by:
-        // readable and writable. Copied rather than listed, so adding a property to
-        // BrandingSettings needs no edit here — which is exactly what naming them cost the
-        // dashboard's per-language editor. BrandingResponse derives from the group, so the property
-        // being copied is the same property, and the response has nowhere to put a typo.
-        foreach (var property in typeof(BrandingSettings).GetProperties())
-        {
-            if (!property.CanRead || !property.CanWrite) continue;
-
+        // The group's own values, copied by the rule the settings engine maps them by — asked for
+        // rather than restated. SettingSchema.StorableProperties IS that rule, and SettingManager
+        // builds its own map from the same call, so this cannot copy a property the engine ignores
+        // or miss one it stores.
+        //
+        // Copied rather than listed, so adding a property to BrandingSettings needs no edit here —
+        // which is exactly what naming them cost the dashboard's per-language editor.
+        // BrandingResponse derives from the group, so the property being copied is the same
+        // property, and the response has nowhere to put a typo.
+        foreach (var property in SettingSchema.StorableProperties(typeof(BrandingSettings)))
             property.SetValue(response, property.GetValue(group));
-        }
 
         return response;
     }
