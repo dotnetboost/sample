@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace DotNetBoostSample.Application.Abstractions.Messaging;
+namespace DotNetBoostSample.Application.Abstractions.Cqrs;
 
 /// <summary>
 /// Runs every <see cref="IValidator{T}"/> registered for a request before its handler sees it.

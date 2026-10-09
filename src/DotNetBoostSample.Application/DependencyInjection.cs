@@ -1,5 +1,5 @@
 using DotNetBoostSample.Application.Abstractions.Endpoints;
-using DotNetBoostSample.Application.Abstractions.Messaging;
+using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Composition;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;

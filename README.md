@@ -528,10 +528,12 @@ src/DotNetBoostSample.Domain/            net8.0;net10.0 — two entities, one pa
   Catalog/Product.cs
 
 src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the composition
-  Abstractions/Messaging/Messaging.cs    IRequest, IQuery, ICommand, IRequestHandler,
+  Abstractions/Cqrs/Dispatcher.cs        IRequest, IQuery, ICommand, IRequestHandler,
                                          IPipelineBehavior, IDispatcher, Dispatcher —
-                                         ~70 lines, and why it is not MediatR
-  Abstractions/Messaging/ValidationBehavior.cs   FluentValidation on every request, once
+                                         ~70 lines, and why it is not MediatR. Cqrs rather
+                                         than Messaging: nothing here crosses a process
+                                         boundary, and a broker would want that name
+  Abstractions/Cqrs/ValidationBehavior.cs   FluentValidation on every request, once
   Abstractions/Persistence/IAppDbContext.cs      two DbSets and SaveChangesAsync
   Abstractions/Endpoints/                IEndpoint, and the scan that maps them all
   Abstractions/Results/                  Result<T>, Error — and the one method that turns

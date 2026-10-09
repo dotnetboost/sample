@@ -1,7 +1,7 @@
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
-using DotNetBoostSample.Application.Abstractions.Messaging;
+using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Abstractions.Results;
 using DotNetBoostSample.Application.Catalog.Shared;

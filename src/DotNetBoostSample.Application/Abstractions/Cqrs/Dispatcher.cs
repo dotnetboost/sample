@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 
-namespace DotNetBoostSample.Application.Abstractions.Messaging;
+namespace DotNetBoostSample.Application.Abstractions.Cqrs;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  The whole of "MediatR" for this application, in one file.
@@ -17,6 +17,21 @@ namespace DotNetBoostSample.Application.Abstractions.Messaging;
 //  The shape below is MediatR's on purpose — IRequest<TResponse>, IRequestHandler<,>,
 //  IPipelineBehavior<,> — so swapping to MediatR, or to a source-generated mediator, is a change
 //  of using directives and one registration call. No slice knows which one it is.
+//
+//  ── On the names ────────────────────────────────────────────────────────────
+//  This folder is Cqrs and not Messaging, which is the usual name for this file set in
+//  clean-architecture templates. "Messaging" in .NET means a broker — MassTransit, Service Bus,
+//  the RabbitMQ and Kafka integrations Aspire ships — and nothing here crosses a process
+//  boundary. Worse than being ambiguous, it would be sitting on the name the real messaging layer
+//  wants: the day this application publishes an event, its abstractions belong in
+//  Abstractions/Messaging, and they should not have to share the folder with an in-process
+//  dispatcher.
+//
+//  IRequest is kept anyway, and it is the one name here with a genuine problem: inside an ASP.NET
+//  application it sits a few lines from actual HTTP requests. It stays because it is MediatR's
+//  name, and keeping MediatR's vocabulary is exactly what makes the swap above a change of using
+//  directives rather than a rewrite of eleven slices. A folder name costs nothing to change; a
+//  public contract costs the escape hatch.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>A request with a response. The two markers below are what a behavior tells apart.</summary>

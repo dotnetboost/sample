@@ -126,9 +126,10 @@ src/DotNetBoostSample.Domain/
 
 src/DotNetBoostSample.Application/
   Abstractions/
-    Messaging/Messaging.cs                 IRequest/IQuery/ICommand, IRequestHandler,
-                                           IPipelineBehavior, IDispatcher, Dispatcher  ← §4
-    Messaging/ValidationBehavior.cs        FluentValidation on every request, once
+    Cqrs/Dispatcher.cs                     IRequest, IQuery, ICommand, IRequestHandler,
+                                           IPipelineBehavior, IDispatcher, Dispatcher —
+                                           ~70 lines, and why it is not MediatR  ← §4
+    Cqrs/ValidationBehavior.cs             FluentValidation on every request, once
     Persistence/IAppDbContext.cs           DbSet<Category>, DbSet<Product>, SaveChangesAsync
     Endpoints/IEndpoint.cs                 Map(IEndpointRouteBuilder)
     Endpoints/EndpointRegistration.cs      MapApplicationEndpoints() — scans and calls each
@@ -191,7 +192,7 @@ The whole of "MediatR" for this application. **This block is compiled and run** 
 `net10.0`, warnings as errors, with a validation behavior and a slice in front of it.
 
 ```csharp
-namespace DotNetBoostSample.Application.Abstractions.Messaging;
+namespace DotNetBoostSample.Application.Abstractions.Cqrs;
 
 /// <summary>A request with a response. The two markers below are what a behavior tells apart.</summary>
 public interface IRequest<out TResponse>;
