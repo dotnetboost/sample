@@ -58,7 +58,8 @@ builder.AddJavaScriptApp("dashboard", "../../clients/dashboard", "dev")
     .WithEnvironment("NUXT_API_URL", api.GetEndpoint("http"))
     .WithEnvironment("NUXT_PUBLIC_API_REFERENCE_URL",
         ReferenceExpression.Create($"{api.GetEndpoint("http")}/scalar"))
-    // Must match WithMaxFileSize(...) in src/DotNetBoostSample.Api/Program.cs: the upload form
+    // Must match WithMaxFileSize(...) in src/DotNetBoostSample.Infrastructure/DependencyInjection.cs:
+    // the upload form
     // refuses a larger file before sending it, rather than after a 413 comes back.
     .WithEnvironment("NUXT_PUBLIC_MAX_UPLOAD_BYTES", "26214400")
     .WithExternalHttpEndpoints();

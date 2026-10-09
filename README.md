@@ -214,7 +214,7 @@ Each library used to ask for a marker interface and a pair of `DbSet` properties
 properties and three interfaces that the stores never read, since each reaches its own tables
 through `Set<T>()`. They are obsolete as of preview.2, and a context now declares only the
 application's own entities. Settings' engine is read off the context too, so switching provider in
-`Program.cs` needs no matching edit here.
+`AddInfrastructure` needs no matching edit here.
 
 ### 2. Per-language alt text — `src/DotNetBoostSample.Application/Composition/MediaText.cs`
 
@@ -260,7 +260,7 @@ deletes the file those rows are about, and **neither knows the other exists**. S
 so. One class, registered once:
 
 ```csharp
-// Program.cs, inside the Media block.
+// Infrastructure/DependencyInjection.cs, inside the Media block.
 .OnFilesDeleted<MediaTextCleanup>()
 
 public sealed class MediaTextCleanup(MediaText mediaText) : IMediaFilesDeletedHandler
@@ -328,7 +328,7 @@ table anywhere:
 ```csharp
 [SettingGroup("branding")]
 [MediaEntity("Branding")]          // pins the stored owner name against a class rename
-[MediaRole("logo")]                // declared on the class, not in Program.cs
+[MediaRole("logo")]                // declared on the class, not in AddInfrastructure
 public class BrandingSettings
 {
     public const string MediaOwnerName = "Branding";
@@ -341,7 +341,7 @@ public class BrandingSettings
 ```
 
 ```csharp
-// Program.cs — reads the [MediaRole] attributes off that one class.
+// Infrastructure/DependencyInjection.cs — reads the [MediaRole] attributes off that one class.
 .DeclareRoles<BrandingSettings>()
 
 // Reading it back.

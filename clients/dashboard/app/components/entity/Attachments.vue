@@ -6,7 +6,8 @@ import type { EntityImage, MediaFile, MediaRole } from '~/types'
  * product page, because an entity's attachments look the same whatever the entity is.
  *
  * The roles are read from the media library (`GET /api/media/roles/{entityName}`), not written
- * down here: `Program.cs` declares them with `DeclareRoles(...)` at startup, so adding a role to
+ * down here: `Infrastructure/DependencyInjection.cs` declares them with `DeclareRoles(...)` at
+ * startup, so adding a role to
  * an entity grows a box with no change to this component. A single-valued role gets exactly one
  * box, filled or empty; a multi-valued one gets a box per file plus a trailing empty one.
  *
