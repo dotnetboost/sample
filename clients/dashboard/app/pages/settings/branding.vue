@@ -10,9 +10,13 @@ const group = computed(() => groups.value?.find(g => g.route === 'branding'))
  * Branding's media, which is NOT part of the settings group.
  *
  * `BrandingSettings` holds text and the header logo size — the logo itself is an attachment on the
- * owner ("Branding", "branding"), an owner with no table behind it. So it comes from this
- * application's own endpoint rather than from `GET /api/settings/branding`, and it is not part of
- * the form's Save: an attach or a detach lands immediately, as a product's images do.
+ * owner ("Branding", "branding"), an owner with no table behind it. So it is not one of the group's
+ * values and not part of the form's Save: an attach or a detach lands immediately, as a product's
+ * images do.
+ *
+ * It still arrives in the same response. `BrandingProjector` joins the attachments onto
+ * `GET /api/settings/branding`, so the group's own endpoint answers with its media beside its
+ * settings — there is no second branding URL any more.
  *
  * Read through `useBranding`, which the sidebar header also uses — same key, one fetch. Refreshing
  * it after a save or an attach updates the header, without either component knowing the other

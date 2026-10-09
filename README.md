@@ -440,6 +440,8 @@ src/DotNetBoostSample.Api/
   Settings/BrandingSettings.cs           the group, its validator, and the projector
                                          behind GET /api/settings/branding
   Settings/CatalogSettings.cs            the second group, with its validator
+  Settings/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
+                                         `translated` on a [MultiLingual] property
   Integration/MediaText.cs               Media × MultiLingual  ← the composition
   Integration/MediaTextCleanup.cs        removes a file's text when the file goes
   Endpoints/                             catalogue
@@ -456,13 +458,16 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/utils/locale.ts                    the locale, for helpers that cannot call useI18n()
   app/utils/rememberedLanguage.ts        the choice, and its direction, across visits
   app/pages/settings.vue                 tabbed shell — one tab per settings group
-  app/pages/settings/index.vue           Branding tab: the group form plus its media
-  app/pages/settings/catalog.vue         Catalog tab
+  app/pages/settings/index.vue           no content of its own — redirects to the first
+                                         group the API reports
+  app/pages/settings/[route].vue         any discovered group, form and all
+  app/pages/settings/branding.vue        the one exception: a form plus per-language text
+                                         and a logo
   app/components/settings/GroupForm.vue  form generated from the group's own schema
-  app/pages/settings/[route].vue         any discovered group; branding.vue is the one exception
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
   app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
-  app/utils/settings.ts                  the group registry — one entry per tab
+  app/utils/settings.ts                  one icon per route, and the label lookups —
+                                         the group list itself comes from the API
   app/pages/languages.vue                MultiLingual's own languages table
   app/components/languages/FormModal.vue add or edit a language
   app/composables/useLanguages.ts        create, update, set-default, delete, purge
