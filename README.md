@@ -28,6 +28,9 @@ because they are the point.
 
 ## The dashboard
 
+![The overview page: four counts, and the three files where the libraries
+meet](docs/screenshots/overview.png)
+
 A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
 **Languages**, **Settings**, with the reading-language selector in every page header.
 
@@ -48,6 +51,15 @@ the client — so a remembered Arabic opens right-to-left on the first paint ins
 round trip later. A language that was deleted or deactivated in the meantime falls back to the
 default rather than leaving the selector stuck on a code that no longer exists.
 
+The same page, read in English and in Arabic. Nothing is duplicated between them: the product
+names and descriptions are translation rows the API resolved from `Accept-Language`, the labels
+around them are the dashboard's own bundles, and the shell is right-to-left because direction
+travels with the language row.
+
+| English | العربية |
+|---|---|
+| ![The catalogue in English](docs/screenshots/catalog.png) | ![The same catalogue in Arabic, right to left](docs/screenshots/catalog-rtl.png) |
+
 Counts are pluralised by CLDR rules rather than by an English `-s`, which is why two products
 read **منتجان** in Arabic — the dual — and zero reads *0 produit* in French. Dates, relative times
 and file sizes come from `Intl` in the UI locale, so a size is `1.4MB`, `1,4Mo` or `1.4 م.ب`
@@ -57,6 +69,15 @@ The sidebar header is the whole sample in miniature: the store's **name** is a
 DotNetBoost.Settings value, its **logo** is a DotNetBoost.Media attachment, the **size** that logo
 is drawn at is another setting, and nothing but `BrandingProjector` knows all three exist. Change
 any of them on the Settings page and the header follows on the next read — no restart, no redeploy.
+
+![The branding settings tab: a generated form, the same name in other languages, and the logo
+attachment](docs/screenshots/settings.png)
+
+One page, three libraries, and no file of its own — `pages/settings/[route].vue` draws every
+group. The form is Settings'; `Store name in other languages` appears because the group's schema
+reports a `[MultiLingual]` property; the `Logo` box appears because the group's response publishes
+the owner its media is filed under, and `GET /api/media/roles/Branding` says that owner has one
+single-valued role.
 
 **Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
 *generated from what the group says about itself* rather than written out — a `bool` becomes a
@@ -112,6 +133,9 @@ Promote another language to default first", and the switch snaps back.
 
 Leaving Direction as "from the code" lets the API derive it from the runtime's culture data:
 adding `he` comes back right-to-left without being told.
+
+![The media library: every uploaded file, with the query in the
+API](docs/screenshots/media.png)
 
 **Media** is DotNetBoost.Media's own browser, lifted wholesale — search, category and tag filters,
 content-type filter, sorting, paging, upload, file details, attachments and delete, all of it in
@@ -785,6 +809,7 @@ tests/DotNetBoostSample.Tests/           the claim, as tests
   Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL
   Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
 media/                                   file bytes at runtime (gitignored)
+docs/screenshots/                        the images above, and how to retake them
 ```
 
 ---
