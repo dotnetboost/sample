@@ -224,8 +224,24 @@ export function useSettingsGroup(group: SettingGroup, propertyNames: Ref<string[
 
   onMounted(load)
 
+  /**
+   * Re-read the group WITHOUT discarding what the user is part-way through typing.
+   *
+   * For the things in the response that are not settings and change outside this form: branding's
+   * logo is a media attachment, attached and detached by requests of its own, and the images the
+   * attachment boxes draw come from `values`. Nothing else re-reads it — `load()` would, and would
+   * also throw away any edit in progress, which is wrong for an action that never touched the
+   * form.
+   *
+   * `changedKeys()` is what makes that safe: the same list the conflict retry keeps, so a field
+   * the user has altered survives and every other field takes the server's answer.
+   */
+  async function refreshValues() {
+    await adoptServerState(changedKeys())
+  }
+
   return {
     keys, state, values, pending, saving, dirty, loadError, problem, errors, conflict,
-    load, save, reset, retryOnLatest
+    load, save, reset, retryOnLatest, refreshValues
   }
 }

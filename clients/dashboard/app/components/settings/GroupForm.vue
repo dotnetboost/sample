@@ -50,7 +50,7 @@ const propertyNames = computed(() => (schema.value?.properties ?? []).map(p => p
 
 const {
   keys, state, values, pending, saving, dirty, loadError, problem, errors, conflict,
-  load, save, reset, retryOnLatest
+  load, save, reset, retryOnLatest, refreshValues
 } = useSettingsGroup(props.group, propertyNames)
 
 /**
@@ -96,6 +96,20 @@ const images = computed(() =>
  */
 function refreshGroup() {
   refreshNuxtData(props.group.route)
+}
+
+/**
+ * An attach, a detach or a reorder landed.
+ *
+ * Both halves are needed and they refresh different things. `refreshValues()` re-reads the group,
+ * which is where the boxes below get their images — `refreshNuxtData` cannot do it, because
+ * `values` is a plain ref inside `useSettingsGroup` and not a `useAsyncData` entry. That was the
+ * bug this function exists to fix: the attach succeeded, the header updated, and the box went on
+ * showing the file that had just been replaced.
+ */
+async function mediaChanged() {
+  await refreshValues()
+  refreshGroup()
 }
 
 async function submit() {
@@ -367,7 +381,7 @@ function description(key: string) {
           :entity-name="owner.entityName"
           :entity-id="owner.entityId"
           :images="images"
-          @changed="refreshGroup(); emit('saved')"
+          @changed="mediaChanged"
         />
 
         <p class="text-xs text-muted">
