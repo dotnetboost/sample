@@ -52,7 +52,6 @@
        ────────────────────────────────────────────────────────────────────────── -->
   <ItemGroup Label="Persistence — net8.0" Condition="'$(TargetFramework)' == 'net8.0'">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.30" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.30" />
     <!-- The provider's own 8.x line tops out at 8.0.11, which wants EF 8.0.11 — an UPGRADE to
          8.0.30 above, not a downgrade, so the two sit together without complaint. -->
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
@@ -60,7 +59,6 @@
 
   <ItemGroup Label="Persistence — net10.0" Condition="'$(TargetFramework)' != 'net8.0'">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
