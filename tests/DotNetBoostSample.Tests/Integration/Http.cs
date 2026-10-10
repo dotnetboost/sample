@@ -124,10 +124,18 @@ internal static class Http
             $"{what} answered {(int)response.StatusCode} {response.StatusCode}: {body}");
     }
 
+    /// <summary>
+    /// The whole RFC 7807 body of a refusal, <b>without</b> asserting success — which is what
+    /// separates this from <see cref="ReadJsonAsync"/>, and the thing to reach for when the
+    /// non-success status is the point of the test.
+    /// </summary>
+    public static async Task<JsonElement> ProblemJsonAsync(this HttpResponseMessage response) =>
+        JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+
     /// <summary>The <c>detail</c> of an RFC 7807 body — where every refusal here puts its sentence.</summary>
     public static async Task<string> ProblemDetailAsync(this HttpResponseMessage response)
     {
-        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        var json = await response.ProblemJsonAsync();
 
         return json.TryGetProperty("detail", out var detail) ? detail.GetString() ?? "" : "";
     }

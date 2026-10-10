@@ -1,0 +1,128 @@
+using System.Net;
+using Xunit;
+
+namespace DotNetBoostSample.Tests.Integration;
+
+/// <summary>
+/// What the catalogue says no to, and in what language.
+///
+/// <para><b>Why this file exists.</b> Every test here covers a request that used to be answered
+/// with <c>500 An error occurred while processing your request</c> — not because anything was
+/// unhandled in the usual sense, but because nothing had decided what the right answer was. Two
+/// classes of them: a body whose shape is wrong, which reached the caller as a 500 until
+/// <c>ValidationExceptionHandler</c> existed, and a body naming a category that is not there,
+/// which the foreign key refused and nobody translated.</para>
+///
+/// <para>Neither was visible to the suite as it stood, because no test sent an invalid body. They
+/// were found by running the application and asking it. That is the gap this file closes: a
+/// refusal is part of an API's contract, and an untested refusal is a 500 waiting to be
+/// discovered by whoever is using it.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public class CatalogRefusalTests(SampleApp app)
+{
+    /// <summary>A category id nothing points at is the caller's mistake, and is named as such.</summary>
+    [RequiresDockerFact]
+    public async Task Creating_a_product_in_a_category_that_does_not_exist_is_refused()
+    {
+        var response = await app.Client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"NOCAT-{Guid.NewGuid():N}"[..12],
+            price = 1.0m,
+            categoryId = 999_999,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        // The id is in the sentence, which is the whole reason the handler asks rather than
+        // letting the foreign key answer: a translated 23503 could not name it.
+        Assert.Contains("999999", await response.ProblemDetailAsync());
+    }
+
+    /// <summary>And the same on the way through — a PUT may move a product anywhere.</summary>
+    [RequiresDockerFact]
+    public async Task Moving_a_product_into_a_category_that_does_not_exist_is_refused()
+    {
+        var client = app.Client;
+        var id = await client.CreateProductAsync("Product that stays put");
+
+        var response = await client.SendJsonAsync(HttpMethod.Put, $"/api/products/{id}", new
+        {
+            sku = $"MOVED-{Guid.NewGuid():N}"[..12],
+            price = 2.0m,
+            categoryId = 999_999,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        // And the product is untouched: the check runs before anything is assigned.
+        Assert.Equal("Product that stays put", (await client.GetJsonAsync($"/api/products/{id}"))
+            .GetProperty("translations").GetProperty("en").Str("Name"));
+    }
+
+    /// <summary>
+    /// The refusal answers in the request's language, like every other one — so a caller showing
+    /// it to a user does not have to translate it first.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_missing_category_is_refused_in_the_requests_language()
+    {
+        var response = await app.Client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"AR-{Guid.NewGuid():N}"[..12],
+            price = 1.0m,
+            categoryId = 999_999,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        }, language: "ar");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        var detail = await response.ProblemDetailAsync();
+
+        Assert.Contains("999999", detail);
+        Assert.DoesNotContain("was not found", detail);
+    }
+
+    /// <summary>
+    /// A body whose shape is wrong is a 400 naming the field — not the 500 it was before
+    /// <c>ValidationExceptionHandler</c> turned FluentValidation's exception into a response.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task An_invalid_body_is_refused_with_the_failing_fields()
+    {
+        var response = await app.Client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = "",
+            price = -5.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var errors = (await response.ProblemJsonAsync()).GetProperty("errors");
+
+        // Camel-cased, so a field is named the way the caller sent it rather than the way C#
+        // spells it.
+        Assert.True(errors.TryGetProperty("sku", out _), "the empty sku should be named");
+        Assert.True(errors.TryGetProperty("price", out _), "the negative price should be named");
+    }
+
+    /// <summary>An empty slug is the same story on the category side.</summary>
+    [RequiresDockerFact]
+    public async Task An_invalid_category_body_is_refused_with_the_failing_field()
+    {
+        var response = await app.Client.SendJsonAsync(HttpMethod.Post, "/api/categories", new
+        {
+            slug = "",
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True(
+            (await response.ProblemJsonAsync()).GetProperty("errors").TryGetProperty("slug", out _),
+            "the empty slug should be named");
+    }
+}

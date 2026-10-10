@@ -45,6 +45,12 @@ public static class UpdateProduct
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 
+            // Moving a product to a category that does not exist is the same mistake CreateProduct
+            // guards, with the same reasoning — and worth checking separately, because a PUT can
+            // change CategoryId on a product that was perfectly valid a moment ago.
+            if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct))
+                return Error.NotFound("Catalog.CategoryNotFound", request.CategoryId);
+
             product.Sku        = request.Sku;
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
