@@ -543,6 +543,31 @@ failed, the fix was put back.
 tests and reports the other 34 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
+### And the dashboard's own
+
+```bash
+cd clients/dashboard && npm test
+```
+
+Vitest, in Nuxt's test environment, over the composables the pages are assembled from. There is one
+suite, and it exists because of a bug `dotnet test` could not have caught: attaching a logo on the
+branding tab left the role box showing the file that had just been replaced. The images it draws
+come from `useSettingsGroup`'s `values`, a plain ref, and the refresh being called could only
+re-run `useAsyncData` entries — so the header updated and the box did not.
+
+`test/nuxt/useSettingsGroup.spec.ts` pins the two things `refreshValues()` has to do at once: pick
+up a change made outside the form, and leave a half-typed field alone, because an attach is a
+different request about a different thing. A third test asserts the contrast — `load()` *is*
+allowed to discard edits — so the distinction is written down rather than remembered.
+
+Both were checked by reverting the fix two ways: with `refreshValues` doing nothing, the media test
+and the edits test fail; with it re-reading but not keeping `changedKeys()`, only the edits test
+does.
+
+The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
+`npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which
+they were, briefly, and which hid an incomplete fixture in the very first one.
+
 ---
 
 ## How the application is built
@@ -723,6 +748,7 @@ src/DotNetBoostSample.Api/               net10.0 — the host, and nothing else
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
 clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
+  test/nuxt/                             Vitest over the composables — `npm test`
   i18n/locales/{en,ar,fr}.json           the dashboard's own labels, one file per locale
   i18n/i18n.config.ts                    CLDR plural rules for Arabic and French
   app/plugins/ui-language.ts             moves the UI locale with the reading language
