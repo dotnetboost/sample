@@ -16,10 +16,18 @@
     "Detail": "One or more fields were not accepted. See errors."
   },
 
+  // Constraints the database refused that no handler anticipated by name.
+  "Database": {
+    "ValueTaken": "That value is already in use.",
+    "RelatedRowMissing": "Something this request refers to no longer exists. Try again."
+  },
+
   "Catalog": {
     "CategoryNotFound": "Category {0} was not found.",
     "ProductNotFound": "Product {0} was not found.",
     "CategoryHasProducts": "Move or delete this category's products first.",
+    "SlugTaken": "Another category already uses that slug.",
+    "SkuTaken": "Another product already uses that SKU.",
 
     // What a write that succeeded says. {0} is the slug or the SKU — the handle the editor typed —
     // so the message names the row the write landed on rather than the id it was addressed by.

@@ -130,7 +130,11 @@ src/DotNetBoostSample.Application/
                                            IPipelineBehavior, IDispatcher, Dispatcher —
                                            ~70 lines, and why it is not MediatR  ← §4
     Cqrs/ValidationBehavior.cs             FluentValidation on every request, once
+    Cqrs/ValidationExceptionHandler.cs     and the 400 that follows — ASP.NET does not
+                                           map a ValidationException by itself
     Persistence/IAppDbContext.cs           DbSet<Category>, DbSet<Product>, SaveChangesAsync
+    Persistence/IDatabaseErrorTranslator.cs  what a refused constraint means
+    Persistence/DbUpdateExceptionHandler.cs  and the 409 that follows from it
     Endpoints/IEndpoint.cs                 Map(IEndpointRouteBuilder)
     Endpoints/EndpointRegistration.cs      MapApplicationEndpoints() — scans and calls each
     Results/Result.cs                      Result<T>, Error, ErrorKind
@@ -696,6 +700,31 @@ namespace ending in `Results`, so the bare name `Results.Ok(...)` binds to *that
 than to ASP.NET's static helper, with an error that reads as a missing assembly reference. Fixed
 with `using Http = Microsoft.AspNetCore.Http.Results;` and a comment, which is cheaper than
 renaming the namespace away from the word the layer is actually about.
+
+---
+
+## 10a. And what running it found
+
+Three 500s, none of which the 48 tests could see, because no test sent a request that provoked
+one. They are worth listing together, because the fix is different each time and the reason is the
+same each time: a constraint was doing its job and nothing had decided what its refusal should look
+like over HTTP.
+
+| Request | Was | Is | Fixed by |
+|---|---|---|---|
+| A body of the wrong shape — empty SKU, negative price | 500 | 400, fields named | `ValidationExceptionHandler`. ASP.NET does not map FluentValidation's `ValidationException`, and a comment here claimed it did. |
+| `categoryId` naming no category | 500 | 404, **the id in the sentence** | A check in the handler. Only the handler knows which id was wrong; an exception handler sees the violation but not the request. |
+| A slug or SKU already taken | 500 | 409, the field named | `PostgresErrorTranslator` + `DbUpdateExceptionHandler`. Uniqueness cannot be checked honestly — the query is stale by the time the insert runs — so the index decides and its refusal is translated. |
+
+The second and third look like one problem and are not, and the pair is the clearest argument in
+this branch for why the layer split exists. A missing category can be *asked about*, so the
+question goes in the handler, where the answer can name the id. A duplicate slug cannot — so the
+constraint answers, and something has to read PostgreSQL's `SqlState` and constraint name to know
+what it said. That something is one class in the infrastructure layer, matching index names the EF
+configurations declare as constants a few files away. The application layer still never names
+Npgsql, and swapping provider replaces that one file.
+
+`CatalogRefusalTests` covers all three — eight tests over requests the suite had never sent.
 
 ---
 

@@ -36,15 +36,26 @@ public static class ResultExtensions
         Func<T, IResult>? onSuccess = null) =>
         result.IsSuccess
             ? onSuccess?.Invoke(result.Value!) ?? Http.Ok(result.Value)
-            : Http.Problem(
-                detail: messages[result.Error!.MessageKey, result.Error.Arguments],
-                statusCode: result.Error.Kind switch
-                {
-                    ErrorKind.NotFound => StatusCodes.Status404NotFound,
-                    ErrorKind.Conflict => StatusCodes.Status409Conflict,
+            : result.Error!.ToProblem(messages);
 
-                    // Unreachable while ErrorKind has two members, and a 500 rather than a
-                    // plausible 400 if a third is ever added without coming back here.
-                    _ => StatusCodes.Status500InternalServerError
-                });
+    /// <summary>
+    /// One refusal as problem details, localized.
+    ///
+    /// <para>Separate from <see cref="ToHttpResult"/> because a second caller needs exactly this
+    /// and nothing else: <c>DbUpdateExceptionHandler</c> has an <see cref="Error"/> and no
+    /// <c>Result&lt;T&gt;</c> to put it in. Two copies of the switch below would be two places for
+    /// a third <see cref="ErrorKind"/> to be forgotten.</para>
+    /// </summary>
+    public static IResult ToProblem(this Error error, IStringLocalizer<ApiMessages> messages) =>
+        Http.Problem(
+            detail: messages[error.MessageKey, error.Arguments],
+            statusCode: error.Kind switch
+            {
+                ErrorKind.NotFound => StatusCodes.Status404NotFound,
+                ErrorKind.Conflict => StatusCodes.Status409Conflict,
+
+                // Unreachable while ErrorKind has two members, and a 500 rather than a plausible
+                // 400 if a third is ever added without coming back here.
+                _ => StatusCodes.Status500InternalServerError
+            });
 }

@@ -67,6 +67,11 @@ public static class DependencyInjection
         // seeder are inside the same unit of work when they are in the same scope.
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
+        // What a refused constraint means, in PostgreSQL's vocabulary. The only registration here
+        // that exists because of the provider rather than because of a library — and the reason
+        // DbUpdateExceptionHandler can answer 409 without the application layer naming Npgsql.
+        services.AddScoped<IDatabaseErrorTranslator, PostgresErrorTranslator>();
+
         // ── DotNetBoost.Settings ─────────────────────────────────────────────
         // Runtime-editable configuration, stored in the Settings table of the same database.
         //

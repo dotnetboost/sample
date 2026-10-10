@@ -3,6 +3,7 @@ using DotNetBoost.MultiLingual.API;
 using DotNetBoostSample.Application;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
+using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Infrastructure;
@@ -111,6 +112,9 @@ builder.Services.AddApplication();
 // in AddInfrastructure.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
+// And the constraints the database refuses: a duplicate slug or SKU is a 409, not a 500. Each
+// handler declines what is not its own, so the order of these two only decides who is asked first.
+builder.Services.AddExceptionHandler<DbUpdateExceptionHandler>();
 
 // The OpenAPI document. Nothing to correct in it: BrandingProjector declares its response type
 // through ISettingProjector<BrandingSettings, BrandingResponse>, so the generated GET publishes the

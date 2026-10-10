@@ -5,10 +5,17 @@
     "Detail": "Un ou plusieurs champs ont été refusés. Voir errors."
   },
 
+  "Database": {
+    "ValueTaken": "Cette valeur est déjà utilisée.",
+    "RelatedRowMissing": "Un élément auquel cette requête fait référence n'existe plus. Réessayez."
+  },
+
   "Catalog": {
     "CategoryNotFound": "La catégorie {0} est introuvable.",
     "ProductNotFound": "Le produit {0} est introuvable.",
     "CategoryHasProducts": "Déplacez ou supprimez d'abord les produits de cette catégorie.",
+    "SlugTaken": "Une autre catégorie utilise déjà ce slug.",
+    "SkuTaken": "Un autre produit utilise déjà cette référence.",
 
     // Les messages d'une écriture réussie. {0} est le slug ou la référence. Voir en.json.
     "CategoryCreated": "La catégorie {0} a été créée.",

@@ -534,7 +534,11 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
                                          than Messaging: nothing here crosses a process
                                          boundary, and a broker would want that name
   Abstractions/Cqrs/ValidationBehavior.cs   FluentValidation on every request, once
+  Abstractions/Cqrs/ValidationExceptionHandler.cs  and the 400 that follows from it
   Abstractions/Persistence/IAppDbContext.cs      two DbSets and SaveChangesAsync
+  Abstractions/Persistence/IDatabaseErrorTranslator.cs  what a refused constraint
+                                         means — implemented where the provider is known
+  Abstractions/Persistence/DbUpdateExceptionHandler.cs  so a duplicate slug is a 409
   Abstractions/Endpoints/                IEndpoint, and the scan that maps them all
   Abstractions/Results/                  Result<T>, Error — and the one method that turns
                                          either into a localized RFC 7807 response
@@ -553,7 +557,10 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
 
 src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
   Persistence/AppDbContext.cs            one database, three Apply* calls
-  Persistence/Configurations/            one IEntityTypeConfiguration per entity
+  Persistence/Configurations/            one IEntityTypeConfiguration per entity, each
+                                         naming its unique index as a constant
+  Persistence/PostgresErrorTranslator.cs the only file that reads PostgresException —
+                                         SqlState and constraint name into an Error
   Persistence/DatabaseInitialiser.cs     schema + languages + catalogue on first run
   DependencyInjection.cs                 AddInfrastructure() — three independent
                                          registrations, in three blocks, in any order

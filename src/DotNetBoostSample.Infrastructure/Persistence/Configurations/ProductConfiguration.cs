@@ -18,6 +18,9 @@ namespace DotNetBoostSample.Infrastructure.Persistence.Configurations;
 /// </summary>
 public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
+    /// <inheritdoc cref="CategoryConfiguration.SlugIndex"/>
+    public const string SkuIndex = "IX_Products_Sku";
+
     /// <inheritdoc/>
     public void Configure(EntityTypeBuilder<Product> product)
     {
@@ -25,7 +28,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         product.HasKey(p => p.Id);
         product.Property(p => p.Sku).HasMaxLength(64).IsRequired();
         product.Property(p => p.Price).HasPrecision(18, 2);
-        product.HasIndex(p => p.Sku).IsUnique();
+        product.HasIndex(p => p.Sku).IsUnique().HasDatabaseName(SkuIndex);
         product.HasOne(p => p.Category)
                .WithMany(c => c.Products)
                .HasForeignKey(p => p.CategoryId)

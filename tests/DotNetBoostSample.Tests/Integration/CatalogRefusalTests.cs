@@ -110,6 +110,85 @@ public class CatalogRefusalTests(SampleApp app)
         Assert.True(errors.TryGetProperty("price", out _), "the negative price should be named");
     }
 
+    /// <summary>
+    /// Two categories cannot share a slug, and the refusal says which field — a <c>409</c> from
+    /// the unique index, translated by <c>PostgresErrorTranslator</c>, where it used to be a 500.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_duplicate_slug_is_refused_as_a_conflict()
+    {
+        var client = app.Client;
+        var slug   = $"dup-{Guid.NewGuid():N}"[..12];
+
+        await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/categories", new
+        {
+            slug,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        var again = await client.SendJsonAsync(HttpMethod.Post, "/api/categories", new
+        {
+            slug,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Contains("slug", await again.ProblemDetailAsync(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The same on the product side, where the index is on the SKU.</summary>
+    [RequiresDockerFact]
+    public async Task A_duplicate_sku_is_refused_as_a_conflict()
+    {
+        var client = app.Client;
+        var sku    = $"DUP-{Guid.NewGuid():N}"[..12];
+
+        await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku,
+            price = 1.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        var again = await client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku,
+            price = 1.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Contains("SKU", await again.ProblemDetailAsync(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// And it answers in the request's language, which is the point of routing it through the same
+    /// <c>Error</c> every handwritten refusal uses rather than letting it escape as a 500.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_duplicate_slug_is_refused_in_the_requests_language()
+    {
+        var client = app.Client;
+        var slug   = $"dupar-{Guid.NewGuid():N}"[..12];
+
+        await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/categories", new
+        {
+            slug,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        var again = await client.SendJsonAsync(HttpMethod.Post, "/api/categories", new
+        {
+            slug,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        }, language: "fr");
+
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Contains("déjà", await again.ProblemDetailAsync());
+    }
+
     /// <summary>An empty slug is the same story on the category side.</summary>
     [RequiresDockerFact]
     public async Task An_invalid_category_body_is_refused_with_the_failing_field()
