@@ -16,8 +16,13 @@ What it is built to demonstrate is as much what is *absent* as what is present:
 - no integration package pairing any two libraries
 
 Each library is installed on its own and configured on its own terms. Everything that joins them
-is this application's code, in two files. `tests/` asserts that none of them references another,
-so the claim cannot quietly stop being true.
+is this application's code, in five files — counted honestly below. `tests/` asserts that none of
+them references another, so the claim cannot quietly stop being true.
+
+The application around them is a monolith in four projects, with its own routes written as vertical
+slices and dispatched as commands and queries — one file per feature, and no MediatR. [How the
+application is built](#how-the-application-is-built) has that part; the five files come first,
+because they are the point.
 
 ---
 
@@ -144,6 +149,10 @@ with](#what-a-catalogue-write-answers-with) has the shapes.
 
 Needs **.NET 10 SDK**, **Node 20+**, and a **container runtime** (Docker Desktop, OrbStack or
 Podman) for PostgreSQL.
+
+The three class libraries also build for `net8.0`, which needs the .NET 8 reference packs — present
+if you have the .NET 8 SDK installed, and restored as packages otherwise. Only the libraries:
+`aspire run` and `dotnet test` exercise the `net10.0` host either way.
 
 ```bash
 aspire run
@@ -510,13 +519,148 @@ database they share.
   **two** boxes in the editor; no shape carries a URL but the bytes are reachable from the id;
   several languages of alt text are one write, and a null still removes its row; and the text
   delete still works once the file itself is gone.
+- **`SettingsSchemaTests`** — `GET /api/settings/{group}/schema` publishes the FluentValidation
+  bounds *and* this application's own `translated` flag, merged rather than one replacing the other,
+  so the dashboard's generated form draws its controls from the server's rules.
+- **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
+  answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
+  refusable ones declare `.Produces<T>()` and the two listings return their value directly.
+- **`CatalogRefusalTests`** — every request that used to be answered with a 500: a body of the wrong
+  shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
+  a 409, in the request's language. **All three were found by running the application rather than by
+  the build** — the suite had never sent an invalid body — which is exactly why they are tests now.
 
 Both regression tests were checked the only way that means anything: the fix was reverted, the test
 failed, the fix was put back.
 
-**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 33 fast
-tests and reports the other 17 as skipped, with the reason. The README already asks for Docker,
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 22 fast
+tests and reports the other 34 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
+
+---
+
+## How the application is built
+
+Four projects, and nothing points back: `Domain` ← `Application` ← `Infrastructure`, with `Api`
+depending on all three because it composes them.
+
+| Project | Targets | Holds | Must not reference |
+|---|---|---|---|
+| `Domain` | `net8.0;net10.0` | `Category`, `Product` | anything but `DotNetBoost.MultiLingual.Core` |
+| `Application` | `net8.0;net10.0` | the eleven slices, the dispatcher, the composition, the settings groups | Npgsql, the `*.EntityFrameworkCore` packages, the `*.API` packages |
+| `Infrastructure` | `net8.0;net10.0` | `AppDbContext`, the EF model, the seeder, `AddInfrastructure()` | ASP.NET endpoint mapping |
+| `Api` | `net10.0` | `Program.cs`, `appsettings`, `Resources/*.json` | — |
+
+The three class libraries multi-target `net8.0;net10.0`, matching the TFMs the DotNetBoost packages
+themselves ship, so the application code is proved against both. The host cannot follow: Aspire
+13.5 and the Npgsql EF Core 10 provider require `net10.0`. EF Core is therefore pinned per
+framework in `Directory.Packages.props` — 8.0.30 and 10.0.11, the versions the DotNetBoost EF
+packages ask for on each, because naming a lower one is a package downgrade and an error.
+
+**`Domain` references one package**, for `[MultiLingual]` and `[NotMultiLingual]` on its two
+entities. A purist would call an attribute from a library a persistence concern on a domain type;
+it is one MIT, abstraction-only package, declaring which properties are translated at all — the
+same bargain a domain entity carrying `[Required]` already makes. If the library ever grows a
+fluent configuration path, that declaration moves to `Infrastructure` and `Domain` references
+nothing.
+
+### A feature is a file
+
+Each of the application's eleven routes is one file holding its whole vertical slice — what is
+asked, what comes back, what bounds the ask, who answers it, and the URL it answers on:
+
+```csharp
+public static class ListProducts
+{
+    public sealed record Query(int? CategoryId, int? Page, int? PageSize)
+        : IQuery<PagedResult<ProductListItem>>;
+
+    public sealed record ProductListItem(int Id, string Name, /* … */ AttachedFile? Primary);
+
+    public sealed class Handler(IAppDbContext db, IMediaManager media,
+                               ISettingManager settings, MediaText mediaText)
+        : IRequestHandler<Query, PagedResult<ProductListItem>> { /* … */ }
+
+    public sealed class Endpoint : IEndpoint
+    {
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapGet("/api/products", (int? categoryId, int? page, int? pageSize,
+                                         IDispatcher dispatcher, CancellationToken ct) =>
+                   dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+               .WithTags("Products");
+    }
+}
+```
+
+They run 70–153 lines each, comments included. `Program.cs` never learns their names:
+`MapApplicationEndpoints()` scans the assembly for `IEndpoint`, and `AddApplication()` scans it for
+handlers, behaviours and request validators.
+
+Handlers read `db.Products` through `IAppDbContext` rather than a repository, and that is
+deliberate: a plain `ToListAsync()` comes back already translated because MultiLingual's EF Core
+interceptors act on the query. Routing reads through a `GetAllAsync` would hide the single most
+interesting thing this sample does. The honest cost is that `IAppDbContext` hands out `IQueryable`
+and is not a real seam — what it buys is that `Application` never names the provider.
+
+### CQRS without MediatR
+
+`Abstractions/Cqrs/Dispatcher.cs` is 57 lines of code: `IRequest`, `IQuery`, `ICommand`,
+`IRequestHandler`, `IPipelineBehavior`, `IDispatcher` and the dispatcher itself.
+
+MediatR would work — 14.2.0 targets `netstandard2.0` and `net8.0`, so it loads on `net10.0` — but it
+changed licence at **v13.0** to Reciprocal Public License 1.5 or commercial, and the last
+Apache-2.0 release, 12.5.0, is unmaintained. A repository whose first claim is three MIT libraries
+with no shared kernel should not acquire an RPL-1.5-or-pay dependency to dispatch eleven handlers.
+
+The shape is MediatR's on purpose, so swapping to it — or to a source-generated mediator — is a
+change of `using` directives and one registration call. `IRequest` is kept for that reason even
+though it sits a few lines from actual HTTP requests: a folder name costs nothing to change, a
+public contract costs the escape hatch. The folder is `Cqrs` rather than the conventional
+`Messaging`, because "messaging" in .NET means a broker and nothing here crosses a process — and
+the day this application publishes an event, those abstractions should get that name.
+
+### What a refusal is
+
+A handler that can fail returns `Result<T>`, carrying a message **key** rather than a sentence:
+
+```csharp
+if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
+if (await db.Products.AnyAsync(p => p.CategoryId == request.Id, ct))
+    return Error.Conflict("Catalog.CategoryHasProducts");
+```
+
+One method turns that into RFC 7807 problem details, localized, with the status code derived from
+the kind — which is why no handler takes `IStringLocalizer<ApiMessages>`.
+
+Not every refusal reaches a handler, though, and where each one is decided is the interesting part:
+
+| | Answers | Decided by |
+|---|---|---|
+| A body of the wrong shape — empty SKU, negative price | `400` with the fields named | `ValidationBehavior` runs each slice's `Validator`; `ValidationExceptionHandler` maps the failure. ASP.NET does **not** map a FluentValidation `ValidationException` by itself. |
+| A `categoryId` naming no category | `404`, with the id in the sentence | A check in the handler. Only it knows which id was wrong. |
+| A slug or SKU already taken | `409`, with the field named | The unique index refuses it — uniqueness cannot be checked first, since the query is stale by the time the insert runs — and `PostgresErrorTranslator` reads the `SqlState` and constraint name. |
+
+That last row is the one place a dependency rule earns its keep. Reading
+`Npgsql.PostgresException` cannot happen in `Application`, and `IExceptionHandler` cannot happen in
+`Infrastructure`, so the classification is an interface implemented on the provider's side of the
+line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
+matches index names that the EF configurations declare as constants a few files away.
+
+### Why four projects for 42 files
+
+It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
+is that the dependency rules above are enforced by the build rather than by a comment; what it costs
+is that a route no longer shows you what it does — `MapGet` → `IDispatcher` → the handler is three
+hops for a query whose body did not change.
+
+Two things came out better than expected. **Four of the five composition files moved untouched**:
+they name `DotNetBoost.*.Core` and nothing else, so they sit in `Application/Composition/` beside
+the slices that use them, and only `AppDbContext` turned out to be infrastructure. And **a slice is
+one file**, so eleven routes are eleven files rather than the forty-odd that one-type-per-file would
+have cost.
+
+[`ARCHITECTURE-SLICES.md`](ARCHITECTURE-SLICES.md) has the long version: the design as written, and
+a section on every place it changed on contact with a compiler or a running application.
 
 ---
 
@@ -640,7 +784,8 @@ list and fills **two** boxes in the editor, which is correct in both places.
 
 Attachments are the media library's: `POST /api/media/{id}/attachments`,
 `DELETE /api/media/{id}/attachments/{attachmentId}`, `PUT /api/media/attachments/order` and
-`GET /api/media/roles/{entityName}`. The roles themselves are declared once, in `Program.cs`:
+`GET /api/media/roles/{entityName}`. The roles themselves are declared once, in
+`Infrastructure/DependencyInjection.cs`:
 
 ```csharp
 .DeclareRoles("Product",  roles => roles.One("primary").Many("gallery"))
@@ -662,10 +807,11 @@ Core interceptors did it. The **API's own sentences** are a separate question: a
 
 They are localized anyway — `src/DotNetBoostSample.Application/Localization/ApiMessages.cs` is the marker
 type they are injected under, and `Resources/{en,ar,fr}.json` beside it holds the words. What makes
-this different from `AddLocalization()` is which language it reads:
+this different from `AddLocalization()` is which language it reads — registered in
+`Infrastructure/DependencyInjection.cs`, with the rest of the MultiLingual block:
 
 ```csharp
-builder.Services
+services
     .AddMultiLingual()
     .UseEntityFrameworkCore<AppDbContext>()
     .AddJsonLocalization()      // the API's own messages, same registration chain
@@ -691,6 +837,17 @@ have no body, so there is nowhere to put the sentence. Refusals carry the same w
 of RFC 7807 problem details, which is what MultiLingual's own endpoint filter already produces —
 through the very same localizer — so the dashboard reads one shape whether the application refused
 or the library did.
+
+And every refusal is one of four, each decided somewhere different:
+
+| | Answers | Where it is decided |
+|---|---|---|
+| A field is the wrong shape — empty slug or SKU, negative price | `400` + `errors` | the slice's `Validator`, run by `ValidationBehavior` |
+| The id in the route names nothing | `404` | the handler, returning `Error.NotFound` |
+| A `categoryId` in the body names nothing | `404` | the handler, which is the only code that knows *which* id was wrong |
+| A category still has products; a slug or SKU is taken | `409` | the handler for the first, and the unique index for the second — read back by `PostgresErrorTranslator` |
+
+All four are localized, and `CatalogRefusalTests` asserts each one. Three of them used to be `500`.
 
 ```console
 $ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
@@ -741,7 +898,7 @@ to be. Which is already how a refusal is shown — the same split, from `problem
 ## Configuration
 
 `MEDIA` bytes go to `./media` on local disk, which needs no container and no credentials. To switch
-to Azure Blob Storage or S3, change one line in `Program.cs`:
+to Azure Blob Storage or S3, change one line in `Infrastructure/DependencyInjection.cs`:
 
 ```csharp
 .UseFileSystem(mediaRoot, isDefault: true)     // this sample
