@@ -13,10 +13,6 @@
     <PackageReference Include="DotNetBoost.MultiLingual.API" />
   </ItemGroup>
 
-  <ItemGroup Label="Aspire">
-    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
-  </ItemGroup>
-
   <ItemGroup Label="API docs">
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
