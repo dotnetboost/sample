@@ -1,4 +1,4 @@
-import type { EntityImage, MediaRef } from '~/types'
+import type { EntityImage, MediaOwner, MediaRef } from '~/types'
 
 export interface Branding {
   /**
@@ -9,8 +9,13 @@ export interface Branding {
   accentColor: string
   /** How large to draw the logo in the header, in pixels. */
   headerLogoSize: number
-  /** Everything attached to ("Branding", "branding"), with roles. */
+  /** Everything attached to the owner below, with roles. */
   images: EntityImage[]
+  /**
+   * The two strings `images` are filed under, so a caller that wants to attach knows where. The
+   * settings page reads it from here instead of writing `'Branding'` and `'branding'` down.
+   */
+  owner: MediaOwner
   /** The file in the `logo` role, or null. The field name is the role, so the file does not repeat it. */
   logo: MediaRef | null
   /**

@@ -1,5 +1,6 @@
 using System.Net;
 using Xunit;
+using DotNetBoostSample.Application.Settings;
 
 namespace DotNetBoostSample.Tests.Integration;
 
@@ -59,6 +60,44 @@ public class BrandingCompositionTests(SampleApp app)
         var french = await client.GetJsonAsync("/api/settings/branding", "fr");
         Assert.Equal(stored, french.Str("storeName"));
         Assert.DoesNotContain("storeName", french.GetProperty("resolved").Keys());
+    }
+
+    /// <summary>
+    /// The group publishes the address its media is filed under, which is the only way a client
+    /// can know it.
+    ///
+    /// <para><b>What this replaced.</b> The dashboard used to write the two strings down — a
+    /// <c>branding.vue</c> with <c>ownerEntityName = 'Branding'</c> in it, and a
+    /// <c>'/api/translations/Branding/branding'</c> constant beside it — mirroring two C#
+    /// constants with nothing checking either. There was an assertion here that read the
+    /// <c>.vue</c> file and compared them; publishing the address deleted the duplicate instead
+    /// of guarding it.</para>
+    ///
+    /// <para><b>Why it cannot be derived.</b> <c>GET /api/settings</c> answers with the group's
+    /// route and its CLR class name, and the class name is the one thing the owner deliberately is
+    /// not: <c>[MediaEntity]</c> pins the stored name so renaming <c>BrandingSettings</c> cannot
+    /// orphan the attachments. And a wrong guess does not fail —
+    /// <c>GET /api/media/roles/{name}</c> answers <c>200 []</c> for an owner nobody declared, so a
+    /// client that guesses sees a group with no media and renders nothing.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Branding_publishes_the_owner_its_media_is_filed_under()
+    {
+        var client = app.Client;
+
+        var owner = (await client.GetJsonAsync("/api/settings/branding")).GetProperty("owner");
+
+        Assert.Equal(BrandingSettings.MediaOwnerName, owner.Str("entityName"));
+        Assert.Equal(BrandingSettings.MediaOwnerId, owner.Str("entityId"));
+
+        // And the name it published is the one the media library actually has roles for, which is
+        // what makes it usable rather than merely present: the dashboard hands this straight to
+        // GET /api/media/roles/{entityName} to draw its boxes.
+        var roles = await client.GetJsonAsync($"/api/media/roles/{owner.Str("entityName")}");
+
+        Assert.Contains(
+            BrandingSettings.LogoRole,
+            roles.EnumerateArray().Select(role => role.Str("name")));
     }
 
     /// <summary>

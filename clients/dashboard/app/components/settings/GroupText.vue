@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import type { Translations } from '~/types'
+import type { MediaOwner, SettingPropertySchema, Translations } from '~/types'
 
 /**
- * The branding group's text in every language except the default one.
+ * A settings group's translated text in every language except the default one.
+ *
+ * Generic over the group, which it was not: it read `'branding'` for its schema and its labels,
+ * and the endpoints it wrote to were a constant in `useApi`. It now takes the route and the
+ * subject address, so any group whose schema reports a `translated` property gets this card and a
+ * group with none gets nothing — decided by what the server says, not by which page is open.
  *
  * <b>Why the default is missing.</b> It is not stored here. The settings row holds it, the group
  * form above edits it, and it stays inside that group's ETag and audit trail. Every other language
@@ -12,6 +17,15 @@ import type { Translations } from '~/types'
  * <b>Why this card exists at all.</b> The generated settings form builds a field per value the API
  * returns. It has no idea one of them is translated, and no place to put several languages of it.
  */
+const props = defineProps<{
+  /** The group's route, which keys its schema and its field labels. */
+  route: string
+  /** Where its translations are filed, from the group's own response. */
+  owner: MediaOwner
+  /** The group's `[MultiLingual]` properties, already read from its schema by the form above. */
+  translated: SettingPropertySchema[]
+}>()
+
 const emit = defineEmits<{ saved: [] }>()
 
 const api = useApi()
@@ -21,11 +35,9 @@ const { t } = useI18n()
 const { languages, defaultLanguage, ensureLoaded } = useLanguages()
 
 /**
- * The branding group's metadata, borrowed for one thing: the label on the field below.
- *
- * It has to read `Store name` exactly as the generated form above does, because the two boxes edit
- * the same property in different languages. Taking the label from the same place the form takes it
- * is what keeps them identical when either is reworded.
+ * The labels come from the same place the generated form takes them, because the two boxes edit
+ * the same property in different languages. Taking both from `fieldLabel(route, name)` is what
+ * keeps them identical when either is reworded.
  */
 
 await ensureLoaded()
@@ -35,20 +47,19 @@ const translatable = computed(() =>
   languages.value.filter(l => !l.isDefault))
 
 /**
- * Which of the group's properties are translated, from its own schema.
+ * Which of the group's properties are translated — handed down rather than fetched.
  *
  * `MultiLingualSchemaContributor` publishes `translated` for a property carrying
- * `[MultiLingual]`, so adding a second one to `BrandingSettings` puts a box here with no change
- * in this component. It used to be a one-element literal naming `StoreName`, which is exactly
- * why adding `StoreDescription` showed a badge on the form above and nothing down here.
+ * `[MultiLingual]`, so adding a second one to a group puts a box here with no change in this
+ * component. It used to be a one-element literal naming `StoreName`, which is exactly why adding
+ * `StoreDescription` showed a badge on the form above and nothing down here.
+ *
+ * The form above has already read the schema to draw its own inputs, so this takes the filtered
+ * list as a prop instead of asking for the same document under a second cache key — which is what
+ * it did, and what put two `GET /api/settings/branding/schema` in the network log per render.
  */
-const { data: schema } = await useAsyncData(
-  'branding-schema', () => api.settings.schema('branding'))
-
 const fields = computed(() =>
-  (schema.value?.properties ?? [])
-    .filter(p => p.constraints?.translated === true)
-    .map(p => ({ name: clrName(p.name), label: fieldLabel('branding', p.name) })))
+  props.translated.map(p => ({ name: clrName(p.name), label: fieldLabel(props.route, p.name) })))
 
 /**
  * The schema names a property as the GET body spells it — camelCase — while a translation row
@@ -69,7 +80,7 @@ async function load() {
   loading.value = true
 
   try {
-    const stored = await api.branding.text()
+    const stored = await api.branding.text(props.owner)
 
     // Start from every translatable language, so one with nothing stored still gets a button.
     draft.value = Object.fromEntries(
@@ -77,7 +88,7 @@ async function load() {
 
     original.value = JSON.stringify(draft.value)
   } catch (error) {
-    notifyFailure(t('settings.brandingText.toast.readFailed'), error)
+    notifyFailure(t('settings.groupText.toast.readFailed'), error)
   } finally {
     loading.value = false
   }
@@ -100,17 +111,17 @@ async function save() {
     // The draft already IS languageCode -> (propertyName -> value), which is what the endpoint
     // takes. It used to be flattened to one property on the way out, which is what made a second
     // [MultiLingual] property impossible to save.
-    await api.branding.setText(draft.value)
+    await api.branding.setText(props.owner, draft.value)
     await load()
 
     notifySuccess(
-      t('settings.brandingText.toast.saved'),
-      t('settings.brandingText.toast.savedDescription')
+      t('settings.groupText.toast.saved'),
+      t('settings.groupText.toast.savedDescription')
     )
 
     emit('saved')
   } catch (error) {
-    notifyFailure(t('settings.brandingText.toast.saveFailed'), error)
+    notifyFailure(t('settings.groupText.toast.saveFailed'), error)
   } finally {
     saving.value = false
   }
@@ -121,10 +132,10 @@ async function save() {
   <UPageCard
     variant="subtle"
     class="mt-4 sm:mt-6"
-    :title="$t('settings.brandingText.title')"
+    :title="$t('settings.groupText.title')"
     :description="defaultLanguage
-      ? $t('settings.brandingText.descriptionWithDefault', { code: defaultLanguage.code })
-      : $t('settings.brandingText.descriptionPlain')"
+      ? $t('settings.groupText.descriptionWithDefault', { code: defaultLanguage.code })
+      : $t('settings.groupText.descriptionPlain')"
   >
     <template #header>
       <div class="flex items-center justify-end gap-2">
@@ -133,14 +144,14 @@ async function save() {
           color="warning"
           variant="subtle"
           size="sm"
-          :label="$t('settings.brandingText.missing', missing)"
+          :label="$t('settings.groupText.missing', missing)"
         />
         <UBadge
           v-else
           color="success"
           variant="subtle"
           size="sm"
-          :label="$t('settings.brandingText.covered')"
+          :label="$t('settings.groupText.covered')"
         />
       </div>
     </template>
@@ -150,7 +161,7 @@ async function save() {
     </div>
 
     <div v-else-if="!translatable.length" class="py-4 text-sm text-muted">
-      {{ $t('settings.brandingText.onlyOneLanguage') }}
+      {{ $t('settings.groupText.onlyOneLanguage') }}
     </div>
 
     <div v-else class="space-y-3">
@@ -165,7 +176,7 @@ async function save() {
              a second message a translator has to guess the placement of. -->
         <i18n-t
           scope="global"
-          keypath="settings.brandingText.note"
+          keypath="settings.groupText.note"
           tag="p"
           class="text-xs text-muted"
         >
@@ -175,7 +186,7 @@ async function save() {
           </template>
         </i18n-t>
         <UButton
-          :label="$t('settings.brandingText.save')"
+          :label="$t('settings.groupText.save')"
           :disabled="!dirty"
           :loading="saving"
           @click="save"

@@ -488,13 +488,7 @@ say what the code *is*. The third boots the application and says what it *does*.
   asks about. Together, this is what makes `MediaText.cs` safe.
 - **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
   code uses is the one the attribute stores under, and the group's `Id` stays out of both the
-  settings table and the JSON. It also reaches across into the dashboard: `settings/branding.vue`
-  writes the owner address down as two literals, because nothing the API publishes tells a client
-  that `("Branding", "branding")` is where the logo lives — `GET /api/settings` answers with the
-  CLR class name, and `[MediaEntity]` pins the stored name away from it on purpose. The roles
-  endpoint answers `200 []` for an owner nobody declared rather than refusing it, so a dashboard
-  asking about the wrong name renders no logo and nothing fails. Renaming `MediaOwnerName` in C#
-  now breaks a test instead of a page.
+  settings table and the JSON.
 
 ### What the code does
 
@@ -509,7 +503,13 @@ another, that a settings value changes what an endpoint answers without a restar
 behaviour of three libraries sharing one `DbContext`, and none of it is provable without the
 database they share.
 
-- **`BrandingCompositionTests`** — reading branding in Arabic must not change what
+- **`BrandingCompositionTests`** — the group publishes `owner`, the two strings its media is filed
+  under, and the name it publishes is one `GET /api/media/roles/{entityName}` actually has roles
+  for. That pair cannot be derived: the group list answers with the CLR class name, `[MediaEntity]`
+  pins the stored name away from it on purpose, and a wrong guess is answered `200 []` rather than
+  refused — so a client guessing it renders no logo and nothing fails. The dashboard used to write
+  the two strings into a page of its own; publishing them deleted the duplicate. Also: reading
+  branding in Arabic must not change what
   `GET /api/settings/branding` answers. That is a regression test for a real bug: the endpoint used
   to assign the translated name onto the instance `SettingManager` cached, writing one request's
   language into the entry every later reader is served from. No metadata test could see it.
@@ -733,10 +733,15 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/pages/settings.vue                 tabbed shell — one tab per settings group
   app/pages/settings/index.vue           no content of its own — redirects to the first
                                          group the API reports
-  app/pages/settings/[route].vue         any discovered group, form and all
-  app/pages/settings/branding.vue        the one exception: a form plus per-language text
-                                         and a logo
-  app/components/settings/GroupForm.vue  form generated from the group's own schema
+  app/pages/settings/[route].vue         every group, whatever it has: the form, and —
+                                         when the group's own response says so — its text
+                                         in other languages and its media. branding.vue
+                                         used to be this with the route and the owner
+                                         address written in
+  app/components/settings/GroupForm.vue  form generated from the group's own schema, plus
+                                         the two cards a projector can add to it
+  app/components/settings/GroupText.vue  the group's `[MultiLingual]` properties, one
+                                         field per language, for any group that has them
   app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
   app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
   app/utils/settings.ts                  one icon per route, and the label lookups —

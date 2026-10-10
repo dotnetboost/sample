@@ -248,7 +248,40 @@ public sealed class BrandingResponse : BrandingSettings
     /// does not repeat it.
     /// </summary>
     public AttachedFile? Logo { get; init; }
+
+    /// <summary>
+    /// The two strings <see cref="Images"/> are filed under — so a caller that wants to ATTACH
+    /// something knows where to send it.
+    ///
+    /// <para><b>Why this has to be published.</b> Nothing else tells a client the address.
+    /// <c>GET /api/settings</c> answers with the group's route and its CLR class name, and the
+    /// class name is the one thing the owner is deliberately NOT: <c>[MediaEntity]</c> pins the
+    /// stored name to <c>Branding</c> precisely so renaming <c>BrandingSettings</c> cannot orphan
+    /// the attachments. So <c>GET /api/media/roles/BrandingSettings</c> answers <c>[]</c> — and
+    /// answers <c>200</c> while doing it, because an undeclared owner is not an error to the media
+    /// library. A client guessing the name therefore sees a group with no media and renders
+    /// nothing, with no request failing and nothing logged.</para>
+    ///
+    /// <para>The dashboard used to write the two strings down in a page of its own for exactly
+    /// that reason. With them here it reads the group's own response instead, asks
+    /// <c>GET /api/media/roles/{entityName}</c> for the role boxes, and needs no page per group.
+    /// </para>
+    ///
+    /// <para>It is part of the representation and not of the group, like <see cref="Images"/> and
+    /// <see cref="Resolved"/> beside it — the form draws its inputs from the schema, which is
+    /// built from <see cref="BrandingSettings"/>'s own storable properties, so none of the three
+    /// becomes a box.</para>
+    /// </summary>
+    public MediaOwner Owner { get; init; } =
+        new(BrandingSettings.MediaOwnerName, BrandingSettings.MediaOwnerId);
 }
+
+/// <summary>
+/// An owner as DotNetBoost.Media addresses one: two strings, and no row behind them.
+/// </summary>
+/// <param name="EntityName">The name roles and attachments are filed under.</param>
+/// <param name="EntityId">Which one of them, degenerate where there can only be one.</param>
+public sealed record MediaOwner(string EntityName, string EntityId);
 
 /// <summary>
 /// What <c>GET /api/settings/branding</c> answers with: the group's stored values, its text

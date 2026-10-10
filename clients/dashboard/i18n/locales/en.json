@@ -19,8 +19,6 @@
     "empty": "—",
     "filtered": "filtered"
   },
-
-
   "nav": {
     "overview": "Overview",
     "catalog": "Catalog",
@@ -32,15 +30,12 @@
     "goTo": "Go to",
     "documentTitle": "{page} — DotNetBoost Sample"
   },
-
   "brand": {
     "subtitle": "Sample"
   },
-
   "readingLanguage": {
     "label": "Reading language"
   },
-
   "appearance": {
     "trigger": "Appearance",
     "theme": "Theme",
@@ -52,17 +47,14 @@
     "nuxtUiDocs": "Nuxt UI documentation",
     "githubRepository": "GitHub repository"
   },
-
   "errorPage": {
     "title": "Page not found",
     "description": "We are sorry but this page could not be found."
   },
-
   "api": {
     "unreachable": "The API could not be reached.",
     "refused": "The API refused that"
   },
-
   "overview": {
     "intro": {
       "title": "Three libraries, zero references between them",
@@ -85,7 +77,6 @@
       "description": "Every product name, description and image alt text is re-read in that language — Arabic flips the whole shell to RTL. The API resolves it from Accept-Language. The dashboard's own labels follow the same selector."
     }
   },
-
   "catalog": {
     "tabs": {
       "categories": "Categories",
@@ -115,7 +106,6 @@
       "deleteFailed": "Could not delete"
     }
   },
-
   "categoryEditor": {
     "titleNew": "New category",
     "titleEdit": "Edit category",
@@ -137,7 +127,6 @@
       "failed": "Save failed"
     }
   },
-
   "productEditor": {
     "titleNew": "New product",
     "titleEdit": "Edit product",
@@ -162,13 +151,11 @@
       "failed": "Save failed"
     }
   },
-
   "translationFields": {
     "name": "Name",
     "description": "Description",
     "note": "Stored as translation rows, not as columns on this entity. Clearing a field removes the row rather than storing an empty string."
   },
-
   "languages": {
     "title": "Languages",
     "add": "Add language",
@@ -259,7 +246,6 @@
       }
     }
   },
-
   "media": {
     "page": {
       "title": "Every uploaded file",
@@ -422,7 +408,6 @@
       "deleteFailed": "Could not delete the file"
     }
   },
-
   "entity": {
     "attachments": {
       "many": "many",
@@ -450,7 +435,6 @@
       "moveLater": "Move {fileName} later"
     }
   },
-
   "settings": {
     "noGroups": "No settings groups are registered.",
     "unknownGroup": "No settings group is mounted at \"{route}\".",
@@ -514,10 +498,9 @@
     "media": {
       "title": "Media",
       "description": "Not a setting. The logo is a media attachment on an owner that has no table anywhere — which a foreign key could not express, and which the media library is perfectly happy with, because an owner is only ever two strings it never tries to resolve.",
-      "outsideSave": "Outside this form's Save, and outside the group's ETag and audit trail — the three things storing a file id in a setting would have bought. Given up for a single source of truth: detaching the logo and the store having no logo are the same statement.",
-      "sizedBySetting": "Attach one and it appears in the sidebar header immediately, at the size this group's {field} names — one value from DotNetBoost.Settings sizing one file from DotNetBoost.Media, joined by nothing but this application."
+      "outsideSave": "Outside this form's Save, and outside the group's ETag and audit trail — the three things storing a file id in a setting would have bought. Given up for a single source of truth: detaching the logo and the store having no logo are the same statement."
     },
-    "brandingText": {
+    "groupText": {
       "title": "Store name in other languages",
       "descriptionWithDefault": "The default language ({code}) is the value in the form above — it lives in the settings row. These are translation rows, and a language with nothing stored falls back to it.",
       "descriptionPlain": "These are translation rows. A language with nothing stored falls back to the default.",

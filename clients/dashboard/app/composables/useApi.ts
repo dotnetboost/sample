@@ -1,6 +1,6 @@
 import type {
-  Category, CategoryDetail, CreateResult, Language, MediaTextValues, ProductDetail, ProductPage,
-  SettingGroupDescriptor, SettingGroupSchema, Translations, WriteResult
+  Category, CategoryDetail, CreateResult, Language, MediaOwner, MediaTextValues, ProductDetail,
+  ProductPage, SettingGroupDescriptor, SettingGroupSchema, Translations, WriteResult
 } from '~/types'
 
 /**
@@ -24,7 +24,6 @@ import type {
  * spread through the calls below.
  */
 const TRANSLATIONS = '/api/translations/MediaFile'
-const BRANDING_TEXT = '/api/translations/Branding/branding'
 const ALT_TEXT = 'AltText'
 const CAPTION = 'Caption'
 
@@ -36,6 +35,14 @@ const CAPTION = 'Caption'
  * readers, and exactly one place that knows it is remembered at all.
  */
 export const useLanguage = () => useState<string>('language', () => 'en')
+
+/**
+ * MultiLingual's translation route for a subject, from the two strings the API published for it.
+ * Encoded, because an entity name is a value and not a path fragment this client chose.
+ */
+function translationsUrl(owner: MediaOwner): string {
+  return `/api/translations/${encodeURIComponent(owner.entityName)}/${encodeURIComponent(owner.entityId)}`
+}
 
 export function useApi() {
   const language = useLanguage()
@@ -167,12 +174,21 @@ export function useApi() {
       get: () => $fetch<Branding>('/api/settings/branding', { headers: headers() }),
 
       /**
-       * Every stored language for the branding group's translated text, through MultiLingual's own
-       * translation endpoint — the group is the subject ("Branding", "branding") that its
-       * [MultiLingualEntity] and Id declare. `/api/branding/text` used to hand-write this.
+       * Every stored language of a group's translated text, through MultiLingual's own translation
+       * endpoint.
+       *
+       * The subject comes from the group's own response — `owner` on the projection — rather than
+       * being written down here, which it was: `'/api/translations/Branding/branding'` was a
+       * constant in this file, two strings mirroring two C# constants with nothing checking
+       * either. `/api/branding/text` hand-wrote the whole endpoint before that.
+       *
+       * One address serves both libraries because branding declares one subject to both —
+       * `[MediaEntity("Branding")]` and `[MultiLingualEntity("Branding")]` over the same constant,
+       * which `BrandingOwnerTests` asserts resolve to the same name. That is the sample's whole
+       * claim, used here rather than restated.
        */
-      text: async () => {
-        const { translations } = await $fetch<{ translations: Translations }>(BRANDING_TEXT)
+      text: async (owner: MediaOwner) => {
+        const { translations } = await $fetch<{ translations: Translations }>(translationsUrl(owner))
         return translations ?? {}
       },
 
@@ -186,8 +202,8 @@ export function useApi() {
        * client decides. It used to wrap a flat `Record<language, string>` around a hardcoded
        * `StoreName`, so adding a second `[MultiLingual]` property silently went nowhere.
        */
-      setText: (translations: Translations) =>
-        $fetch(BRANDING_TEXT, { method: 'PUT', body: { translations } })
+      setText: (owner: MediaOwner, translations: Translations) =>
+        $fetch(translationsUrl(owner), { method: 'PUT', body: { translations } })
     }
   }
 }

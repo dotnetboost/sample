@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SettingField, SettingGroup } from '~/types'
+import type { EntityImage, MediaOwner, SettingField, SettingGroup } from '~/types'
 
 const props = defineProps<{
   group: SettingGroup
@@ -49,16 +49,67 @@ const described = computed(() =>
 const propertyNames = computed(() => (schema.value?.properties ?? []).map(p => p.name))
 
 const {
-  keys, state, pending, saving, dirty, loadError, problem, errors, conflict,
+  keys, state, values, pending, saving, dirty, loadError, problem, errors, conflict,
   load, save, reset, retryOnLatest
 } = useSettingsGroup(props.group, propertyNames)
 
+/**
+ * Whether this group has text in other languages — from its schema, not from its route.
+ *
+ * `MultiLingualSchemaContributor` publishes `translated` for a property carrying `[MultiLingual]`,
+ * so a group gains the per-language card by declaring the attribute in C# and nothing else.
+ */
+const translatedFields = computed(() =>
+  (schema.value?.properties ?? []).filter(p => p.constraints?.translated === true))
+
+/**
+ * Where this group's media and translations are filed, if it has any — from `owner` on its own
+ * response, which a projector publishes.
+ *
+ * This is what replaced `pages/settings/branding.vue`. That page existed because the two strings
+ * had to be written down somewhere, and nothing the API published told a client what they were:
+ * the group list answers with the CLR class name, and `[MediaEntity]` pins the stored owner name
+ * away from it on purpose. With the address in the response, every group draws itself here —
+ * `EntityAttachments` asks `GET /api/media/roles/{entityName}` for its boxes, and a group with no
+ * roles declared gets `200 []` and shows none.
+ */
+const owner = computed(() => {
+  const published = values.value?.owner
+
+  return published
+    && typeof published === 'object'
+    && 'entityName' in published
+    ? published as unknown as MediaOwner
+    : null
+})
+
+/** Everything attached to that owner, as the same response carries it. */
+const images = computed(() =>
+  (Array.isArray(values.value?.images) ? values.value.images : []) as unknown as EntityImage[])
+
+/**
+ * After a write, re-read anything sharing this group's key.
+ *
+ * `useBranding` fetches under the group's own route, so saving branding or attaching its logo
+ * updates the sidebar header without this component knowing the header exists. For a group
+ * nothing else watches, it refreshes nothing and costs nothing.
+ */
+function refreshGroup() {
+  refreshNuxtData(props.group.route)
+}
+
 async function submit() {
-  if (await save()) emit('saved')
+  if (await save()) {
+    refreshGroup()
+    emit('saved')
+  }
 }
 
 async function reapply() {
-  if (await retryOnLatest()) emit('saved')
+  if (await retryOnLatest()) {
+    refreshGroup()
+    emit('saved')
+  }
 }
 
 const revealed = reactive<Record<string, boolean>>({})
@@ -291,6 +342,40 @@ function description(key: string) {
       returns, so it cannot know about branding's logo — that is a media attachment, not a property
       of the group. The branding tab fills this; the catalog tab leaves it empty.
     -->
+    <!--
+      The two halves a settings group can have beyond its form, both decided by what the server
+      sent rather than by which page rendered this. `branding.vue` used to be this markup with the
+      route and the owner address written into it.
+    -->
+    <SettingsGroupText
+      v-if="translatedFields.length && owner"
+      :route="group.route"
+      :owner="owner"
+      :translated="translatedFields"
+      @saved="refreshGroup(); emit('saved')"
+    />
+
+    <UPageCard
+      v-if="owner"
+      variant="subtle"
+      class="mt-4 sm:mt-6"
+      :title="$t('settings.media.title')"
+      :description="$t('settings.media.description')"
+    >
+      <div class="space-y-3">
+        <EntityAttachments
+          :entity-name="owner.entityName"
+          :entity-id="owner.entityId"
+          :images="images"
+          @changed="refreshGroup(); emit('saved')"
+        />
+
+        <p class="text-xs text-muted">
+          {{ $t('settings.media.outsideSave') }}
+        </p>
+      </div>
+    </UPageCard>
+
     <slot name="extra" />
   </UForm>
 </template>

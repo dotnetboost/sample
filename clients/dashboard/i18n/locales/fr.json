@@ -19,8 +19,6 @@
     "empty": "—",
     "filtered": "filtré"
   },
-
-
   "nav": {
     "overview": "Vue d'ensemble",
     "catalog": "Catalogue",
@@ -32,15 +30,12 @@
     "goTo": "Aller à",
     "documentTitle": "{page} — Exemple DotNetBoost"
   },
-
   "brand": {
     "subtitle": "Exemple"
   },
-
   "readingLanguage": {
     "label": "Langue de lecture"
   },
-
   "appearance": {
     "trigger": "Apparence",
     "theme": "Thème",
@@ -52,17 +47,14 @@
     "nuxtUiDocs": "Documentation Nuxt UI",
     "githubRepository": "Dépôt GitHub"
   },
-
   "errorPage": {
     "title": "Page introuvable",
     "description": "Nous sommes désolés, cette page n'a pas pu être trouvée."
   },
-
   "api": {
     "unreachable": "L'API est injoignable.",
     "refused": "L'API a refusé"
   },
-
   "overview": {
     "intro": {
       "title": "Trois bibliothèques, aucune référence entre elles",
@@ -85,7 +77,6 @@
       "description": "Chaque nom de produit, chaque description et chaque texte alternatif est relu dans cette langue — l'arabe fait basculer toute l'interface en RTL. L'API la résout depuis Accept-Language. Les libellés du tableau de bord suivent le même sélecteur."
     }
   },
-
   "catalog": {
     "tabs": {
       "categories": "Catégories",
@@ -115,7 +106,6 @@
       "deleteFailed": "Suppression impossible"
     }
   },
-
   "categoryEditor": {
     "titleNew": "Nouvelle catégorie",
     "titleEdit": "Modifier la catégorie",
@@ -137,7 +127,6 @@
       "failed": "Échec de l'enregistrement"
     }
   },
-
   "productEditor": {
     "titleNew": "Nouveau produit",
     "titleEdit": "Modifier le produit",
@@ -162,13 +151,11 @@
       "failed": "Échec de l'enregistrement"
     }
   },
-
   "translationFields": {
     "name": "Nom",
     "description": "Description",
     "note": "Stocké comme lignes de traduction, non comme colonnes de cette entité. Vider un champ supprime la ligne au lieu d'enregistrer une chaîne vide."
   },
-
   "languages": {
     "title": "Langues",
     "add": "Ajouter une langue",
@@ -259,7 +246,6 @@
       }
     }
   },
-
   "media": {
     "page": {
       "title": "Tous les fichiers téléversés",
@@ -422,7 +408,6 @@
       "deleteFailed": "Impossible de supprimer le fichier"
     }
   },
-
   "entity": {
     "attachments": {
       "many": "plusieurs",
@@ -450,7 +435,6 @@
       "moveLater": "Déplacer {fileName} vers l'arrière"
     }
   },
-
   "settings": {
     "noGroups": "Aucun groupe de réglages n'est enregistré.",
     "unknownGroup": "Aucun groupe de réglages n'est monté sur « {route} ».",
@@ -514,10 +498,9 @@
     "media": {
       "title": "Médias",
       "description": "Ce n'est pas un paramètre. Le logo est une pièce jointe média sur un propriétaire qui n'a de table nulle part — ce qu'une clé étrangère ne saurait exprimer, et dont la bibliothèque de médias se satisfait parfaitement, puisqu'un propriétaire n'est jamais que deux chaînes qu'elle ne cherche jamais à résoudre.",
-      "outsideSave": "Hors du bouton Enregistrer de ce formulaire, et hors de l'ETag et de la piste d'audit du groupe — les trois choses que stocker un identifiant de fichier dans un paramètre aurait rapportées. Abandonnées au profit d'une source unique de vérité : détacher le logo et la boutique n'ayant pas de logo sont le même énoncé.",
-      "sizedBySetting": "Attachez-en un et il apparaît immédiatement dans l'en-tête de la barre latérale, à la taille que nomme le champ {field} de ce groupe — une valeur de DotNetBoost.Settings qui dimensionne un fichier de DotNetBoost.Media, sans rien d'autre pour les joindre que cette application."
+      "outsideSave": "Hors du bouton Enregistrer de ce formulaire, et hors de l'ETag et de la piste d'audit du groupe — les trois choses que stocker un identifiant de fichier dans un paramètre aurait rapportées. Abandonnées au profit d'une source unique de vérité : détacher le logo et la boutique n'ayant pas de logo sont le même énoncé."
     },
-    "brandingText": {
+    "groupText": {
       "title": "Nom de la boutique dans les autres langues",
       "descriptionWithDefault": "La langue par défaut ({code}) est la valeur du formulaire ci-dessus — elle vit dans la ligne de paramètres. Celles-ci sont des lignes de traduction, et une langue sans valeur stockée y retombe.",
       "descriptionPlain": "Celles-ci sont des lignes de traduction. Une langue sans valeur stockée retombe sur la langue par défaut.",

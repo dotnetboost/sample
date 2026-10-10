@@ -287,6 +287,20 @@ export interface ProblemDetails {
 export type SettingValue = string | number | boolean
 
 /** One settings group as returned by `GET api/settings/{route}`. */
+/**
+ * An owner as DotNetBoost.Media addresses one: two strings, and no row behind them.
+ *
+ * Published by a settings group's projector — `owner` on `GET /api/settings/{route}` — because
+ * nothing else states it. The group list answers with the CLR class name, and `[MediaEntity]`
+ * pins the stored name away from that on purpose, so a client cannot derive it. The roles endpoint
+ * answers `200 []` for a name nobody declared rather than refusing it, which is why guessing fails
+ * silently and the address has to travel.
+ */
+export interface MediaOwner {
+  entityName: string
+  entityId: string
+}
+
 export type SettingValues = Record<string, SettingValue>
 
 /**
