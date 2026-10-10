@@ -95,7 +95,7 @@ const imageCount = computed(() =>
         <div class="space-y-4 text-sm">
           <div>
             <p class="font-medium">
-              Data/AppDbContext.cs
+              Infrastructure/Persistence/AppDbContext.cs
             </p>
             <i18n-t
               scope="global"
@@ -113,7 +113,7 @@ const imageCount = computed(() =>
 
           <div>
             <p class="font-medium">
-              Integration/MediaText.cs
+              Application/Composition/MediaText.cs
             </p>
             <i18n-t
               scope="global"
@@ -137,7 +137,7 @@ const imageCount = computed(() =>
 
           <div>
             <p class="font-medium">
-              Settings/BrandingSettings.cs
+              Application/Settings/BrandingSettings.cs
             </p>
             <p class="text-muted">
               {{ $t('overview.composition.branding') }}

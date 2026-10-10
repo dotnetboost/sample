@@ -68,9 +68,9 @@
     },
     "composition": {
       "title": "Là où la composition se fait",
-      "dbContext": "Une base PostgreSQL, un DbContext qui implémente trois interfaces indépendantes, et trois appels {apply} indépendants. Retirez une bibliothèque et vous supprimez son interface, ses DbSets et sa seule ligne.",
+      "dbContext": "Une base PostgreSQL, un DbContext, et trois appels {apply} indépendants. Retirez une bibliothèque et vous supprimez sa seule ligne ; rien d'autre ne change dans le fichier.",
       "mediaText": "Un texte alternatif par langue pour un fichier téléversé. Les deux bibliothèques désignent un sujet par {pair}, de sorte que le GUID d'un fichier média devient le sujet de lignes de traduction. {withAltText} des {imageCount} images attachées ont un texte alternatif. Aucune table nouvelle, aucun paquet d'intégration.",
-      "branding": "Un paramètre dont la valeur est l'identifiant d'un fichier média. La bibliothèque de paramètres stocke un GUID comme n'importe quelle autre valeur ; l'application le transmet à la bibliothèque de médias à la lecture."
+      "branding": "Le nom du groupe dans toutes les langues, et son logo. Ni l'un ni l'autre n'est une valeur de réglage : les autres langues du nom sont des lignes de traduction, et le logo est une pièce jointe média sur un propriétaire sans table. Un projecteur réunit les trois sur le point de terminaison du groupe."
     },
     "languageAlert": {
       "title": "Changez la langue dans l'en-tête de n'importe quelle page",
