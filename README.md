@@ -488,7 +488,13 @@ say what the code *is*. The third boots the application and says what it *does*.
   asks about. Together, this is what makes `MediaText.cs` safe.
 - **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
   code uses is the one the attribute stores under, and the group's `Id` stays out of both the
-  settings table and the JSON.
+  settings table and the JSON. It also reaches across into the dashboard: `settings/branding.vue`
+  writes the owner address down as two literals, because nothing the API publishes tells a client
+  that `("Branding", "branding")` is where the logo lives — `GET /api/settings` answers with the
+  CLR class name, and `[MediaEntity]` pins the stored name away from it on purpose. The roles
+  endpoint answers `200 []` for an owner nobody declared rather than refusing it, so a dashboard
+  asking about the wrong name renders no logo and nothing fails. Renaming `MediaOwnerName` in C#
+  now breaks a test instead of a page.
 
 ### What the code does
 
@@ -533,7 +539,7 @@ database they share.
 Both regression tests were checked the only way that means anything: the fix was reverted, the test
 failed, the fix was put back.
 
-**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 22 fast
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 23 fast
 tests and reports the other 34 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 

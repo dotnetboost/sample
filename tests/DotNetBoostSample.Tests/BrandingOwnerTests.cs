@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using DotNetBoost.Media.Core.Attributes;
 using DotNetBoost.Media.Core.Metadata;
 using DotNetBoostSample.Application.Settings;
@@ -44,6 +45,91 @@ public class BrandingOwnerTests
             $"BrandingSettings has {string.Join(", ", suspicious)}. The logo is a media attachment "
             + "on (\"Branding\", \"branding\"); a file reference here would be a second record of "
             + "the same fact, and the two cannot be kept in step.");
+    }
+
+    /// <summary>
+    /// The dashboard addresses branding's media with two string literals of its own, and this is
+    /// what stops them drifting from the constants they mirror.
+    ///
+    /// <para><b>Why they exist at all.</b> The logo is an attachment on the owner
+    /// <c>("Branding", "branding")</c>, and nothing the API publishes tells a client that address.
+    /// <c>GET /api/settings</c> answers <c>{ route, name, requiresAuthorization }</c>, where
+    /// <c>name</c> is the CLR class name — <c>BrandingSettings</c>, which
+    /// <c>GET /api/media/roles/BrandingSettings</c> knows nothing about, because
+    /// <c>[MediaEntity]</c> pins the stored name to <c>Branding</c> on purpose. So the dashboard
+    /// writes the two strings down, and <c>settings/branding.vue</c> says it is mirroring these
+    /// constants.</para>
+    ///
+    /// <para><b>Why a comment is not enough.</b> This is the same failure mode the test above
+    /// guards, one layer further out: the roles endpoint answers <c>200 []</c> for an owner name
+    /// nobody declared rather than refusing it, so a dashboard asking about the wrong name sees a
+    /// group with no media and renders nothing. No request fails, no log records it, and the logo
+    /// has simply gone from the page. Renaming <c>MediaOwnerName</c> in C# should break the build,
+    /// not the UI.</para>
+    ///
+    /// <para>Reading a <c>.vue</c> file from a C# test is unusual, and it is the cheap option
+    /// here. The alternative is a group-level hook in DotNetBoost.Settings that publishes the
+    /// owner address so the client can stop guessing — worth asking for, and not something this
+    /// repository can assert its way to.</para>
+    /// </summary>
+    [Fact]
+    public void The_dashboard_addresses_branding_by_the_name_and_id_the_API_declares()
+    {
+        var page = RepositoryRoot()
+            .GetDirectories("clients").Single()
+            .GetFiles("branding.vue", SearchOption.AllDirectories)
+            .SingleOrDefault(f => f.Directory!.Name == "settings");
+
+        // A failure, never a skip: a test that reports success without having run is worse than
+        // no test. If the page moves, this says so rather than quietly passing forever.
+        Assert.True(
+            page is not null,
+            "clients/dashboard/app/pages/settings/branding.vue was not found. If it moved, point "
+            + "this test at it; if it was deleted because the dashboard no longer needs the "
+            + "owner address written down, delete this test with it.");
+
+        var source = File.ReadAllText(page!.FullName);
+
+        Assert.Equal(BrandingSettings.MediaOwnerName, Literal(source, "ownerEntityName"));
+        Assert.Equal(BrandingSettings.MediaOwnerId,   Literal(source, "ownerEntityId"));
+    }
+
+    /// <summary>
+    /// The value of <c>const &lt;name&gt; = '…'</c> in a script, or a failure naming what it
+    /// looked for.
+    /// </summary>
+    private static string Literal(string source, string name)
+    {
+        var match = Regex.Match(source, $@"const\s+{Regex.Escape(name)}\s*=\s*['""]([^'""]*)['""]");
+
+        Assert.True(
+            match.Success,
+            $"No `const {name} = '…'` in settings/branding.vue. The dashboard still has to know "
+            + "branding's media owner address, so if this was renamed or replaced, this test needs "
+            + "to follow it.");
+
+        return match.Groups[1].Value;
+    }
+
+    /// <summary>
+    /// The repository root, found by walking up from the test assembly to the solution file.
+    /// <para>
+    /// Rather than a relative path from the output directory, which changes with configuration and
+    /// target framework.
+    /// </para>
+    /// </summary>
+    private static DirectoryInfo RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (directory.GetFiles("DotNetBoostSample.slnx").Length > 0) return directory;
+        }
+
+        throw new InvalidOperationException(
+            $"No DotNetBoostSample.slnx above {AppContext.BaseDirectory}, so the repository root "
+            + "could not be found.");
     }
 
     [Fact]
