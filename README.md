@@ -196,6 +196,39 @@ Switch the language in the dashboard header. Every product name, description and
 is re-read in that language, every label and button on the page is re-rendered in it, and Arabic
 flips the shell to RTL.
 
+### Each piece on its own
+
+`aspire run` is the way to run the sample, and it is the only path where nothing is yours to wire
+up. Starting the two halves separately is worth knowing anyway — working on the dashboard is
+quicker against an API already running, and this is where the requirements above stop being the
+AppHost's problem.
+
+**The API** needs a PostgreSQL and the `catalog` connection string the AppHost otherwise injects.
+It refuses to start without one and says where to get it:
+
+```bash
+ConnectionStrings__catalog="Host=localhost;Port=5432;Database=catalog;Username=postgres;Password=postgres" \
+  dotnet run --project src/DotNetBoostSample.Api
+```
+
+`http://localhost:5180`, with its Scalar reference at `/scalar`. The schema is created and seeded
+on first run either way.
+
+**The dashboard** needs **Node 20+**, its dependencies installed — `aspire run` does that for you
+and nothing else does — and the address of that API:
+
+```bash
+cd clients/dashboard
+npm install
+NUXT_API_URL=http://localhost:5180 npm run dev
+```
+
+`http://localhost:3000`. `NUXT_API_URL` is read by the Nitro proxy in `server/api/[...path].ts`
+and never by the browser: every call the dashboard makes goes to its own origin and is forwarded
+from there, so the API's address is a server-side value and changing environment is changing that
+one variable. `clients/dashboard/.env.example` has the other two worth overriding. Its own checks
+are `npm run lint`, `npm run typecheck` and `npm test`, and they are not part of `dotnet test`.
+
 ---
 
 ## Where the composition happens
@@ -215,6 +248,20 @@ find out, since none of them references another:
 Five rather than a rounder number because every file that joins two libraries is on the list. A
 sixth would mean the claim had quietly stopped being true, so it is worth counting honestly.
 
+**And grep cannot check it, in either direction.** Eight files under `src/` carry `using`
+directives for two or more `DotNetBoost.*` namespaces, and only three of them are above.
+`Program.cs` and `Infrastructure/DependencyInjection.cs` name all three while registering them in
+independent calls, which is the thing this sample is arguing for rather than a join;
+`GetCategory.cs`, `GetProduct.cs` and `ListProducts.cs` consume two side by side — a product's
+translations from one library and its images from another, a page size from Settings and the files
+from Media — without ever saying that one library's subject is the other's. Meanwhile two files
+that *are* above name one library each: `MediaText` references only MultiLingual, because what
+joins it to Media is the subject name `"MediaFile"` and not a type, and `MediaTextCleanup`
+references only Media, because it is that library's own deleted-files handler. A join is the
+identity assertion — this file's alt text **is** that translation subject, this settings property
+**is** that media owner — and the assertion is usually a string both sides agree on, which is why
+`BrandingOwnerTests` and `KeyFormatAgreementTests` exist.
+
 **And note where four of the five sit.** `MediaText`, `MediaTextCleanup`,
 `MultiLingualSchemaContributor` and `BrandingProjector` name `DotNetBoost.*.Core` and nothing else
 — no EF Core, no ASP.NET, no provider — so they live in the application layer, in a folder called
@@ -224,8 +271,8 @@ is, and that is one file.
 
 ### 1. One database, three libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
 
-The only place all three libraries are named together, and all it amounts to is three independent
-`Apply*` calls:
+The only place all three libraries' **tables** are named together, and all it amounts to is three
+independent `Apply*` calls:
 
 ```csharp
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
@@ -573,8 +620,10 @@ OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 cd clients/dashboard && npm test
 ```
 
-Vitest, in Nuxt's test environment, over the composables the pages are assembled from. There is one
-suite, and it exists because of a bug `dotnet test` could not have caught: attaching a logo on the
+Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Two suites,
+and each exists because of a bug `dotnet test` could not have caught.
+
+The first: attaching a logo on the
 branding tab left the role box showing the file that had just been replaced. The images it draws
 come from `useSettingsGroup`'s `values`, a plain ref, and the refresh being called could only
 re-run `useAsyncData` entries — so the header updated and the box did not.
@@ -587,6 +636,17 @@ allowed to discard edits — so the distinction is written down rather than reme
 Both were checked by reverting the fix two ways: with `refreshValues` doing nothing, the media test
 and the edits test fail; with it re-reading but not keeping `changedKeys()`, only the edits test
 does.
+
+`test/nuxt/useLanguageList.spec.ts` is the second, and its bug was the language list being read
+under four `useAsyncData` keys and a fetch of its own. Nuxt de-duplicates by key alone and does not
+re-run an entry that has already resolved, so each copy was fetched separately and then frozen:
+adding a language on the Languages page left the header selector, the catalogue's editors and the
+overview's count describing the languages as they had been when each of those screens first
+loaded — and the shell could not flip to RTL for a language it did not have. The suite mounts
+three independent readers against a real Nitro endpoint and asserts one request between them, then
+that a language created afterwards reaches the two that never asked again. The first assertion
+failed when it was written — three readers, three requests — which is how `dedupe: 'defer'` got
+there.
 
 The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
 `npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which
