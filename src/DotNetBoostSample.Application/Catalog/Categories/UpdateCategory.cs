@@ -44,9 +44,7 @@ public static class UpdateCategory
 
             category.Slug = request.Slug;
 
-            TranslationWrites.Apply(multiLingual.For(category), request.Translations);
-
-            await db.SaveChangesAsync(ct);
+            await TranslationWrites.SaveAsync(db, multiLingual, category, request.Translations, ct);
 
             return category.Slug;
         }

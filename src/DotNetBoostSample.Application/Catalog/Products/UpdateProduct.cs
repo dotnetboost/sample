@@ -55,9 +55,7 @@ public static class UpdateProduct
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
 
-            TranslationWrites.Apply(multiLingual.For(product), request.Translations);
-
-            await db.SaveChangesAsync(ct);
+            await TranslationWrites.SaveAsync(db, multiLingual, product, request.Translations, ct);
 
             return product.Sku;
         }

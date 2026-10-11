@@ -52,11 +52,11 @@ public static class CreateCategory
 
             db.Categories.Add(category);
 
-            TranslationWrites.Apply(multiLingual.For(category), request.Translations);
-
             // One SaveChanges for the row and every language's text: MultiLingual's interceptor
-            // writes the queued translations in the same transaction as the insert.
-            await db.SaveChangesAsync(ct);
+            // writes the queued translations in the same transaction as the insert. The save is
+            // inside TranslationWrites because with a base language configured the language it
+            // runs in decides where each value lands — see that file.
+            await TranslationWrites.SaveAsync(db, multiLingual, category, request.Translations, ct);
 
             return new CategoryCreated(category.Id, category.Slug);
         }

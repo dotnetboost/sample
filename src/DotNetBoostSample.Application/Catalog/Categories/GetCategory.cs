@@ -10,7 +10,6 @@ using DotNetBoostSample.Application.Localization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace DotNetBoostSample.Application.Catalog.Categories;
@@ -19,7 +18,9 @@ namespace DotNetBoostSample.Application.Catalog.Categories;
 /// One category with every language's text and its banner — the shape the dashboard's editor reads.
 ///
 /// <para>This is the exception to "the interceptors already translated it": an editor needs every
-/// language at once, which is what <c>For(entity).GetAllAsync()</c> returns.</para>
+/// language at once, which is what <c>TranslationReads.LoadAsync</c> answers with — the
+/// stored translations, plus the base language's own columns where a base language is
+/// configured.</para>
 /// </summary>
 public static class GetCategory
 {
@@ -44,14 +45,15 @@ public static class GetCategory
         /// <inheritdoc/>
         public async Task<Result<CategoryDetail>> HandleAsync(Query request, CancellationToken ct)
         {
-            var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == request.Id, ct);
+            var (category, text) = await TranslationReads.LoadAsync(
+                multiLingual, db.Categories.Where(c => c.Id == request.Id), ct);
 
             if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
 
             return new CategoryDetail(
                 category.Id,
                 category.Slug,
-                await multiLingual.For(category).GetAllAsync(ct),
+                text,
                 await AttachedFiles.DescribeAsync(media.For(category), mediaText, ct));
         }
     }

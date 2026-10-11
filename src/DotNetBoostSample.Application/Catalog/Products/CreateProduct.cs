@@ -82,9 +82,7 @@ public static class CreateProduct
 
             db.Products.Add(product);
 
-            TranslationWrites.Apply(multiLingual.For(product), request.Translations);
-
-            await db.SaveChangesAsync(ct);
+            await TranslationWrites.SaveAsync(db, multiLingual, product, request.Translations, ct);
 
             return new ProductCreated(product.Id, product.Sku);
         }

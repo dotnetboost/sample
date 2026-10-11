@@ -6,6 +6,7 @@ using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DotNetBoostSample.Infrastructure;
@@ -35,6 +36,25 @@ public static class DependencyInjection
     /// <param name="services">The container.</param>
     /// <param name="connectionString">PostgreSQL, from the AppHost.</param>
     /// <param name="mediaRoot">An absolute path for file bytes.</param>
+    /// <param name="baseLanguage">
+    /// <c>MultiLingualOptions.BaseLanguage</c>, or null for the mode this sample runs in by
+    /// default.
+    /// <para>
+    /// Set it — <c>MultiLingual:BaseLanguage</c> in configuration, read by the host — and
+    /// translatable properties KEEP their column, that column holds this language, and every
+    /// other language stays a translation row. It is a property of the SCHEMA: it decides what
+    /// <c>ApplyMultiLingual(this)</c> maps, so it cannot be changed on a database that already
+    /// has content without moving that content between columns and rows.
+    /// </para>
+    /// <para>
+    /// A string rather than a <c>bool</c> because the library's own option is a language code,
+    /// and it arrives from configuration for the same reason the connection string does: reading
+    /// configuration is the host's job. What it changes in this application is four writes and
+    /// two reads — see <c>Catalog/Shared/TranslationWrites.cs</c> and
+    /// <c>Catalog/Shared/TranslationReads.cs</c>, which are the only files that ask whether it is
+    /// set.
+    /// </para>
+    /// </param>
     /// <param name="exposeTranslations">
     /// Which subjects' translations DotNetBoost.MultiLingual routes over HTTP.
     /// <para>
@@ -49,6 +69,7 @@ public static class DependencyInjection
         this IServiceCollection services,
         string connectionString,
         string mediaRoot,
+        string? baseLanguage = null,
         Action<MultiLingualBuilder>? exposeTranslations = null)
     {
         // ── The database ─────────────────────────────────────────────────────
@@ -58,9 +79,15 @@ public static class DependencyInjection
         // request's language. It needs the (sp, options) overload of AddDbContext, so the
         // connection string is read from configuration by the host rather than through
         // AddNpgsqlDbContext.
+        //
+        // `ReplaceService` is the one addition the base language asked for here: the model this
+        // context builds depends on that option, and EF's own cache key does not. See
+        // MultiLingualModelCacheKeyFactory — it costs nothing in either mode and makes the two
+        // able to coexist in one process.
         services.AddDbContext<AppDbContext>((sp, options) =>
             options.UseNpgsql(connectionString)
-                   .UseMultiLingual(sp));
+                   .UseMultiLingual(sp)
+                   .ReplaceService<IModelCacheKeyFactory, MultiLingualModelCacheKeyFactory>());
 
         // The application layer's view of the same context — the two DbSets and SaveChangesAsync.
         // Resolved from the registration above, not registered a second time, so a handler and the
@@ -148,8 +175,25 @@ public static class DependencyInjection
         // ── DotNetBoost.MultiLingual ─────────────────────────────────────────
         // Translations and Languages tables in the same database. Languages are seeded by
         // DatabaseInitialiser.
+        //
+        // Two modes, one registration. Without a base language — the default here — a
+        // translatable property has no column at all and every language, the default included, is
+        // a translation row. With one, that property keeps its column, the column holds the base
+        // language, and the rest stay rows. `ApplyMultiLingual(this)` in AppDbContext reads the
+        // option off these services, so the mapping and the engine cannot disagree about which of
+        // the two it is.
         var multiLingual = services
-            .AddMultiLingual()
+            // The one option this sample makes switchable. Assigned only when the host supplied
+            // one, because the property validates what it is given and null is already the
+            // default — `o.BaseLanguage = null` would be asking it to canonicalise nothing.
+            //
+            // Everything downstream reads the answer back off the library rather than off this
+            // string: ILanguageAccessor.BaseLanguage and .IsBaseLanguage(code) are how the
+            // application layer asks, so nothing has to be told twice.
+            .AddMultiLingual(options =>
+            {
+                if (!string.IsNullOrWhiteSpace(baseLanguage)) options.BaseLanguage = baseLanguage;
+            })
             .UseEntityFrameworkCore<AppDbContext>()
             // The API's OWN messages, from Resources/{en,ar,fr}.json in the host's content root,
             // through IStringLocalizer<ApiMessages>.

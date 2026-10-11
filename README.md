@@ -521,6 +521,95 @@ second editing surface was accepted.
 
 ---
 
+## Two places a language can live
+
+Everything above is written for the mode this sample runs in: a `[MultiLingual]` property has **no
+column at all**. `ApplyMultiLingual(this)` strips `Name` and `Description` off `Categories` and
+`Products`, and every language — the default one included — is a row in the translations table.
+That is why the README can say `Products` has no `Name` column and mean it literally.
+
+DotNetBoost.MultiLingual has a second mode. Give it a base language:
+
+```csharp
+services.AddMultiLingual(o => o.BaseLanguage = "en")
+        .UseEntityFrameworkCore<AppDbContext>()
+        .Build();
+```
+
+and a translatable property **keeps** its column, that column holds English, and every other
+language stays a translation row. A missing translation falls back to the column, so content is
+never null once it exists; an entity may only be *created* in that language, since the base value
+is what every translation hangs off; and the language itself can no longer be deleted or
+deactivated.
+
+In this repository it is one setting rather than an edit, so the sample can be run both ways and
+tested both ways:
+
+```bash
+MultiLingual__BaseLanguage=en dotnet run --project src/DotNetBoostSample.Api
+```
+
+**Against a fresh database.** This is a decision about the *schema* — it is what decides whether
+`Products` has a `Name` column — so flipping it under existing content would leave that content
+half in rows and half in a column nobody filled. It is also deliberately **not** the default
+language: the default is a row in the languages table and can be changed from the dashboard at any
+time, while the base language is fixed for the life of the database. Keeping them separate is what
+lets the default move without touching a stored value.
+
+### What the application had to do about it
+
+Two files, and both of them were already there:
+
+| File | In the default mode | With a base language |
+|---|---|---|
+| `Catalog/Shared/TranslationWrites.cs` | queues every language with `Set` and saves | assigns the base language's values to the entity's own properties, queues the rest, and runs the save **in** the base language |
+| `Catalog/Shared/TranslationReads.cs` | the query, then `GetAllAsync()` | reads the entity in the base language and puts its columns into the map under that language's code |
+
+Each half is answering one refusal the library makes on purpose. `Set("en", …)` throws
+`BaseLanguageNotTranslatableException`, because that language is not a translation; a create under
+`Accept-Language: ar` throws `BaseLanguageRequiredException`, because the base value has to exist
+first. Moving the save into the base language settles both at once — and the request's own language
+is put back afterwards, because the sentence the endpoint answers with is written in
+`CurrentLanguage` and an Arabic request must not come back in English.
+
+The read side is the one that would have been worst to get wrong. `GetAllAsync()` answers with
+stored *translations*, and the base language is not one of them — so the dashboard's editor would
+have opened with the English boxes empty and saved that emptiness over the canonical text on the
+first write. A silent erasure, from a screen that looked right.
+
+There is a third file, and it is the only one that exists *because* of this mode:
+`Persistence/MultiLingualModelCacheKeyFactory.cs`. EF Core caches one model per DbContext type,
+and this context's model now depends on an option read at runtime — so two instances of the
+application in one process with different base languages would share whichever model was built
+first. The library notices and refuses rather than corrupting anything, which is the right failure
+and still a failure. A dozen lines put the option in the cache key. Nothing else in the solution
+asks which mode is on.
+
+### What does not change
+
+The point of the table above is everything missing from it. **No endpoint's response changes**:
+same routes, same status codes, same bodies, the same keys in the same `translations` map. **The
+dashboard is not touched** — it already reads `baseLanguage` from its runtime config, so
+`NUXT_PUBLIC_BASE_LANGUAGE=en` is all it takes for the Languages page to draw the "base" badge, and
+nothing else about it is mode-aware. Branding is not affected at all: its `[MultiLingual]` store
+name is a settings row with translation rows beside it, not an entity with columns, and a *subject*
+— branding, a media file's alt text — has no columns for the base language to live in, so every
+language it carries is a row in both modes.
+
+One difference is visible, and it is pinned by a test rather than left to be discovered: content
+created with **no** text in the base language reads as `""` in a language nobody translated, where
+the default mode answers `null`. That is what a non-nullable `string` column means — "nothing was
+ever written" has an empty value rather than no row. Refusing the write instead would have been a
+new `400` on a request the API accepts today, which is the one thing this mode is not allowed to
+do.
+
+`tests/.../Integration/BaseLanguageTests.cs` boots the whole sample a second time with the mode on,
+beside the suite that boots it with the mode off. Ten tests, and the first one reads the `Name`
+column with raw SQL — without it the other nine would pass just as well with the mode off and prove
+nothing.
+
+---
+
 ## What this costs
 
 Being honest about the trade-off, because it is the point of the sample:
@@ -805,6 +894,9 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
                                          query + response + bounds + handler + route
   Catalog/Products/                      List, Get, Create, Update, UploadImage, Delete
   Catalog/Shared/AttachedFiles.cs        one owner's files, with roles and alt text
+  Catalog/Shared/TranslationWrites.cs    per-language text beside a write — and the only
+                                         other file that knows what a base language is
+  Catalog/Shared/TranslationReads.cs     one entity with every language's text, for an editor
   Composition/MediaText.cs               Media × MultiLingual  ← the composition
   Composition/MediaTextCleanup.cs        removes a file's text when the file goes
   Composition/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
@@ -821,6 +913,8 @@ src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
   Persistence/PostgresErrorTranslator.cs the only file that reads PostgresException —
                                          SqlState and constraint name into an Error
   Persistence/DatabaseInitialiser.cs     schema + languages + catalogue on first run
+  Persistence/MultiLingualModelCacheKeyFactory.cs  the model depends on BaseLanguage, so
+                                         EF's cache key has to as well
   DependencyInjection.cs                 AddInfrastructure() — three independent
                                          registrations, in three blocks, in any order
 
@@ -871,6 +965,8 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
 tests/DotNetBoostSample.Tests/           the claim, as tests
   Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL
   Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
+  Integration/BaseLanguageTests.cs       the same application with BaseLanguage = "en",
+                                         asserting that nothing a caller sees moved
 media/                                   file bytes at runtime (gitignored)
 docs/screenshots/                        the images above, and how to retake them
 ```
@@ -1021,6 +1117,12 @@ to be. Which is already how a refusal is shown — the same split, from `problem
 ---
 
 ## Configuration
+
+`MultiLingual:BaseLanguage` is empty, which is the mode everything above describes: every language
+is a translation row. Set it — in `appsettings.json`, or as `MultiLingual__BaseLanguage=en` — and
+that language lives in each entity's own columns instead. It is a schema decision, so it wants a
+fresh database; [Two places a language can live](#two-places-a-language-can-live) is the long
+version, including why no response and no line of the dashboard changes with it.
 
 `MEDIA` bytes go to `./media` on local disk, which needs no container and no credentials. To switch
 to Azure Blob Storage or S3, change one line in `Infrastructure/DependencyInjection.cs`:

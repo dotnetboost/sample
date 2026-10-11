@@ -158,7 +158,11 @@ src/DotNetBoostSample.Application/
     Shared/CatalogRoles.cs                 MaxPageSize, "primary", "gallery", "banner"
     Shared/CatalogResponses.cs             what a create, an update and an upload answer with
     Shared/PagedResult.cs                  Items / Total / Skip / Take, named at last
-    Shared/TranslationWrites.cs            queueing per-language text beside a write
+    Shared/TranslationWrites.cs            per-language text beside a write — and, with a
+                                           base language configured, which of them is the
+                                           entity's own columns
+    Shared/TranslationReads.cs             the mirror of it: one entity with every
+                                           language's text, for an editor
   Composition/                             ← the join, in one folder, named for what it is
     MediaText.cs                           Media × MultiLingual        moved, unchanged
     MediaTextCleanup.cs                    Media → MultiLingual        moved, unchanged
@@ -174,6 +178,9 @@ src/DotNetBoostSample.Infrastructure/
   Persistence/Configurations/CategoryConfiguration.cs   IEntityTypeConfiguration<Category>
   Persistence/Configurations/ProductConfiguration.cs
   Persistence/DatabaseInitialiser.cs       Seed.cs
+  Persistence/MultiLingualModelCacheKeyFactory.cs  new — the model depends on
+                                           MultiLingualOptions.BaseLanguage, so EF Core's
+                                           model cache key has to as well
   DependencyInjection.cs                   AddInfrastructure(config) — DbContext + the three
                                            libraries' EF/FileSystem wiring, i.e. most of today's
                                            Program.cs

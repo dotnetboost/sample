@@ -47,25 +47,47 @@ public static class DatabaseInitialiser
 
         if (await db.Categories.AnyAsync()) return;
 
+        // The language this seed's own values are authored in — and the one every translatable
+        // property assigned below is therefore filed under. It has to be resolved before the
+        // first save: a translatable property is content like any other to the interceptor, and
+        // this is what says which language that content is in.
+        //
+        // In base-language mode it is also, deliberately, the base language the README documents:
+        // the text below is English, and an entity may only be CREATED in the language its own
+        // columns hold. Those assignments then go to the columns rather than to "en" rows, which
+        // is the whole of what that mode changes here.
         await multiLingual.UseLanguageAsync("en");
 
         // ── Categories and products, in three languages ──────────────────────
+        //
+        // The other two languages go through this, rather than a Set() chain per entity, for one
+        // reason: in base-language mode a Set() naming the base language is refused — those values
+        // are the entity's own columns, written by the object initialisers below — so the base
+        // language has to be skipped rather than written twice. Inert in the default mode, where nothing is the base
+        // language and all three are rows; what keeps a first run from failing for someone who
+        // configures a base language this English seed was not written for.
+        void Translate<T>(T entity, string language, string name, string description)
+            where T : class
+        {
+            if (multiLingual.Languages.IsBaseLanguage(language)) return;
+
+            multiLingual.For(entity).Set(language, new Dictionary<string, string?>
+            {
+                ["Name"] = name,
+                ["Description"] = description
+            });
+        }
+
         var furniture = new Category { Slug = "furniture", Name = "Furniture", Description = "Tables, chairs and desks." };
         var lighting  = new Category { Slug = "lighting",  Name = "Lighting",  Description = "Lamps and fixtures." };
 
         db.Categories.AddRange(furniture, lighting);
 
-        multiLingual.For(furniture)
-            .Set("ar", c => c.Name, "أثاث")
-            .Set("ar", c => c.Description, "طاولات وكراسي ومكاتب.")
-            .Set("fr", c => c.Name, "Mobilier")
-            .Set("fr", c => c.Description, "Tables, chaises et bureaux.");
+        Translate(furniture, "ar", "أثاث", "طاولات وكراسي ومكاتب.");
+        Translate(furniture, "fr", "Mobilier", "Tables, chaises et bureaux.");
 
-        multiLingual.For(lighting)
-            .Set("ar", c => c.Name, "إضاءة")
-            .Set("ar", c => c.Description, "مصابيح وتركيبات.")
-            .Set("fr", c => c.Name, "Éclairage")
-            .Set("fr", c => c.Description, "Lampes et luminaires.");
+        Translate(lighting, "ar", "إضاءة", "مصابيح وتركيبات.");
+        Translate(lighting, "fr", "Éclairage", "Lampes et luminaires.");
 
         await db.SaveChangesAsync();
 
@@ -89,23 +111,14 @@ public static class DatabaseInitialiser
 
         db.Products.AddRange(desk, chair, lamp);
 
-        multiLingual.For(desk)
-            .Set("ar", p => p.Name, "مكتب كتابة من البلوط")
-            .Set("ar", p => p.Description, "بلوط صلب، بدرجين.")
-            .Set("fr", p => p.Name, "Bureau en chêne")
-            .Set("fr", p => p.Description, "Chêne massif, deux tiroirs.");
+        Translate(desk, "ar", "مكتب كتابة من البلوط", "بلوط صلب، بدرجين.");
+        Translate(desk, "fr", "Bureau en chêne", "Chêne massif, deux tiroirs.");
 
-        multiLingual.For(chair)
-            .Set("ar", p => p.Name, "كرسي من الجوز")
-            .Set("ar", p => p.Description, "جوز منحني، مقعد منسوج.")
-            .Set("fr", p => p.Name, "Chaise en noyer")
-            .Set("fr", p => p.Description, "Noyer cintré, assise tressée.");
+        Translate(chair, "ar", "كرسي من الجوز", "جوز منحني، مقعد منسوج.");
+        Translate(chair, "fr", "Chaise en noyer", "Noyer cintré, assise tressée.");
 
-        multiLingual.For(lamp)
-            .Set("ar", p => p.Name, "مصباح مكتب نحاسي")
-            .Set("ar", p => p.Description, "ذراع قابل للتعديل، ضوء دافئ.")
-            .Set("fr", p => p.Name, "Lampe de bureau en laiton")
-            .Set("fr", p => p.Description, "Bras réglable, lumière chaude.");
+        Translate(lamp, "ar", "مصباح مكتب نحاسي", "ذراع قابل للتعديل، ضوء دافئ.");
+        Translate(lamp, "fr", "Lampe de bureau en laiton", "Bras réglable, lumière chaude.");
 
         await db.SaveChangesAsync();
     }

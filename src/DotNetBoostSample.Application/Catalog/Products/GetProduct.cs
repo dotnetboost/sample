@@ -10,7 +10,6 @@ using DotNetBoostSample.Application.Localization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace DotNetBoostSample.Application.Catalog.Products;
@@ -38,7 +37,8 @@ public static class GetProduct
         /// <inheritdoc/>
         public async Task<Result<ProductDetail>> HandleAsync(Query request, CancellationToken ct)
         {
-            var product = await db.Products.FirstOrDefaultAsync(p => p.Id == request.Id, ct);
+            var (product, text) = await TranslationReads.LoadAsync(
+                multiLingual, db.Products.Where(p => p.Id == request.Id), ct);
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 
@@ -47,7 +47,7 @@ public static class GetProduct
                 product.Sku,
                 product.Price,
                 product.CategoryId,
-                await multiLingual.For(product).GetAllAsync(ct),
+                text,
                 await AttachedFiles.DescribeAsync(media.For(product), mediaText, ct));
         }
     }

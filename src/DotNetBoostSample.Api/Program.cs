@@ -76,6 +76,21 @@ var connectionString = builder.Configuration.GetConnectionString("catalog")
 var mediaRoot = builder.Configuration["Media:Root"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "..", "..", "media");
 
+// Which language, if any, lives in the entities' own columns rather than in translation rows —
+// MultiLingualOptions.BaseLanguage. Empty in appsettings.json, so the sample runs in the mode the
+// README describes: no column for a [MultiLingual] property, every language a row.
+//
+// Set it to "en" — here, with MultiLingual__BaseLanguage, or with the one line in
+// appsettings.json — and the sample runs in base-language mode instead, against a fresh database.
+// Nothing else in the solution changes: not an endpoint's response, not a line of the dashboard.
+// The four catalogue writes and the two catalogue detail reads ask the library which mode it is
+// in and do the right thing; everything else was already right in both.
+//
+// A fresh database, because this is a SCHEMA decision — it decides whether Products has a Name
+// column — so flipping it against existing content would leave that content half in rows and
+// half in a column that was never filled.
+var baseLanguage = builder.Configuration["MultiLingual:BaseLanguage"];
+
 // ── The database and all three libraries ─────────────────────────────────────
 // The third argument is this application's HTTP surface over translations, and it is here rather
 // than in AddInfrastructure because ExposeOverHttp lives in DotNetBoost.MultiLingual.API — the
@@ -97,6 +112,7 @@ var mediaRoot = builder.Configuration["Media:Root"]
 builder.Services.AddInfrastructure(
     connectionString,
     Path.GetFullPath(mediaRoot),
+    baseLanguage,
     multiLingual => multiLingual.ExposeOverHttp(entities => entities
         .Allow(MediaText.Subject)
         .Allow<BrandingSettings>()));

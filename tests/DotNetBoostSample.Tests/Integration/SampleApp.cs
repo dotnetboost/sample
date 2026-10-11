@@ -32,8 +32,15 @@ namespace DotNetBoostSample.Tests.Integration;
 /// run the sample at all, so this adds no prerequisite — and where there is no Docker the tests
 /// skip rather than fail, so <c>dotnet test</c> stays useful on a machine without it.</para>
 /// </summary>
-public sealed class SampleApp : IAsyncLifetime
+public class SampleApp : IAsyncLifetime
 {
+    /// <summary>
+    /// <c>MultiLingualOptions.BaseLanguage</c> for this run, or null for the mode the sample ships
+    /// in. Overridden by <c>BaseLanguageSampleApp</c>, which boots the same application the other
+    /// way — see <c>BaseLanguageTests</c> for why that is worth a second container.
+    /// </summary>
+    protected virtual string? BaseLanguage => null;
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17-alpine")
         .WithDatabase("catalog")
         .WithCleanUp(true)
@@ -82,6 +89,12 @@ public sealed class SampleApp : IAsyncLifetime
         {
             builder.UseSetting("ConnectionStrings:catalog", _postgres.GetConnectionString());
             builder.UseSetting("Media:Root", _mediaRoot);
+
+            // The third override, and the only one that is not infrastructure: it decides where a
+            // [MultiLingual] property is STORED, so a run with it set exercises a different schema
+            // on the same code. Left alone, the host reads appsettings.json and finds it empty.
+            if (BaseLanguage is not null)
+                builder.UseSetting("MultiLingual:BaseLanguage", BaseLanguage);
         });
 
         // Forces the host to build and Program.cs's seeding to run before the first test, so a
@@ -109,6 +122,27 @@ public sealed class SampleApp : IAsyncLifetime
     {
         using var scope = _factory!.Services.CreateScope();
         await work(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    }
+
+    /// <summary>
+    /// One value from the database, for the assertions that are about which COLUMN content is in
+    /// rather than what the API answers — the one thing base-language mode changes that no
+    /// response can show.
+    /// </summary>
+    public async Task<string?> ScalarAsync(string sql)
+    {
+        string? value = null;
+
+        await WithDbAsync(async db =>
+        {
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = sql;
+
+            await db.Database.OpenConnectionAsync();
+            value = (await command.ExecuteScalarAsync())?.ToString();
+        });
+
+        return value;
     }
 
     /// <summary>Resets the catalogue settings group, so one test's edit cannot reach another.</summary>
