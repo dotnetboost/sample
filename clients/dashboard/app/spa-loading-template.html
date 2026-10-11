@@ -1,0 +1,62 @@
+<!--
+  What fills the page between the HTML arriving and the dashboard mounting.
+
+  `ssr: false` means the served document is a shell: there is no rendered page in it, so without
+  this the first thing a reader sees is a blank white page for as long as the bundle takes — on a
+  cold cache, long enough to look broken. Nuxt inserts this file's contents into that shell and
+  removes it on mount; it is the one piece of UI the application cannot draw for itself.
+
+  Everything is inline and self-contained on purpose. It has to render before the app's stylesheet,
+  Tailwind, Nuxt UI and the fonts are of any use, so it cannot reach for a design token or a
+  component — hence the literal colours, which are Tailwind's zinc and the violet of
+  `app.config.ts`'s primary.
+
+  Both dark-mode selectors are here for the same reason: `html.dark` is what Nuxt UI's colour mode
+  sets, and it is applied by a script that may not have run yet, so the media query answers for the
+  gap before it does.
+-->
+<div class="nuxt-spa-loader" role="status" aria-live="polite">
+  <span class="nuxt-spa-loader__spinner"></span>
+  <span class="nuxt-spa-loader__label">Loading…</span>
+</div>
+
+<style>
+  .nuxt-spa-loader {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.875rem;
+    background: #ffffff;
+    color: #52525b;
+    font: 500 0.875rem/1.25 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  .nuxt-spa-loader__spinner {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2px solid #e4e4e7;
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: nuxt-spa-loader-spin 700ms linear infinite;
+  }
+
+  @keyframes nuxt-spa-loader-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* A spinner is decoration; a reader who asked for less motion gets a still ring. */
+  @media (prefers-reduced-motion: reduce) {
+    .nuxt-spa-loader__spinner { animation-duration: 2.5s; }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .nuxt-spa-loader { background: #09090b; color: #a1a1aa; }
+    .nuxt-spa-loader__spinner { border-color: #27272a; border-top-color: #a78bfa; }
+  }
+
+  html.dark .nuxt-spa-loader { background: #09090b; color: #a1a1aa; }
+  html.dark .nuxt-spa-loader__spinner { border-color: #27272a; border-top-color: #a78bfa; }
+</style>

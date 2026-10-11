@@ -61,6 +61,22 @@ useHead({
 
 <template>
   <UApp :locale="componentLocale" :dir="direction">
+    <!--
+      Both of these are in Nuxt's own default `app.vue`, and writing one of our own is what left
+      them out.
+
+      Every page awaits its data in `setup`, which blocks the navigation rather than landing on an
+      empty page and filling it in: a click on the sidebar does nothing visible until the API
+      answers, and on a slow answer that reads as a dead link. The indicator is the progress bar
+      across the top that says the click arrived.
+
+      The announcer is the same gap for a screen reader. This is a single-page app, so following a
+      link replaces the view without a page load to announce; it reads the new page's title — which
+      is why every page sets one — and nothing else notices it is there.
+    -->
+    <NuxtLoadingIndicator />
+    <NuxtRouteAnnouncer />
+
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

@@ -15,6 +15,21 @@ export default defineNuxtConfig({
     enabled: true
   },
 
+  // The document that `ssr: false` serves is a shell with no page in it, and so with none of the
+  // head a page would have contributed. Every page does set a title — `nav.documentTitle`, in the
+  // reading language — but not until Vue is running, so until then the tab reads as the URL, and a
+  // bookmark or a shared link made in that moment keeps it. These two are the shell's own answer
+  // for the gap; `app.vue` replaces both the moment it mounts, with the language actually being
+  // read rather than the one the bundle was built with.
+  //
+  // See also `app/spa-loading-template.html`, which is what fills the page itself in that gap.
+  app: {
+    head: {
+      title: 'DotNetBoost Sample',
+      htmlAttrs: { lang: 'en' }
+    }
+  },
+
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
