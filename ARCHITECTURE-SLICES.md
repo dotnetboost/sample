@@ -1,8 +1,9 @@
 # Vertical slices with CQRS
 
-**Built, on `feat/vertical-slices-cqrs`.** This document was the design; the branch is the
-implementation, and where the two disagreed the branch won — §10 lists what changed on contact
-with the compiler.
+**Built, and on `main`.** This document was the design; the code is the implementation, and where
+the two disagreed the code won — §10 lists what changed on contact with the compiler. It was
+written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
+whether to merge it; §11.3 says how that ended.
 
 The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 57 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
@@ -53,12 +54,12 @@ compile against DotNetBoost's own `net8.0` TFM.
 
 ## 1. One concern, stated once
 
-This repo is **1,788 lines of C# in 13 files**, and the README's thesis is that the integration
-between three independent libraries is *five files, none of them large*. Clean architecture plus
-vertical slices turns one project into four and moves the composition behind a dispatcher. The
-behaviour does not change. For a monolith heading to a hundred endpoints that is the right trade;
-for a sample whose job is to make a composition claim visible in one sitting, indirection is a cost
-charged against the only thing it sells.
+This repo was **1,788 lines of C# in 13 files** when this was written, and the README's thesis is
+that the integration between three independent libraries is *five files, none of them large*.
+Clean architecture plus vertical slices turns one project into four and moves the composition
+behind a dispatcher. The behaviour does not change. For a monolith heading to a hundred endpoints
+that is the right trade; for a sample whose job is to make a composition claim visible in one
+sitting, indirection is a cost charged against the only thing it sells.
 
 Two things make it come out better than I expected, though, and they are why the rest of this
 document is a design and not a warning:
@@ -716,11 +717,10 @@ like over HTTP.
 | `categoryId` naming no category | 500 | 404, **the id in the sentence** | A check in the handler. Only the handler knows which id was wrong; an exception handler sees the violation but not the request. |
 | A slug or SKU already taken | 500 | 409, the field named | `PostgresErrorTranslator` + `DbUpdateExceptionHandler`. Uniqueness cannot be checked honestly — the query is stale by the time the insert runs — so the index decides and its refusal is translated. |
 
-The second and third look like one problem and are not, and the pair is the clearest argument in
-this branch for why the layer split exists. A missing category can be *asked about*, so the
-question goes in the handler, where the answer can name the id. A duplicate slug cannot — so the
-constraint answers, and something has to read PostgreSQL's `SqlState` and constraint name to know
-what it said. That something is one class in the infrastructure layer, matching index names the EF
+The second and third look like one problem and are not, and the pair is the clearest argument here
+for why the layer split exists. A missing category can be *asked about*, so the question goes in
+the handler, where the answer can name the id. A duplicate slug cannot — so the constraint answers,
+and something has to read PostgreSQL's `SqlState` and constraint name to know what it said. That something is one class in the infrastructure layer, matching index names the EF
 configurations declare as constants a few files away. The application layer still never names
 Npgsql, and swapping provider replaces that one file.
 
@@ -734,12 +734,18 @@ Npgsql, and swapping provider replaces that one file.
    construction, and shaped so MediatR or [martinothamar/Mediator] drops in later if you ever want
    the source generator.
 2. **Four projects, endpoint in the slice, one file per feature.** That is the version above.
-3. **Keep this on its own branch, and decide what `main` is for.** This sample's job is to make a
-   composition claim legible in one sitting, and `main` does that in 1,788 lines. A slice
+3. **Decide what `main` is for — and it has been decided.** This sample's job is to make a
+   composition claim legible in one sitting, and `main` did that in 1,788 lines. A slice
    architecture is a better demonstration of *how to build an application with these libraries* and
-   a worse demonstration of *how little the libraries ask of you*. The branch is the former; it
-   could ship as a second repo or a `dotnet new` template without `main` changing at all. Merging
-   it is the decision to make deliberately, not by default — and it is yours, not this document's.
+   a worse demonstration of *how little the libraries ask of you*. Shipping the two apart — a
+   second repo, or a `dotnet new` template — would have left `main` unchanged, and was the other
+   way to go.
+
+   It went this way: the slices are `main`. That does not retract the trade-off above, which is
+   left standing rather than rewritten into agreement — it is why the choice was worth making
+   deliberately instead of by default. What guards the claim does not depend on the decision
+   either way: the README still counts the five files honestly, and `ZeroCouplingTests` still
+   fails the build if one library ever reaches for another.
 4. **The one piece worth back-porting here regardless** is `Result<T>` + `Error` + `ToHttpResult`.
    It removes `IStringLocalizer<ApiMessages>` from eleven handler signatures and puts the status-code
    decision in one method, and it needs no dispatcher, no new project and no new package.
