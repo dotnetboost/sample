@@ -18,7 +18,3 @@ clients/dashboard/.env
 
 # macOS
 .DS_Store
-
-# Local package feed pointer — see nuget.config. Never committed: the sample restores
-# from nuget.org, which is what its README documents.
-nuget.config
