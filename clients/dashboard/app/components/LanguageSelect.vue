@@ -12,7 +12,7 @@ const language = useLanguage()
 
 const { languages } = useShellLocale()
 
-const items = computed(() => (languages.value ?? [])
+const items = computed(() => languages.value
   .filter(l => l.isActive)
   .map(l => ({
     label: l.name,

@@ -9,9 +9,10 @@ import { ar, en, fr } from '@nuxt/ui/locale'
  * hardcoded list of RTL codes in the client to forget to update. That is the same reason `isRtl`
  * exists rather than a comparison written out at each call site.
  *
- * **One fetch, three readers.** `app.vue`, the layout and the header selector all want the
- * language list; sharing one `useAsyncData` key means they read one request between them instead
- * of three of the same request.
+ * **One list, every reader.** `app.vue`, the layout and the header selector all want the
+ * languages, and so do the overview, the catalogue and the alt-text editor: they share the one
+ * `useLanguageList` entry, which is both a single request and — the part that was missing — a
+ * single thing for a write on the Languages page to refresh.
  */
 
 /**
@@ -22,17 +23,16 @@ import { ar, en, fr } from '@nuxt/ui/locale'
 const componentLocales = { en, ar, fr }
 
 export function useShellLocale() {
-  const api = useApi()
   const language = useLanguage()
   const { locale } = useI18n()
 
-  const { data: languages } = useAsyncData('shell-languages', () => api.multiLingual.languages())
+  const { languages, loaded } = useLanguageList()
 
   // Read once, at setup: what the API said about this language the last time it was asked.
   const remembered = readRememberedLanguage()
 
   const direction = computed<'ltr' | 'rtl'>(() => {
-    const live = languages.value?.find(l => l.code === language.value)?.direction
+    const live = languages.value.find(l => l.code === language.value)?.direction
 
     if (live !== undefined) {
       return isRtl(live) ? 'rtl' : 'ltr'
@@ -51,5 +51,5 @@ export function useShellLocale() {
   const componentLocale = computed(() =>
     componentLocales[locale.value as keyof typeof componentLocales] ?? componentLocales.en)
 
-  return { languages, direction, componentLocale }
+  return { languages, loaded, direction, componentLocale }
 }

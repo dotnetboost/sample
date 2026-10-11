@@ -53,5 +53,8 @@ export function useBranding() {
   // Re-fetch when the reading language changes. The call sends Accept-Language, but useAsyncData
   // caches by key alone — without this the header keeps whatever language it was first loaded in,
   // which is exactly wrong for the one value on screen that is supposed to follow the language.
-  return useAsyncData<Branding>(BRANDING_KEY, () => api.branding.get(), { watch: [language] })
+  return useAsyncData<Branding>(
+    BRANDING_KEY,
+    (_nuxtApp, { signal }) => api.branding.get({ signal }),
+    { watch: [language] })
 }

@@ -11,7 +11,7 @@
  * `lang` is the reading language, not the UI locale. They are usually the same, but when they are
  * not it is the content that a screen reader and a spell-checker are looking at.
  */
-const { languages, direction, componentLocale } = useShellLocale()
+const { languages, loaded, direction, componentLocale } = useShellLocale()
 const language = useLanguage()
 
 /**
@@ -28,7 +28,7 @@ const language = useLanguage()
  * without it waits for a change that already happened.
  */
 watch(languages, (list) => {
-  const active = (list ?? []).filter(l => l.isActive)
+  const active = list.filter(l => l.isActive)
 
   if (!active.length || active.some(l => l.code === language.value)) {
     return
@@ -42,10 +42,11 @@ watch(languages, (list) => {
  * `useShellLocale` is called from three components, and this belongs with the single one.
  *
  * Guarded on the list having answered, so a reload cannot overwrite a known direction with the
- * placeholder `ltr` that stands in while the request is still out.
+ * placeholder `ltr` that stands in while the request is still out. `loaded` rather than the list
+ * itself: it is never null now, and an empty list is an answer the shell can also receive.
  */
 watch([language, direction], ([code, dir]) => {
-  if (languages.value) {
+  if (loaded.value) {
     rememberLanguage({ code, direction: dir })
   }
 }, { immediate: true })

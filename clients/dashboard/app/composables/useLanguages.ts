@@ -1,10 +1,13 @@
-import { createSharedComposable } from '@vueuse/core'
 import type { Language, LanguageUpdate, NewLanguage, PurgeResult } from '~/types'
 
 /**
- * The language list from `GET api/languages`, shared by every page, and the administration calls
- * `MapLanguageEndpoints()` maps. Lifted from the DotNetBoost.MultiLingual dashboard, i18n layer
- * and all.
+ * The language list, plus the administration calls `MapLanguageEndpoints()` maps. Lifted from the
+ * DotNetBoost.MultiLingual dashboard, i18n layer and all.
+ *
+ * The list itself is `useLanguageList` — one `useAsyncData` entry shared with every other reader
+ * of it — so each write here ends by refreshing that one entry and the header selector, the
+ * catalogue's editors and the overview's count all follow. This composable used to fetch the list
+ * into a ref of its own, which is why they did not.
  *
  * Note what is translated and what is not. The outcome a toast reports — "Arabic saved" — is this
  * dashboard's own words, so it comes from the message bundles. A refusal is the API's words, and
@@ -18,56 +21,13 @@ import type { Language, LanguageUpdate, NewLanguage, PurgeResult } from '~/types
  * with content cannot be deleted — and are shown as the API words them, rather than replaced with
  * something vaguer here.
  */
-const _useLanguages = () => {
+export function useLanguages() {
+  const list = useLanguageList()
   const { notifySuccess, notifyFailure } = useNotify()
   const { t } = useI18n()
-  const { baseLanguage } = useRuntimeConfig().public
 
-  const languages = ref<Language[]>([])
-  const pending = ref(false)
-  const loaded = ref(false)
-  const loadError = ref('')
   /** Code of the language an action is running on, for per-row loading states. */
   const busy = ref<string | null>(null)
-
-  const active = computed(() => languages.value.filter(language => language.isActive))
-  const defaultLanguage = computed(() => languages.value.find(language => language.isDefault))
-
-  async function load() {
-    pending.value = true
-    loadError.value = ''
-
-    try {
-      languages.value = await $fetch<Language[]>('/api/languages')
-      loaded.value = true
-    } catch (error) {
-      loadError.value = problemMessage(error)
-    } finally {
-      pending.value = false
-    }
-  }
-
-  /** Loads the list the first time a page needs it. */
-  async function ensureLoaded() {
-    if (!loaded.value && !pending.value) {
-      await load()
-    }
-  }
-
-  function find(code: string) {
-    return languages.value.find(language => language.code.toLowerCase() === code.toLowerCase())
-  }
-
-  /**
-   * Whether `code` is `MultiLingualOptions.BaseLanguage` — the language kept in the entity's own
-   * columns rather than in the translations table.
-   *
-   * This sample does not configure one, so it is always false and the badge never shows. Left in
-   * because the mode exists and the page would be wrong without it the moment someone turns it on.
-   */
-  function isBase(code: string) {
-    return !!baseLanguage && code.toLowerCase() === String(baseLanguage).toLowerCase()
-  }
 
   /** Runs one call, reports the outcome, and reloads. Resolves to the result, or `undefined` if it failed. */
   async function run<T>(
@@ -87,7 +47,11 @@ const _useLanguages = () => {
       return undefined
     } finally {
       busy.value = null
-      await load()
+
+      // `cancel`, against the entry's own `defer`: this read has to be newer than the write that
+      // just landed, and deferring would be allowed to answer it with a GET that was already in
+      // flight before the POST — the list as it was a moment ago, which is the thing being fixed.
+      await list.refresh({ dedupe: 'cancel' })
     }
   }
 
@@ -126,10 +90,5 @@ const _useLanguages = () => {
     description: t('languages.toast.purgedDescription', { code: result.code })
   }))
 
-  return {
-    languages, active, defaultLanguage, pending, loaded, loadError, busy,
-    load, ensureLoaded, find, isBase, create, update, setDefault, remove, purge
-  }
+  return { ...list, busy, create, update, setDefault, remove, purge }
 }
-
-export const useLanguages = createSharedComposable(_useLanguages)

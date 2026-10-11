@@ -7,7 +7,8 @@ useHead({ title: () => t('nav.documentTitle', { page: t('nav.overview') }) })
 
 const api = useApi()
 
-const { data: categories } = await useAsyncData('overview-categories', () => api.categories.list())
+const { data: categories } = await useAsyncData(
+  'overview-categories', (_nuxtApp, { signal }) => api.categories.list({ signal }))
 /**
  * The overview counts across the catalogue rather than showing a page of it, so this is the one
  * caller that asks for its own page size instead of letting `CatalogSettings.PageSize` decide.
@@ -16,13 +17,15 @@ const { data: categories } = await useAsyncData('overview-categories', () => api
  * products — the headline count does not, because it reads `total`.
  */
 const { data: productPage } = await useAsyncData(
-  'overview-products', () => api.products.list({ pageSize: 200 }))
+  'overview-products',
+  (_nuxtApp, { signal }) => api.products.list({ pageSize: 200 }, { signal }))
 
 const products = computed(() => productPage.value?.items ?? [])
-const { data: languages } = await useAsyncData('overview-languages', () => api.multiLingual.languages())
+// The one shared language list, so the count follows a language added on the Languages page.
+const { languages } = useLanguageList()
 // The media library's own endpoint, called directly — exactly as useMediaLibrary does.
-const { data: library } = await useAsyncData('overview-media', () =>
-  $fetch<MediaPage>('/api/media', { query: { take: 1 } }))
+const { data: library } = await useAsyncData('overview-media', (_nuxtApp, { signal }) =>
+  $fetch<MediaPage>('/api/media', { query: { take: 1 }, signal }))
 
 const withAltText = computed(() =>
   products.value.flatMap(p => p.images).filter(i => i.altText).length)
@@ -73,7 +76,7 @@ const imageCount = computed(() =>
         />
         <UPageCard
           icon="i-lucide-languages"
-          :title="String(languages?.length ?? 0)"
+          :title="String(languages.length)"
           :description="$t('overview.stats.languages')"
           variant="subtle"
         />

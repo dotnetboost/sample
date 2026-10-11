@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 useHead({ title: () => t('nav.documentTitle', { page: t('nav.languages') }) })
 
-const { languages, pending, loadError, busy, load, isBase, update, setDefault, remove, purge } = useLanguages()
+const { languages, pending, loadError, busy, refresh, isBase, update, setDefault, remove, purge } = useLanguages()
 
 const formOpen = ref(false)
 const editing = ref<Language>()
@@ -98,8 +98,6 @@ async function onConfirm() {
   await (target.kind === 'purge' ? purge(target.language.code) : remove(target.language.code))
   confirming.value = null
 }
-
-onMounted(load)
 </script>
 
 <template>
@@ -117,7 +115,7 @@ onMounted(load)
             variant="ghost"
             :loading="pending"
             :aria-label="$t('languages.reload')"
-            @click="load"
+            @click="() => refresh()"
           />
           <UButton icon="i-lucide-plus" :label="$t('languages.add')" @click="add" />
           <LanguageSelect />
@@ -147,7 +145,7 @@ onMounted(load)
         icon="i-lucide-plug-zap"
         :title="$t('languages.loadError')"
         :description="loadError"
-        :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
+        :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: () => refresh() }]"
       />
 
       <UTable

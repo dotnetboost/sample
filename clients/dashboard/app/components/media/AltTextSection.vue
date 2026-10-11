@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Language, MediaTextValues } from '~/types'
+import type { MediaTextValues } from '~/types'
 
 /**
  * Alt text and caption for one file, in every language — the sample's one addition to
@@ -23,7 +23,10 @@ const api = useApi()
 const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
-const { data: languages } = await useAsyncData('alt-text-languages', () => api.multiLingual.languages())
+// The one shared language list, awaited here because the rows below are drawn from it and a
+// row per language of a list that has not landed yet is no rows at all.
+const { languages, ready } = useLanguageList()
+await ready()
 
 const draft = ref<Record<string, MediaTextValues>>({})
 const original = ref('')
@@ -42,13 +45,13 @@ async function load() {
     // editor is for.
     const next: Record<string, MediaTextValues> = {}
 
-    for (const language of languages.value ?? []) {
+    for (const language of languages.value) {
       next[language.code] = stored[language.code] ?? { altText: null, caption: null }
     }
 
     draft.value = next
     original.value = JSON.stringify(next)
-    active.value = languages.value?.[0]?.code ?? ''
+    active.value = languages.value[0]?.code ?? ''
   } catch (error) {
     notifyFailure(t('media.altText.toast.readFailed'), error)
   } finally {
@@ -66,10 +69,10 @@ const hasContent = (code: string) => {
 }
 
 const missing = computed(() =>
-  (languages.value ?? []).filter(l => !draft.value[l.code]?.altText?.trim()).length)
+  languages.value.filter(l => !draft.value[l.code]?.altText?.trim()).length)
 
 const activeIsRtl = computed(() =>
-  isRtl((languages.value as Language[] | null)?.find(l => l.code === active.value)?.direction))
+  isRtl(languages.value.find(l => l.code === active.value)?.direction))
 
 async function save() {
   saving.value = true

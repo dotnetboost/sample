@@ -12,8 +12,11 @@ const language = useLanguage()
 
 const tab = ref('categories')
 
-const { data: languages } = await useAsyncData('catalog-languages', () => api.multiLingual.languages())
-const { data: categories, refresh: refreshCategories } = await useAsyncData('catalog-categories', () => api.categories.list())
+// The one shared language list: a language added on the Languages page has to reach the
+// translation editors below without a reload.
+const { languages } = useLanguageList()
+const { data: categories, refresh: refreshCategories } = await useAsyncData(
+  'catalog-categories', (_nuxtApp, { signal }) => api.categories.list({ signal }))
 
 /**
  * Which page of products is on screen.
@@ -27,7 +30,7 @@ const page = ref(1)
 
 const { data: productPage, refresh: refreshProducts } = await useAsyncData(
   'catalog-products',
-  () => api.products.list({ page: page.value }),
+  (_nuxtApp, { signal }) => api.products.list({ page: page.value }, { signal }),
   { watch: [page] })
 
 // `currencySymbol` for the price: the only catalogue setting a listing does not already carry.

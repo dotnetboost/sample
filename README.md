@@ -799,6 +799,9 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/pages/languages.vue                MultiLingual's own languages table
   app/components/languages/FormModal.vue add or edit a language
   app/composables/useLanguages.ts        create, update, set-default, delete, purge
+  app/composables/useLanguageList.ts     the content languages, read once under one key —
+                                         so a language added here reaches the header
+                                         selector, the editors and the counts at once
   app/pages/catalog.vue                  Categories | Products tabs — list, edit, delete
   app/components/CategoryEditor.vue      slug + per-language text + banner picker
   app/components/ProductEditor.vue       columns + per-language text + primary & gallery

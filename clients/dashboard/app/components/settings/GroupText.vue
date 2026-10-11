@@ -32,7 +32,7 @@ const api = useApi()
 const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
-const { languages, defaultLanguage, ensureLoaded } = useLanguages()
+const { languages, defaultLanguage, ready } = useLanguageList()
 
 /**
  * The labels come from the same place the generated form takes them, because the two boxes edit
@@ -40,7 +40,7 @@ const { languages, defaultLanguage, ensureLoaded } = useLanguages()
  * keeps them identical when either is reworded.
  */
 
-await ensureLoaded()
+await ready()
 
 /** Everything except the default language, which the settings row owns. */
 const translatable = computed(() =>

@@ -11,7 +11,7 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-const { defaultLanguage } = useLanguages()
+const { defaultLanguage } = useLanguageList()
 const { t } = useI18n()
 
 /**
@@ -33,7 +33,7 @@ const defaultLanguageLabel = computed(() =>
 const api = useApi()
 const { data: schema } = await useAsyncData(
   () => `settings-schema-${props.group.route}`,
-  () => api.settings.schema(props.group.route),
+  (_nuxtApp, { signal }) => api.settings.schema(props.group.route, { signal }),
   { watch: [() => props.group.route] })
 
 const described = computed(() =>

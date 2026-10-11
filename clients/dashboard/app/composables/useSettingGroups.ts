@@ -22,8 +22,8 @@ export const SETTING_GROUPS_KEY = 'setting-groups'
 export function useSettingGroups() {
   const api = useApi()
 
-  return useAsyncData<SettingGroup[]>(SETTING_GROUPS_KEY, async () => {
-    const descriptors = await api.settings.groups()
+  return useAsyncData<SettingGroup[]>(SETTING_GROUPS_KEY, async (_nuxtApp, { signal }) => {
+    const descriptors = await api.settings.groups({ signal })
 
     return descriptors.map(descriptor => ({
       route: descriptor.route,
@@ -31,5 +31,9 @@ export function useSettingGroups() {
       requiresAuthorization: descriptor.requiresAuthorization,
       icon: groupIcon(descriptor.route)
     }))
-  })
+  },
+  // The tabs, the index's redirect and the open group all register this in the same tick, and the
+  // default `cancel` would have each arrival abort the request in flight and issue its own.
+  // Nothing here varies with the reader, so a later one takes the pending promise instead.
+  { dedupe: 'defer' })
 }

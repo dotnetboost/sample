@@ -44,6 +44,19 @@ function translationsUrl(owner: MediaOwner): string {
   return `/api/translations/${encodeURIComponent(owner.entityName)}/${encodeURIComponent(owner.entityId)}`
 }
 
+/**
+ * The `AbortSignal` `useAsyncData` hands its handler, taken by the reads that back one.
+ *
+ * Passing it on is what makes Nuxt's cancellation reach the network: it aborts the handler's
+ * signal when an entry is refreshed while a request is still in flight and when the last reader
+ * unmounts, and a request that never sees the signal runs to completion regardless — its answer is
+ * only discarded. The writes do not take one: a cancelled POST is a question about whether it
+ * arrived.
+ */
+export interface Abortable {
+  signal?: AbortSignal
+}
+
 export function useApi() {
   const language = useLanguage()
   const headers = () => ({ 'Accept-Language': language.value })
@@ -51,7 +64,7 @@ export function useApi() {
   return {
     // ── DotNetBoost.MultiLingual ──────────────────────────────────────────
     multiLingual: {
-      languages: () => $fetch<Language[]>('/api/languages'),
+      languages: ({ signal }: Abortable = {}) => $fetch<Language[]>('/api/languages', { signal }),
       create: (body: { code: string, name: string, direction?: string }) =>
         $fetch('/api/languages', { method: 'POST', body })
     },
@@ -60,18 +73,20 @@ export function useApi() {
     settings: {
       // Accept-Language on the settings endpoints too: the library ignores it, but the global
       // UseMultiLingual() middleware resolves it and the API's cache keys each group by it.
-      get: <T>(group: string) => $fetch<T>(`/api/settings/${group}`, { headers: headers() }),
+      get: <T>(group: string, { signal }: Abortable = {}) =>
+        $fetch<T>(`/api/settings/${group}`, { headers: headers(), signal }),
 
       /** The registered groups. Routes and names only — no values. */
-      groups: () => $fetch<SettingGroupDescriptor[]>('/api/settings', { headers: headers() }),
+      groups: ({ signal }: Abortable = {}) =>
+        $fetch<SettingGroupDescriptor[]>('/api/settings', { headers: headers(), signal }),
 
       /**
        * What a group's properties are: types, defaults, `[Sensitive]`, and the constraints its
        * validators enforce. This is what lets the settings form be generated from the class
        * rather than from a guess about the shape of a response.
        */
-      schema: (group: string) =>
-        $fetch<SettingGroupSchema>(`/api/settings/${group}/schema`, { headers: headers() }),
+      schema: (group: string, { signal }: Abortable = {}) =>
+        $fetch<SettingGroupSchema>(`/api/settings/${group}/schema`, { headers: headers(), signal }),
       /** The group's model, posted whole — the settings library validates it server side. */
       set: <T extends object>(group: string, body: T) =>
         $fetch(`/api/settings/${group}`, {
@@ -89,7 +104,8 @@ export function useApi() {
     // without it on purpose: they return every language at once for the editor, and a header would
     // not change what comes back.
     categories: {
-      list: () => $fetch<Category[]>('/api/categories', { headers: headers() }),
+      list: ({ signal }: Abortable = {}) =>
+        $fetch<Category[]>('/api/categories', { headers: headers(), signal }),
       get: (id: number) => $fetch<CategoryDetail>(`/api/categories/${id}`),
       create: (body: { slug: string, translations: Translations }) =>
         $fetch<CreateResult>('/api/categories', { method: 'POST', body, headers: headers() }),
@@ -107,8 +123,8 @@ export function useApi() {
        * uses `CatalogSettings.PageSize`, which is the only way that setting reaches a screen.
        * The overview passes one because it counts across pages rather than showing them.
        */
-      list: (query: { page?: number, pageSize?: number } = {}) =>
-        $fetch<ProductPage>('/api/products', { query, headers: headers() }),
+      list: (query: { page?: number, pageSize?: number } = {}, { signal }: Abortable = {}) =>
+        $fetch<ProductPage>('/api/products', { query, headers: headers(), signal }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
         $fetch<CreateResult>('/api/products', { method: 'POST', body, headers: headers() }),
@@ -171,7 +187,8 @@ export function useApi() {
        *
        * Prefer useBranding(), which shares one fetch between the header and the settings page.
        */
-      get: () => $fetch<Branding>('/api/settings/branding', { headers: headers() }),
+      get: ({ signal }: Abortable = {}) =>
+        $fetch<Branding>('/api/settings/branding', { headers: headers(), signal }),
 
       /**
        * Every stored language of a group's translated text, through MultiLingual's own translation

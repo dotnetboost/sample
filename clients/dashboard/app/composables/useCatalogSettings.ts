@@ -26,5 +26,5 @@ export function useCatalogSettings() {
 
   return useAsyncData<CatalogSettings>(
     CATALOG_SETTINGS_KEY,
-    () => api.settings.get<CatalogSettings>('catalog'))
+    (_nuxtApp, { signal }) => api.settings.get<CatalogSettings>('catalog', { signal }))
 }
