@@ -4,7 +4,7 @@
 implementation, and where the two disagreed the branch won — §10 lists what changed on contact
 with the compiler.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 48 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 57 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 
@@ -651,7 +651,7 @@ about four queries per page could be a unit test rather than a comment.
 
 | | |
 |---|---|
-| **Projects and files** | 1 → 4 projects, and 13 → 38 C# files in `src/`. The eleven slices account for eleven of the twenty-five new ones; the rest is the dispatcher, the result type, the endpoint scan, four shared records and two EF configurations. Nothing it does is new. |
+| **Projects and files** | 1 → 4 projects, and 13 → 42 C# files in `src/`. The eleven slices account for eleven of the twenty-nine new ones; the rest is the dispatcher, the result type, the endpoint scan, four shared records, two EF configurations, and the refusal handling §10a added after this table was first written — the validation and `DbUpdate` handlers, the error-translator interface and its Postgres implementation. Nothing it does is new. |
 | **Indirection** | A route no longer shows you what it does. `MapGet → IDispatcher → Wrapper<,> → behaviors → Handler` is four hops for a query whose body is unchanged, and the stack trace in a debugger gets a reflection frame in the middle. |
 | **Reflection** | Handler scanning and `MakeGenericType` at first dispatch. Fine for a server; a blocker under native AOT, where the answer is a source-generated dispatcher. |
 | **Reach** | Covers 11 of the application's routes. The three libraries' own endpoints are not slices and will never be — so the dashboard talks to two different architectures, which is honest but worth knowing. |
