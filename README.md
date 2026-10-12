@@ -579,6 +579,13 @@ stored *translations*, and the base language is not one of them — so the dashb
 have opened with the English boxes empty and saved that emptiness over the canonical text on the
 first write. A silent erasure, from a screen that looked right.
 
+The seed had to learn the same thing, in one line. `DatabaseInitialiser` authors content in
+`BaseLanguage ?? "en"` and assigns that language's values to the entities themselves, queueing the
+other two as rows — so `BaseLanguage = "ar"` puts the Arabic text in the columns with English and
+French beside it, and the default mode writes exactly the rows it wrote before. A base language the
+seed does not carry is refused by name before anything is created, rather than reaching the library
+and coming back as a message about the request's language.
+
 There is a second file, and it is the only one that exists *because* of this mode:
 `Persistence/MultiLingualModelCacheKeyFactory.cs`. EF Core caches one model per DbContext type,
 and this context's model now depends on an option read at runtime — so two instances of the
@@ -605,10 +612,36 @@ ever written" has an empty value rather than no row. Refusing the write instead 
 new `400` on a request the API accepts today, which is the one thing this mode is not allowed to
 do.
 
+### How that is checked rather than claimed
+
 `tests/.../Integration/BaseLanguageTests.cs` boots the whole sample a second time with the mode on,
-beside the suite that boots it with the mode off. Ten tests, and the first one reads the `Name`
-column with raw SQL — without it the other nine would pass just as well with the mode off and prove
-nothing.
+beside the suite that boots it with the mode off — two hosts, two schemas, one `dotnet test`. That
+is what `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
+
+Fifteen tests. The first reads the `Name` column with raw SQL; without it the other fourteen would
+pass just as well with the mode off and prove nothing. The rest walk the surface a client can
+actually reach:
+
+| | |
+|---|---|
+| Reads | the request's language, falling back to the column; the detail endpoint carrying every language including the base one; the editor's full round trip — read it, post it back, the English survives |
+| Writes | a create under `Accept-Language: ar` answering `201` with its sentence in Arabic; an update in Arabic leaving the English base alone and inventing no Arabic row; a category created and renamed across both languages |
+| Refusals | `400`, `404` and `409` unchanged — and the `409` asserted against the Arabic *sentence*, not just the status, because the database raises it while the save is inside the base language and only the `finally` in `EntityText` puts the caller's language back |
+| Cascades | deleting an entity takes every language with it; deleting a file takes its alt text |
+| The other libraries | branding resolving its translated name beside the stored one; alt text still taking every language, base included, because a subject has no columns; the settings schema still flagging `translated`; purging a language's rows, and the same button pressed on the base language leaving the columns alone |
+| The library's own rules | the base language cannot be deleted; content created with no base-language text reads as `""` |
+
+**And measured, not just tested.** Two APIs, two freshly seeded databases, one in each mode:
+
+- the generated OpenAPI document is **byte-identical**, apart from the port in `servers[0].url`;
+- every `GET` response is byte-identical across **nine endpoints in all three languages** —
+  including the two detail endpoints, whose `translations` map is assembled completely differently
+  in the two modes.
+
+The dashboard was then driven against both, by hand, through the screens that matter: the editor
+opening with its English boxes filled, a product created and edited while reading Arabic, branding's
+translated store name reaching the header, alt text written in every language, and the Languages
+page drawing its **base** badge from `NUXT_PUBLIC_BASE_LANGUAGE` alone. Not one line of it changed.
 
 ---
 
@@ -693,6 +726,12 @@ database they share.
 - **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
   answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
   refusable ones declare `.Produces<T>()` and the two listings return their value directly.
+- **`BaseLanguageTests`** — the same application booted a second time with
+  `MultiLingualOptions.BaseLanguage = "en"`, asserting that turning the mode on changes nothing a
+  caller can see: same routes, same statuses, same bodies, same keys in the `translations` map. The
+  one test that looks inward reads the `Name` column with raw SQL, because in the default mode that
+  column does not exist and the statement would not even parse. See
+  [Two places a language can live](#two-places-a-language-can-live).
 - **`CatalogRefusalTests`** — every request that used to be answered with a 500: a body of the wrong
   shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
   a 409, in the request's language. **All three were found by running the application rather than by
