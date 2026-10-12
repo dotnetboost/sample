@@ -68,7 +68,7 @@ public static class DependencyInjection
         // language, read and written. Scoped for the same reason — it holds the request's engine —
         // and registered rather than static because the six slices that use it would otherwise
         // each take an IMultiLingualManager to hand straight on.
-        services.AddScoped<EntityText>();
+        services.AddScoped<TranslatedText>();
 
         return services;
     }

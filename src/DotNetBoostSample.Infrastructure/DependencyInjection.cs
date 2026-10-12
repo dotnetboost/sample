@@ -50,7 +50,7 @@ public static class DependencyInjection
     /// A string rather than a <c>bool</c> because the library's own option is a language code,
     /// and it arrives from configuration for the same reason the connection string does: reading
     /// configuration is the host's job. What it changes in this application is four writes and two
-    /// reads, all of them through <c>Catalog/Shared/EntityText.cs</c> — the one file that asks
+    /// reads, all of them through <c>Catalog/Shared/TranslatedText.cs</c> — the one file that asks
     /// whether it is set.
     /// </para>
     /// </param>

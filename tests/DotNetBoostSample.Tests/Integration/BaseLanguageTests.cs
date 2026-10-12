@@ -70,7 +70,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     ///
     /// <para>The library refuses a create outside the base language, for a good reason: the base
     /// value is what every translation hangs off and the last fallback for every other language.
-    /// <c>EntityText</c> moves the save into the base language instead of letting that refusal
+    /// <c>TranslatedText</c> moves the save into the base language instead of letting that refusal
     /// reach the caller — and puts the request's language back, which is why the message below is
     /// Arabic.</para>
     /// </summary>
@@ -378,8 +378,8 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     /// <para>The one assertion here that is really about this mode is the last. The save runs
     /// inside the base language, and the refusal is raised by the database in the middle of that —
     /// so the language has to be back before <c>DbUpdateExceptionHandler</c> looks the sentence up.
-    /// That is what the <c>finally</c> in <c>EntityText</c> is for, and a test that only checked
-    /// the status code would pass with it deleted.</para>
+    /// That is what the <c>finally</c> in <c>TranslatedText</c> is for, and a test that only
+    /// checked the status code would pass with it deleted.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_refused_write_keeps_its_status_and_its_language()

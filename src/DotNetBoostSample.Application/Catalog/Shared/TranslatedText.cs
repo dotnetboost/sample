@@ -23,9 +23,16 @@ namespace DotNetBoostSample.Application.Catalog.Shared;
 /// them asks which mode is on — which is what keeps the slices identical in both and is the reason
 /// this is a class rather than a few lines in each of them.</para>
 ///
+/// <para><b>And one word of the name is deliberately loose.</b> In base-language mode the base
+/// language's values are not a translation at all — they are the entity's own columns, and
+/// <c>ITranslationAccessor.Set</c> refuses to be told otherwise. "Translated text" is what this
+/// application calls a property whose value depends on the language, wherever the library keeps
+/// it; the two stores are an implementation detail of that, and keeping them behind one name is
+/// the whole reason a slice can ignore which mode is on.</para>
+///
 /// <para>Scoped, like <c>MediaText</c>: it holds the request's engine and nothing else.</para>
 /// </summary>
-public sealed class EntityText(IMultiLingualManager multiLingual)
+public sealed class TranslatedText(IMultiLingualManager multiLingual)
 {
     /// <summary>What a query that matched nothing has to say. Shared, because it never changes.</summary>
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>> None =

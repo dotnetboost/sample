@@ -30,14 +30,14 @@ public static class GetProduct
     public sealed class Handler(
         IAppDbContext db,
         IMediaManager media,
-        EntityText entityText,
+        TranslatedText translatedText,
         MediaText mediaText) : IRequestHandler<Query, Result<ProductDetail>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductDetail>> HandleAsync(Query request, CancellationToken ct)
         {
             var (product, translations) =
-                await entityText.LoadAsync(db.Products.Where(p => p.Id == request.Id), ct);
+                await translatedText.LoadAsync(db.Products.Where(p => p.Id == request.Id), ct);
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 

@@ -32,7 +32,7 @@ public static class UpdateCategory
 
     public sealed class Handler(
         IAppDbContext db,
-        EntityText entityText) : IRequestHandler<Command, Result<string>>
+        TranslatedText translatedText) : IRequestHandler<Command, Result<string>>
     {
         /// <summary>Answers with the slug, which is what the message is named after.</summary>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -43,7 +43,7 @@ public static class UpdateCategory
 
             category.Slug = request.Slug;
 
-            await entityText.SaveAsync(db, category, request.Translations, ct);
+            await translatedText.SaveAsync(db, category, request.Translations, ct);
 
             return category.Slug;
         }

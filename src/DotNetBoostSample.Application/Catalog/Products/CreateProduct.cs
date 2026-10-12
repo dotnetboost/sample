@@ -48,7 +48,7 @@ public static class CreateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        EntityText entityText) : IRequestHandler<Command, Result<ProductCreated>>
+        TranslatedText translatedText) : IRequestHandler<Command, Result<ProductCreated>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductCreated>> HandleAsync(Command request, CancellationToken ct)
@@ -81,7 +81,7 @@ public static class CreateProduct
 
             db.Products.Add(product);
 
-            await entityText.SaveAsync(db, product, request.Translations, ct);
+            await translatedText.SaveAsync(db, product, request.Translations, ct);
 
             return new ProductCreated(product.Id, product.Sku);
         }

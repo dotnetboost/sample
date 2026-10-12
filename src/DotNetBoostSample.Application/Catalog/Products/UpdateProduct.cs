@@ -35,7 +35,7 @@ public static class UpdateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        EntityText entityText) : IRequestHandler<Command, Result<string>>
+        TranslatedText translatedText) : IRequestHandler<Command, Result<string>>
     {
         /// <summary>Answers with the SKU, which is what the message is named after.</summary>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -54,7 +54,7 @@ public static class UpdateProduct
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
 
-            await entityText.SaveAsync(db, product, request.Translations, ct);
+            await translatedText.SaveAsync(db, product, request.Translations, ct);
 
             return product.Sku;
         }

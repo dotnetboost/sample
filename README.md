@@ -558,11 +558,11 @@ lets the default move without touching a stored value.
 
 ### What the application had to do about it
 
-One class — `Catalog/Shared/EntityText.cs`, an entity's text in every language. The four writes
+One class — `Catalog/Shared/TranslatedText.cs`, an entity's text in every language. The four writes
 already went through it; the two detail reads now do too, because the read half of this question is
 as easy to get wrong as the write half:
 
-| `EntityText` | In the default mode | With a base language |
+| `TranslatedText` | In the default mode | With a base language |
 |---|---|---|
 | `SaveAsync` | queues every language with `Set` and saves | assigns the base language's values to the entity's own properties, queues the rest, and runs the save **in** the base language |
 | `LoadAsync` | the query, then `GetAllAsync()` | reads the entity in the base language and puts its columns into the map under that language's code |
@@ -626,7 +626,7 @@ actually reach:
 |---|---|
 | Reads | the request's language, falling back to the column; the detail endpoint carrying every language including the base one; the editor's full round trip — read it, post it back, the English survives |
 | Writes | a create under `Accept-Language: ar` answering `201` with its sentence in Arabic; an update in Arabic leaving the English base alone and inventing no Arabic row; a category created and renamed across both languages |
-| Refusals | `400`, `404` and `409` unchanged — and the `409` asserted against the Arabic *sentence*, not just the status, because the database raises it while the save is inside the base language and only the `finally` in `EntityText` puts the caller's language back |
+| Refusals | `400`, `404` and `409` unchanged — and the `409` asserted against the Arabic *sentence*, not just the status, because the database raises it while the save is inside the base language and only the `finally` in `TranslatedText` puts the caller's language back |
 | Cascades | deleting an entity takes every language with it; deleting a file takes its alt text |
 | The other libraries | branding resolving its translated name beside the stored one; alt text still taking every language, base included, because a subject has no columns; the settings schema still flagging `translated`; purging a language's rows, and the same button pressed on the base language leaving the columns alone |
 | The library's own rules | the base language cannot be deleted; content created with no base-language text reads as `""` |
@@ -935,7 +935,7 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
                                          query + response + bounds + handler + route
   Catalog/Products/                      List, Get, Create, Update, UploadImage, Delete
   Catalog/Shared/AttachedFiles.cs        one owner's files, with roles and alt text
-  Catalog/Shared/EntityText.cs           one entity's text in every language, read and
+  Catalog/Shared/TranslatedText.cs       one entity's text in every language, read and
                                          written — the counterpart to Composition/MediaText.cs,
                                          and the only file that knows what a base language is
   Composition/MediaText.cs               Media × MultiLingual  ← the composition

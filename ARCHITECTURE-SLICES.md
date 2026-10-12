@@ -158,7 +158,7 @@ src/DotNetBoostSample.Application/
     Shared/CatalogRoles.cs                 MaxPageSize, "primary", "gallery", "banner"
     Shared/CatalogResponses.cs             what a create, an update and an upload answer with
     Shared/PagedResult.cs                  Items / Total / Skip / Take, named at last
-    Shared/EntityText.cs                   one entity's text in every language, read and
+    Shared/TranslatedText.cs               one entity's text in every language, read and
                                            written — and the only place that knows whether a
                                            base language is configured
   Composition/                             ← the join, in one folder, named for what it is
