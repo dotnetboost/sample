@@ -750,7 +750,7 @@ can tell.
   classes above cannot express because they have to pass in both: that the `Name` column exists and
   holds English (read with raw SQL — in the default mode that statement would not even parse), that
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the thirty-five the
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the thirty-nine the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
   document against what the suite requests: promoting a language to default (allowed with a base
