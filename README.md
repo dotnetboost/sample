@@ -617,8 +617,9 @@ do.
 `dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
 `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-**The whole integration suite runs in both modes**: thirty-five tests against each, the same
-assertions, nothing adapted. They were not written for this mode and were not changed for it, which
+**The whole integration suite runs in both modes**: thirty-nine tests against each, the same
+assertions, nothing adapted — and between them they call **every one of the API's 41 published
+routes**, checked by listing the generated document and crossing it against what the tests request. They were not written for this mode and were not changed for it, which
 is what makes them worth re-running — branding, media shapes, settings, refusals, the generated
 document and the catalogue itself all have to come out the same.
 
@@ -751,6 +752,11 @@ can tell.
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
   text alone, that the base language cannot be deleted. Fifteen tests, beside the thirty-five the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
+- **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
+  document against what the suite requests: promoting a language to default (allowed with a base
+  language configured, and leaving the columns alone — the default and the base language are
+  different things), resolving a subject's values one at a time and in bulk, reordering a role and
+  detaching from it, and the direct-URL route a FileSystem backend mints nothing for.
 - **`CatalogRefusalTests`** — every request that used to be answered with a 500: a body of the wrong
   shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
   a 409, in the request's language. **All three were found by running the application rather than by
