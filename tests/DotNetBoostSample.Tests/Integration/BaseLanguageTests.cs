@@ -372,6 +372,198 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     }
 
     /// <summary>
+    /// A refused write is still a refusal — 400, 404 or 409 as before, and in the caller's
+    /// language.
+    ///
+    /// <para>The one assertion here that is really about this mode is the last. The save runs
+    /// inside the base language, and the refusal is raised by the database in the middle of that —
+    /// so the language has to be back before <c>DbUpdateExceptionHandler</c> looks the sentence up.
+    /// That is what the <c>finally</c> in <c>EntityText</c> is for, and a test that only checked
+    /// the status code would pass with it deleted.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_refused_write_keeps_its_status_and_its_language()
+    {
+        var client = app.Client;
+        var sku = $"DUP-{Guid.NewGuid():N}"[..12];
+
+        var id = (await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku,
+            price = 1.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["en"] = new() { ["Name"] = "First", ["Description"] = "Has the SKU." }
+            }
+        })).Int("id");
+
+        // The same SKU again, read in Arabic. The unique index refuses it.
+        var refused = await client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku,
+            price = 2.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["en"] = new() { ["Name"] = "Second", ["Description"] = "Wants the same SKU." }
+            }
+        }, language: "ar");
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal("يستخدم منتج آخر رمز المنتج هذا بالفعل.", await refused.ProblemDetailAsync());
+
+        // And a category that does not exist is still a 404 rather than a foreign-key 500.
+        var missing = await client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"NC-{Guid.NewGuid():N}"[..12],
+            price = 1.0m,
+            categoryId = 987654,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.True(missing.IsNotFound());
+
+        // And a request that is malformed rather than refused by the database is still a 400 with
+        // its per-field errors — ValidationBehavior throws before any of this mode's machinery is
+        // reached, which is the answer to "what did base-language mode change here": nothing.
+        var invalid = await client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = "",
+            price = -1m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Contains("errors", (await invalid.ProblemJsonAsync()).Keys());
+
+        await client.SendJsonOkAsync(HttpMethod.Delete, $"/api/products/{id}");
+    }
+
+    /// <summary>
+    /// Deleting the entity takes its text with it — the columns go with the row, and the other
+    /// languages' rows go through MultiLingual's SaveChanges interceptor, which sees the delete.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Deleting_an_entity_takes_every_language_with_it()
+    {
+        var client = app.Client;
+
+        var id = await client.CreateProductAsync("Doomed product");
+
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/products/{id}", new
+        {
+            sku = $"DL-{Guid.NewGuid():N}"[..12],
+            price = 1.0m,
+            categoryId = 1,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["ar"] = new() { ["Name"] = "محكوم عليه", ["Description"] = "سيُحذف." }
+            }
+        });
+
+        Assert.Equal("2", await TranslationCountAsync(id));
+
+        await client.SendJsonOkAsync(HttpMethod.Delete, $"/api/products/{id}");
+
+        Assert.Equal("0", await TranslationCountAsync(id));
+        Assert.Null(await app.ScalarAsync($"""select "Name" from "Products" where "Id" = {id}"""));
+    }
+
+    /// <summary>
+    /// The other cascade, which is this application's own: a deleted media file takes its alt text
+    /// with it, through <c>MediaTextCleanup</c>. Subject rows, so nothing about them changes here —
+    /// asserted because "nothing changes" is the claim this whole file is making.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Deleting_a_file_still_takes_its_alt_text()
+    {
+        var client = app.Client;
+
+        var productId = await client.CreateProductAsync("Product with a doomed image");
+        var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary", "gone.png");
+        var fileId = upload.Str("id");
+
+        await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}", new
+        {
+            translations = new Dictionary<string, Dictionary<string, string?>>
+            {
+                ["en"] = new() { ["AltText"] = "About to go" }
+            }
+        });
+
+        await client.SendJsonOkAsync(HttpMethod.Delete, $"/api/media/{fileId}");
+
+        Assert.Equal(
+            "0",
+            await app.ScalarAsync(
+                $"""select count(*) from "Translations" where "EntityName" = 'MediaFile' and "EntityId" = '{fileId}'"""));
+
+        await client.SendJsonOkAsync(HttpMethod.Delete, $"/api/products/{productId}");
+    }
+
+    /// <summary>
+    /// The language administration the dashboard's Languages page drives: purging a language's
+    /// translations, and the same button pressed on the base language — whose values are columns and
+    /// therefore not translations to purge. Neither is allowed to be a 500.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Purging_a_languages_translations_behaves_for_both_kinds_of_language()
+    {
+        var client = app.Client;
+
+        var purged = await client.SendJsonAsync(HttpMethod.Delete, "/api/languages/fr/translations");
+
+        Assert.True(purged.IsSuccessStatusCode, await purged.Content.ReadAsStringAsync());
+
+        // French is gone from the rows, so it now reads as the base language's column.
+        Assert.Equal(
+            "0",
+            await app.ScalarAsync("""select count(*) from "Translations" where "LanguageCode" = 'fr'"""));
+
+        Assert.Equal(
+            "Oak writing desk",
+            (await client.GetJsonAsync("/api/products", "fr"))
+                .GetProperty("items").EnumerateArray().First(p => p.Str("sku") == "DESK-001").Str("name"));
+
+        // The base language either refuses or reports nothing to purge; what it must not do is
+        // take the columns with it.
+        var baseLanguage = await client.SendJsonAsync(HttpMethod.Delete, "/api/languages/en/translations");
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, baseLanguage.StatusCode);
+
+        Assert.Equal(
+            "Oak writing desk",
+            await app.ScalarAsync("""select "Name" from "Products" where "Sku" = 'DESK-001'"""));
+    }
+
+    /// <summary>
+    /// The Settings × MultiLingual join still publishes <c>translated</c> for a settings property
+    /// carrying <c>[MultiLingual]</c>. It is read off the attribute rather than out of the store, so
+    /// the mode cannot reach it — asserted for the same reason as the test above.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task The_settings_schema_still_flags_the_translated_property()
+    {
+        var schema = await app.Client.GetJsonAsync("/api/settings/branding/schema");
+
+        var storeName = schema.GetProperty("properties")
+            .EnumerateArray()
+            .First(p => p.Str("name").Equals("storeName", StringComparison.OrdinalIgnoreCase));
+
+        Assert.True(storeName.GetProperty("constraints").GetProperty("translated").GetBoolean());
+    }
+
+    /// <summary>Translation rows for one product, as the database has them.</summary>
+    private Task<string?> TranslationCountAsync(int productId) =>
+        app.ScalarAsync(
+            $"""
+             select count(*) from "Translations"
+             where "EntityName" = 'Product' and "EntityId" = '{productId}'
+             """);
+
+    /// <summary>
     /// The base language cannot be removed, and the refusal is the library's own problem detail
     /// rather than a 500 — so the dashboard's Languages page shows a sentence, as it does for every
     /// other refusal.

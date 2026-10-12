@@ -67,8 +67,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyMedia();
 
         // MultiLingual: the Translations and Languages tables — and, passing `this`, it also
-        // strips every [MultiLingual] string property off Category and Product, so those columns
-        // are never created. That is why Products has no Name column.
+        // decides where every [MultiLingual] string property lives, by reading the engine's
+        // options off this context's application services.
+        //
+        // With no base language configured, which is how the sample runs by default, it strips
+        // those properties off Category and Product and the columns are never created: Products
+        // has no Name column at all. Configure one and they are kept, and that column holds the
+        // base language. Passing `this` rather than nothing is what makes the mapping follow the
+        // engine instead of the two having to be set to the same thing twice.
         modelBuilder.ApplyMultiLingual(this);
     }
 }

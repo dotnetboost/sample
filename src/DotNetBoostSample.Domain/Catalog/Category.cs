@@ -7,9 +7,11 @@ namespace DotNetBoostSample.Domain.Catalog;
 /// exists.
 /// <para>
 /// <c>[MultiLingual]</c> at class level makes every public string property translatable:
-/// <see cref="Name"/> and <see cref="Description"/> are not stored in the Categories table at
-/// all, but as rows in the translations table, one per language. The EF Core provider removes
-/// them from the model, so no migration here mentions them.
+/// <see cref="Name"/> and <see cref="Description"/> are read and written per language rather than
+/// once. Where they are STORED is the engine's configuration rather than this class's business —
+/// as rows in the translations table, one per language, unless a base language is configured, in
+/// which case that one language keeps a column here and the rest are still rows. Either way
+/// nothing below changes, which is the point of the attribute.
 /// </para>
 /// </summary>
 [MultiLingual]

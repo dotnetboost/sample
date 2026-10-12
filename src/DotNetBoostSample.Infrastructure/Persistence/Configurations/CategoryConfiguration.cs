@@ -8,10 +8,10 @@ namespace DotNetBoostSample.Infrastructure.Persistence.Configurations;
 /// The Categories table.
 ///
 /// <para>Note what is <b>not</b> configured: <c>Name</c> and <c>Description</c>. They carry
-/// <c>[MultiLingual]</c>, and <c>ApplyMultiLingual(this)</c> in <see cref="AppDbContext"/> strips
-/// them off the model entirely — they are rows in the translations table, not columns here. Adding
-/// a <c>Property(c =&gt; c.Name)</c> below would be configuring a column that is never
-/// created.</para>
+/// <c>[MultiLingual]</c>, so where they live is <c>ApplyMultiLingual(this)</c>'s decision in
+/// <see cref="AppDbContext"/> and not this file's — rows in the translations table by default, and
+/// the entity's own columns when a base language is configured. Configuring them here would be
+/// writing down an answer that is only right in one of the two modes.</para>
 /// </summary>
 public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
 {

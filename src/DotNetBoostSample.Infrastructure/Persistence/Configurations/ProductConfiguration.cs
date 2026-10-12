@@ -9,8 +9,8 @@ namespace DotNetBoostSample.Infrastructure.Persistence.Configurations;
 ///
 /// <para>There is no media column and no <c>Images</c> collection to configure: attachments live
 /// in the media library's own table, keyed by the entity name <c>"Product"</c> and the row's id.
-/// And as with a category, the translated <c>Name</c> and <c>Description</c> are not columns —
-/// which is why <c>Products</c> has no <c>Name</c> column in the database at all.</para>
+/// And as with a category, where the translated <c>Name</c> and <c>Description</c> live is not
+/// decided here — see <see cref="CategoryConfiguration"/>, which has the long version.</para>
 ///
 /// <para><c>OnDelete(Restrict)</c> is the database half of the refusal in <c>DeleteCategory</c>:
 /// the handler answers 409 with a localized sentence, and this makes sure a path that did not
