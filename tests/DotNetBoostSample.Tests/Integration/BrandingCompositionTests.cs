@@ -9,8 +9,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// DotNetBoost.Settings, its translated name is DotNetBoost.MultiLingual, and its logo is a
 /// DotNetBoost.Media attachment on the owner <c>("Branding", "branding")</c>.
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class BrandingCompositionTests(SampleApp app)
+public abstract class BrandingCompositionTests(SampleApp app)
 {
     /// <summary>
     /// The regression test for 9d3f782, and the reason this whole fixture exists.
@@ -165,3 +164,21 @@ public class BrandingCompositionTests(SampleApp app)
         Assert.Equal(31, (await client.GetJsonAsync("/api/settings/branding")).Int("headerLogoSize"));
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="BrandingCompositionTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class BrandingCompositionTestsInDefaultMode(SampleApp app) : BrandingCompositionTests(app);
+
+/// <summary>
+/// The same assertions about branding read and its media owner, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class BrandingCompositionTestsInBaseLanguageMode(BaseLanguageSampleApp app) : BrandingCompositionTests(app);

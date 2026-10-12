@@ -614,13 +614,17 @@ do.
 
 ### How that is checked rather than claimed
 
-`tests/.../Integration/BaseLanguageTests.cs` boots the whole sample a second time with the mode on,
-beside the suite that boots it with the mode off — two hosts, two schemas, one `dotnet test`. That
-is what `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
+`dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
+`MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-Fifteen tests. The first reads the `Name` column with raw SQL; without it the other fourteen would
-pass just as well with the mode off and prove nothing. The rest walk the surface a client can
-actually reach:
+**The whole integration suite runs in both modes**: thirty-five tests against each, the same
+assertions, nothing adapted. They were not written for this mode and were not changed for it, which
+is what makes them worth re-running — branding, media shapes, settings, refusals, the generated
+document and the catalogue itself all have to come out the same.
+
+Then **fifteen more** that only base-language mode can be asked, in `BaseLanguageTests`. The first
+reads the `Name` column with raw SQL; without it the other fourteen would pass just as well with
+the mode off and prove nothing. The rest walk the surface a client can actually reach:
 
 | | |
 |---|---|
@@ -630,6 +634,13 @@ actually reach:
 | Cascades | deleting an entity takes every language with it; deleting a file takes its alt text |
 | The other libraries | branding resolving its translated name beside the stored one; alt text still taking every language, base included, because a subject has no columns; the settings schema still flagging `translated`; purging a language's rows, and the same button pressed on the base language leaving the columns alone |
 | The library's own rules | the base language cannot be deleted; content created with no base-language text reads as `""` |
+
+**The matrix is load-bearing, which is also checked.** Deleting one branch of the write path —
+the line that puts the base language's values on the entity instead of queueing them as a
+translation — fails six tests: four in `BaseLanguageTests` and, more to the point, two of the
+duplicated ones, `CatalogCompositionTestsInBaseLanguageMode` and
+`CatalogRefusalTestsInBaseLanguageMode`. Every default-mode copy still passes. That is the shape a
+mode-specific regression has, and the suite has to be able to see it.
 
 **And measured, not just tested.** Two APIs, two freshly seeded databases, one in each mode:
 
@@ -698,6 +709,14 @@ another, that a settings value changes what an endpoint answers without a restar
 behaviour of three libraries sharing one `DbContext`, and none of it is provable without the
 database they share.
 
+**Every class below runs twice**, against two applications on two databases: once in the mode the
+sample ships in, and once with `MultiLingualOptions.BaseLanguage = "en"`. Each is an abstract class
+holding the assertions and two sealed subclasses binding it to one fixture or the other —
+`CatalogCompositionTestsInDefaultMode` and `CatalogCompositionTestsInBaseLanguageMode`. Running
+them rather than reasoning about which ones could care is the point: the mode moves content between
+a column and a translation row, and [the claim](#two-places-a-language-can-live) is that no caller
+can tell.
+
 - **`BrandingCompositionTests`** — the group publishes `owner`, the two strings its media is filed
   under, and the name it publishes is one `GET /api/media/roles/{entityName}` actually has roles
   for. That pair cannot be derived: the group list answers with the CLR class name, `[MediaEntity]`
@@ -726,12 +745,12 @@ database they share.
 - **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
   answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
   refusable ones declare `.Produces<T>()` and the two listings return their value directly.
-- **`BaseLanguageTests`** — the same application booted a second time with
-  `MultiLingualOptions.BaseLanguage = "en"`, asserting that turning the mode on changes nothing a
-  caller can see: same routes, same statuses, same bodies, same keys in the `translations` map. The
-  one test that looks inward reads the `Name` column with raw SQL, because in the default mode that
-  column does not exist and the statement would not even parse. See
-  [Two places a language can live](#two-places-a-language-can-live).
+- **`BaseLanguageTests`** — what only base-language mode can be asked, which is everything the
+  classes above cannot express because they have to pass in both: that the `Name` column exists and
+  holds English (read with raw SQL — in the default mode that statement would not even parse), that
+  a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the thirty-five the
+  suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`CatalogRefusalTests`** — every request that used to be answered with a 500: a body of the wrong
   shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
   a 409, in the request's language. **All three were found by running the application rather than by
@@ -1004,7 +1023,9 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/components/media/PickerModal.vue   pick an existing file from the library, or upload
   app/utils/format.ts                    sizes, dates and prices through Intl in the UI locale
 tests/DotNetBoostSample.Tests/           the claim, as tests
-  Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL
+  Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL —
+                                         subclassed once to boot it in base-language mode, which
+                                         is what makes every class below run in both
   Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
   Integration/BaseLanguageTests.cs       the same application with BaseLanguage = "en",
                                          asserting that nothing a caller sees moved

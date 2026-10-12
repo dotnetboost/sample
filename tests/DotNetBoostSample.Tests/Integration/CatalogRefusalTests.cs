@@ -18,8 +18,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// refusal is part of an API's contract, and an untested refusal is a 500 waiting to be
 /// discovered by whoever is using it.</para>
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class CatalogRefusalTests(SampleApp app)
+public abstract class CatalogRefusalTests(SampleApp app)
 {
     /// <summary>A category id nothing points at is the caller's mistake, and is named as such.</summary>
     [RequiresDockerFact]
@@ -205,3 +204,21 @@ public class CatalogRefusalTests(SampleApp app)
             "the empty slug should be named");
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="CatalogRefusalTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class CatalogRefusalTestsInDefaultMode(SampleApp app) : CatalogRefusalTests(app);
+
+/// <summary>
+/// The same assertions about every refusal this API answers, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class CatalogRefusalTestsInBaseLanguageMode(BaseLanguageSampleApp app) : CatalogRefusalTests(app);

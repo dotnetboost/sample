@@ -9,8 +9,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// MultiLingual's EF interceptors, alt text that is MultiLingual rows about a Media file, and the
 /// API's own sentences answered in the language the content was read in.
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class CatalogCompositionTests(SampleApp app)
+public abstract class CatalogCompositionTests(SampleApp app)
 {
     /// <summary>
     /// The claim the README opens with: <c>db.Products.ToListAsync()</c> comes back translated
@@ -200,3 +199,21 @@ public class CatalogCompositionTests(SampleApp app)
                 .Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="CatalogCompositionTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class CatalogCompositionTestsInDefaultMode(SampleApp app) : CatalogCompositionTests(app);
+
+/// <summary>
+/// The same assertions about the catalogue as the three libraries compose it, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class CatalogCompositionTestsInBaseLanguageMode(BaseLanguageSampleApp app) : CatalogCompositionTests(app);

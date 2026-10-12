@@ -21,8 +21,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// <para>The assertions compare the document against a real response rather than against a list
 /// written here. A list would be a third copy of the shape, free to drift from both.</para>
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class OpenApiShapeTests(SampleApp app)
+public abstract class OpenApiShapeTests(SampleApp app)
 {
     [RequiresDockerFact]
     public async Task The_documented_branding_response_is_the_one_branding_sends()
@@ -133,3 +132,21 @@ public class OpenApiShapeTests(SampleApp app)
         return schema.GetProperty("properties");
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="OpenApiShapeTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class OpenApiShapeTestsInDefaultMode(SampleApp app) : OpenApiShapeTests(app);
+
+/// <summary>
+/// The same assertions about the generated document, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class OpenApiShapeTestsInBaseLanguageMode(BaseLanguageSampleApp app) : OpenApiShapeTests(app);

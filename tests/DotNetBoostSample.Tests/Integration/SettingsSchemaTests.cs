@@ -15,8 +15,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// <c>DotNetBoost.Settings.FluentValidation</c>'s schema contributor.
 /// </para>
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class SettingsSchemaTests(SampleApp app)
+public abstract class SettingsSchemaTests(SampleApp app)
 {
     [RequiresDockerFact]
     public async Task The_group_list_names_every_registered_group_and_no_values()
@@ -186,3 +185,21 @@ public class SettingsSchemaTests(SampleApp app)
     private static System.Text.Json.JsonElement Property(System.Text.Json.JsonElement schema, string name) =>
         schema.GetProperty("properties").EnumerateArray().Single(p => p.Str("name") == name);
 }
+
+/// <summary>
+/// <inheritdoc cref="SettingsSchemaTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class SettingsSchemaTestsInDefaultMode(SampleApp app) : SettingsSchemaTests(app);
+
+/// <summary>
+/// The same assertions about the published settings schema, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class SettingsSchemaTestsInBaseLanguageMode(BaseLanguageSampleApp app) : SettingsSchemaTests(app);

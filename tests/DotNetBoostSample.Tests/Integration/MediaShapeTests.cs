@@ -9,8 +9,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// about, and a file IN A ROLE, which an editor is about. The media library draws the same line
 /// between <c>ListAsync</c> and <c>ListWithRolesAsync</c>.
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class MediaShapeTests(SampleApp app)
+public abstract class MediaShapeTests(SampleApp app)
 {
     /// <summary>
     /// The case that separates the two shapes, and the regression test for 9977507: one file
@@ -205,3 +204,21 @@ public class MediaShapeTests(SampleApp app)
                 .Where(t => t.EntityName == "MediaFile" && t.EntityId == key));
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="MediaShapeTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class MediaShapeTestsInDefaultMode(SampleApp app) : MediaShapeTests(app);
+
+/// <summary>
+/// The same assertions about the shapes media travels in, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class MediaShapeTestsInBaseLanguageMode(BaseLanguageSampleApp app) : MediaShapeTests(app);

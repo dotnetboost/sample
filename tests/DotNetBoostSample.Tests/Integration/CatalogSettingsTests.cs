@@ -11,8 +11,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// application and one database, and a page size of two left behind would quietly change what the
 /// other tests see.</para>
 /// </summary>
-[Collection(SampleAppCollection.Name)]
-public class CatalogSettingsTests(SampleApp app)
+public abstract class CatalogSettingsTests(SampleApp app)
 {
     /// <summary>
     /// The claim in one test: edit the setting, call the same URL again, get a different page. No
@@ -99,3 +98,21 @@ public class CatalogSettingsTests(SampleApp app)
         Assert.DoesNotContain("logoFileId", branding);
     }
 }
+
+/// <summary>
+/// <inheritdoc cref="CatalogSettingsTests" path="/summary/node()[1]"/>
+/// <para>Run in the mode the sample ships in: every language is a translation row.</para>
+/// </summary>
+[Collection(SampleAppCollection.Name)]
+public sealed class CatalogSettingsTestsInDefaultMode(SampleApp app) : CatalogSettingsTests(app);
+
+/// <summary>
+/// The same assertions about a settings value changing what a listing answers, against the same application booted with
+/// <c>MultiLingualOptions.BaseLanguage = "en"</c>.
+///
+/// <para>Running them twice rather than reasoning about which ones could care is the point: the
+/// mode moves content between a column and a translation row, and the claim this sample makes is
+/// that no caller can tell. A claim like that is worth more re-run than re-read.</para>
+/// </summary>
+[Collection(BaseLanguageSampleAppCollection.Name)]
+public sealed class CatalogSettingsTestsInBaseLanguageMode(BaseLanguageSampleApp app) : CatalogSettingsTests(app);
