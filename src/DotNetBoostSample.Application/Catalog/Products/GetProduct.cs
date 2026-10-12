@@ -1,5 +1,4 @@
 using DotNetBoost.Media.Core.Interfaces;
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -31,14 +30,14 @@ public static class GetProduct
     public sealed class Handler(
         IAppDbContext db,
         IMediaManager media,
-        IMultiLingualManager multiLingual,
+        EntityText entityText,
         MediaText mediaText) : IRequestHandler<Query, Result<ProductDetail>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductDetail>> HandleAsync(Query request, CancellationToken ct)
         {
-            var (product, text) = await TranslationReads.LoadAsync(
-                multiLingual, db.Products.Where(p => p.Id == request.Id), ct);
+            var (product, translations) =
+                await entityText.LoadAsync(db.Products.Where(p => p.Id == request.Id), ct);
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 
@@ -47,7 +46,7 @@ public static class GetProduct
                 product.Sku,
                 product.Price,
                 product.CategoryId,
-                text,
+                translations,
                 await AttachedFiles.DescribeAsync(media.For(product), mediaText, ct));
         }
     }

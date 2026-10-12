@@ -1,5 +1,4 @@
 using DotNetBoost.Media.Core.Interfaces;
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -18,9 +17,8 @@ namespace DotNetBoostSample.Application.Catalog.Categories;
 /// One category with every language's text and its banner — the shape the dashboard's editor reads.
 ///
 /// <para>This is the exception to "the interceptors already translated it": an editor needs every
-/// language at once, which is what <c>TranslationReads.LoadAsync</c> answers with — the
-/// stored translations, plus the base language's own columns where a base language is
-/// configured.</para>
+/// language at once, which is what <c>EntityText.LoadAsync</c> answers with — the stored
+/// translations, plus the base language's own columns where a base language is configured.</para>
 /// </summary>
 public static class GetCategory
 {
@@ -39,21 +37,21 @@ public static class GetCategory
     public sealed class Handler(
         IAppDbContext db,
         IMediaManager media,
-        IMultiLingualManager multiLingual,
+        EntityText entityText,
         MediaText mediaText) : IRequestHandler<Query, Result<CategoryDetail>>
     {
         /// <inheritdoc/>
         public async Task<Result<CategoryDetail>> HandleAsync(Query request, CancellationToken ct)
         {
-            var (category, text) = await TranslationReads.LoadAsync(
-                multiLingual, db.Categories.Where(c => c.Id == request.Id), ct);
+            var (category, translations) =
+                await entityText.LoadAsync(db.Categories.Where(c => c.Id == request.Id), ct);
 
             if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
 
             return new CategoryDetail(
                 category.Id,
                 category.Slug,
-                text,
+                translations,
                 await AttachedFiles.DescribeAsync(media.For(category), mediaText, ct));
         }
     }

@@ -1,4 +1,3 @@
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -43,7 +42,7 @@ public static class CreateCategory
 
     public sealed class Handler(
         IAppDbContext db,
-        IMultiLingualManager multiLingual) : IRequestHandler<Command, CategoryCreated>
+        EntityText entityText) : IRequestHandler<Command, CategoryCreated>
     {
         /// <inheritdoc/>
         public async Task<CategoryCreated> HandleAsync(Command request, CancellationToken ct)
@@ -54,9 +53,9 @@ public static class CreateCategory
 
             // One SaveChanges for the row and every language's text: MultiLingual's interceptor
             // writes the queued translations in the same transaction as the insert. The save is
-            // inside TranslationWrites because with a base language configured the language it
-            // runs in decides where each value lands — see that file.
-            await TranslationWrites.SaveAsync(db, multiLingual, category, request.Translations, ct);
+            // EntityText's rather than this handler's because, with a base language configured, the
+            // language it runs in decides where each value lands — see that class.
+            await entityText.SaveAsync(db, category, request.Translations, ct);
 
             return new CategoryCreated(category.Id, category.Slug);
         }

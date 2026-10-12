@@ -70,9 +70,9 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     ///
     /// <para>The library refuses a create outside the base language, for a good reason: the base
     /// value is what every translation hangs off and the last fallback for every other language.
-    /// <c>TranslationWrites</c> moves the save into the base language instead of letting that
-    /// refusal reach the caller — and puts the request's language back, which is why the message
-    /// below is Arabic.</para>
+    /// <c>EntityText</c> moves the save into the base language instead of letting that refusal
+    /// reach the caller — and puts the request's language back, which is why the message below is
+    /// Arabic.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_create_read_in_another_language_still_answers_201_in_that_language()

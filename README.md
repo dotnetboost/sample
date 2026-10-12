@@ -558,12 +558,14 @@ lets the default move without touching a stored value.
 
 ### What the application had to do about it
 
-Two files, and both of them were already there:
+One class — `Catalog/Shared/EntityText.cs`, an entity's text in every language. The four writes
+already went through it; the two detail reads now do too, because the read half of this question is
+as easy to get wrong as the write half:
 
-| File | In the default mode | With a base language |
+| `EntityText` | In the default mode | With a base language |
 |---|---|---|
-| `Catalog/Shared/TranslationWrites.cs` | queues every language with `Set` and saves | assigns the base language's values to the entity's own properties, queues the rest, and runs the save **in** the base language |
-| `Catalog/Shared/TranslationReads.cs` | the query, then `GetAllAsync()` | reads the entity in the base language and puts its columns into the map under that language's code |
+| `SaveAsync` | queues every language with `Set` and saves | assigns the base language's values to the entity's own properties, queues the rest, and runs the save **in** the base language |
+| `LoadAsync` | the query, then `GetAllAsync()` | reads the entity in the base language and puts its columns into the map under that language's code |
 
 Each half is answering one refusal the library makes on purpose. `Set("en", …)` throws
 `BaseLanguageNotTranslatableException`, because that language is not a translation; a create under
@@ -577,7 +579,7 @@ stored *translations*, and the base language is not one of them — so the dashb
 have opened with the English boxes empty and saved that emptiness over the canonical text on the
 first write. A silent erasure, from a screen that looked right.
 
-There is a third file, and it is the only one that exists *because* of this mode:
+There is a second file, and it is the only one that exists *because* of this mode:
 `Persistence/MultiLingualModelCacheKeyFactory.cs`. EF Core caches one model per DbContext type,
 and this context's model now depends on an option read at runtime — so two instances of the
 application in one process with different base languages would share whichever model was built
@@ -894,9 +896,9 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
                                          query + response + bounds + handler + route
   Catalog/Products/                      List, Get, Create, Update, UploadImage, Delete
   Catalog/Shared/AttachedFiles.cs        one owner's files, with roles and alt text
-  Catalog/Shared/TranslationWrites.cs    per-language text beside a write — and the only
-                                         other file that knows what a base language is
-  Catalog/Shared/TranslationReads.cs     one entity with every language's text, for an editor
+  Catalog/Shared/EntityText.cs           one entity's text in every language, read and
+                                         written — the counterpart to Composition/MediaText.cs,
+                                         and the only file that knows what a base language is
   Composition/MediaText.cs               Media × MultiLingual  ← the composition
   Composition/MediaTextCleanup.cs        removes a file's text when the file goes
   Composition/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes

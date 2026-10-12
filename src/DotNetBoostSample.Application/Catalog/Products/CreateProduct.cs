@@ -1,4 +1,3 @@
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -49,7 +48,7 @@ public static class CreateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        IMultiLingualManager multiLingual) : IRequestHandler<Command, Result<ProductCreated>>
+        EntityText entityText) : IRequestHandler<Command, Result<ProductCreated>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductCreated>> HandleAsync(Command request, CancellationToken ct)
@@ -82,7 +81,7 @@ public static class CreateProduct
 
             db.Products.Add(product);
 
-            await TranslationWrites.SaveAsync(db, multiLingual, product, request.Translations, ct);
+            await entityText.SaveAsync(db, product, request.Translations, ct);
 
             return new ProductCreated(product.Id, product.Sku);
         }

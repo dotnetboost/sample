@@ -1,4 +1,3 @@
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -36,7 +35,7 @@ public static class UpdateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        IMultiLingualManager multiLingual) : IRequestHandler<Command, Result<string>>
+        EntityText entityText) : IRequestHandler<Command, Result<string>>
     {
         /// <summary>Answers with the SKU, which is what the message is named after.</summary>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -55,7 +54,7 @@ public static class UpdateProduct
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
 
-            await TranslationWrites.SaveAsync(db, multiLingual, product, request.Translations, ct);
+            await entityText.SaveAsync(db, product, request.Translations, ct);
 
             return product.Sku;
         }

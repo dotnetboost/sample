@@ -1,4 +1,3 @@
-using DotNetBoost.MultiLingual.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -33,7 +32,7 @@ public static class UpdateCategory
 
     public sealed class Handler(
         IAppDbContext db,
-        IMultiLingualManager multiLingual) : IRequestHandler<Command, Result<string>>
+        EntityText entityText) : IRequestHandler<Command, Result<string>>
     {
         /// <summary>Answers with the slug, which is what the message is named after.</summary>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -44,7 +43,7 @@ public static class UpdateCategory
 
             category.Slug = request.Slug;
 
-            await TranslationWrites.SaveAsync(db, multiLingual, category, request.Translations, ct);
+            await entityText.SaveAsync(db, category, request.Translations, ct);
 
             return category.Slug;
         }

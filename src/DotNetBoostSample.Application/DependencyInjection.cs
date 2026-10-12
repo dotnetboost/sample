@@ -1,5 +1,6 @@
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
+using DotNetBoostSample.Application.Catalog.Shared;
 using DotNetBoostSample.Application.Composition;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,6 +63,12 @@ public static class DependencyInjection
         // library with .OnFilesDeleted<MediaTextCleanup>(), which is what makes the cleanup run
         // for every delete including the library's own endpoint's.
         services.AddScoped<MediaText>();
+
+        // And its counterpart for the application's own entities: one entity's text in every
+        // language, read and written. Scoped for the same reason — it holds the request's engine —
+        // and registered rather than static because the six slices that use it would otherwise
+        // each take an IMultiLingualManager to hand straight on.
+        services.AddScoped<EntityText>();
 
         return services;
     }

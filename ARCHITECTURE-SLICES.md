@@ -158,11 +158,9 @@ src/DotNetBoostSample.Application/
     Shared/CatalogRoles.cs                 MaxPageSize, "primary", "gallery", "banner"
     Shared/CatalogResponses.cs             what a create, an update and an upload answer with
     Shared/PagedResult.cs                  Items / Total / Skip / Take, named at last
-    Shared/TranslationWrites.cs            per-language text beside a write — and, with a
-                                           base language configured, which of them is the
-                                           entity's own columns
-    Shared/TranslationReads.cs             the mirror of it: one entity with every
-                                           language's text, for an editor
+    Shared/EntityText.cs                   one entity's text in every language, read and
+                                           written — and the only place that knows whether a
+                                           base language is configured
   Composition/                             ← the join, in one folder, named for what it is
     MediaText.cs                           Media × MultiLingual        moved, unchanged
     MediaTextCleanup.cs                    Media → MultiLingual        moved, unchanged
