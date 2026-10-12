@@ -1,4 +1,5 @@
 using DotNetBoost.MultiLingual.Core.Interfaces;
+using DotNetBoost.MultiLingual.Core.Metadata;
 using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoostSample.Domain.Catalog;
 using Microsoft.EntityFrameworkCore;
@@ -47,78 +48,113 @@ public static class DatabaseInitialiser
 
         if (await db.Categories.AnyAsync()) return;
 
-        // The language this seed's own values are authored in — and the one every translatable
-        // property assigned below is therefore filed under. It has to be resolved before the
-        // first save: a translatable property is content like any other to the interceptor, and
-        // this is what says which language that content is in.
+        // The language this seed AUTHORS in — the one whose values go onto the entities themselves
+        // rather than into translation rows.
         //
-        // In base-language mode it is also, deliberately, the base language the README documents:
-        // the text below is English, and an entity may only be CREATED in the language its own
-        // columns hold. Those assignments then go to the columns rather than to "en" rows, which
-        // is the whole of what that mode changes here.
-        await multiLingual.UseLanguageAsync("en");
+        // The base language when there is one, because an entity may only be CREATED in the
+        // language its own columns hold; "en" otherwise, which is this sample's default language
+        // and what the seed read in before the mode existed. Resolved before the first save either
+        // way: a translatable property is content like any other to the interceptor, and this is
+        // what says which language that content is in.
+        var authoring = multiLingual.Languages.BaseLanguage ?? "en";
+
+        // Checked rather than assumed: UseLanguageAsync falls back to the DEFAULT language for one
+        // it does not know. Harmless without a base language — there is nothing below that depends
+        // on which one it is — but in base-language mode it would leave this seed authoring in a
+        // language that is not the base one, and the library would then refuse the first create
+        // with a message about the request's language rather than about the setting that caused it.
+        if (!await multiLingual.UseLanguageAsync(authoring) && multiLingual.Languages.BaseLanguage is not null)
+        {
+            throw new InvalidOperationException(
+                $"MultiLingual:BaseLanguage is '{authoring}', which is not an active language in "
+                + "this database. The seed below carries en, ar and fr: set the option to one of "
+                + "them, or create that language before the catalogue is seeded.");
+        }
 
         // ── Categories and products, in three languages ──────────────────────
         //
-        // The other two languages go through this, rather than a Set() chain per entity, for one
-        // reason: in base-language mode a Set() naming the base language is refused — those values
-        // are the entity's own columns, written by the object initialisers below — so the base
-        // language has to be skipped rather than written twice. Inert in the default mode, where nothing is the base
-        // language and all three are rows; what keeps a first run from failing for someone who
-        // configures a base language this English seed was not written for.
-        void Translate<T>(T entity, string language, string name, string description)
+        // One call per entity carrying every language, because the split between them is the only
+        // thing the two modes disagree about here and it is not the seed's business to know which
+        // mode is on:
+        //
+        //   • The AUTHORING language is ASSIGNED to the entity's own properties — filed as that
+        //     language's rows in the default mode, and written to the columns in base-language
+        //     mode. It has to be on the entity before the first save, not queued: a translatable
+        //     property is re-read on every save in this scope, so an entity added with empty
+        //     properties has that emptiness written back over its text by the next one.
+        //
+        //   • Every OTHER language is queued as a translation row, which is all it can be in
+        //     either mode. Naming the authoring language here instead would be refused outright
+        //     when it is the base one — those values are a column, not a translation.
+        //
+        // It is also what makes the seed right for ANY of the three languages it carries, rather
+        // than only for "en": set the base language to "ar" and the Arabic text is what lands in
+        // the columns, with English and French as the rows beside it. Nothing below is written
+        // twice or in the wrong language, because every language is named here explicitly instead
+        // of one of them being implied by the properties the entities were constructed with.
+        void Text<T>(T entity, params (string Language, string Name, string Description)[] text)
             where T : class
         {
-            if (multiLingual.Languages.IsBaseLanguage(language)) return;
-
-            multiLingual.For(entity).Set(language, new Dictionary<string, string?>
+            foreach (var (language, name, description) in text)
             {
-                ["Name"] = name,
-                ["Description"] = description
-            });
+                var values = new Dictionary<string, string?>
+                {
+                    ["Name"] = name,
+                    ["Description"] = description
+                };
+
+                if (!string.Equals(language, authoring, StringComparison.OrdinalIgnoreCase))
+                {
+                    multiLingual.For(entity).Set(language, values);
+                    continue;
+                }
+
+                // By name rather than by `entity.Name = …`, so one helper serves both entity types.
+                // A translatable property the seed forgot is a KeyNotFoundException here, which is
+                // the right noise for a seed that is this application's own.
+                foreach (var property in MultiLingualMetadata.For(typeof(T)))
+                    property.SetValue(entity, values[property.Name] ?? string.Empty);
+            }
         }
 
-        var furniture = new Category { Slug = "furniture", Name = "Furniture", Description = "Tables, chairs and desks." };
-        var lighting  = new Category { Slug = "lighting",  Name = "Lighting",  Description = "Lamps and fixtures." };
+        var furniture = new Category { Slug = "furniture" };
+        var lighting  = new Category { Slug = "lighting" };
 
         db.Categories.AddRange(furniture, lighting);
 
-        Translate(furniture, "ar", "أثاث", "طاولات وكراسي ومكاتب.");
-        Translate(furniture, "fr", "Mobilier", "Tables, chaises et bureaux.");
+        Text(furniture,
+            ("en", "Furniture", "Tables, chairs and desks."),
+            ("ar", "أثاث", "طاولات وكراسي ومكاتب."),
+            ("fr", "Mobilier", "Tables, chaises et bureaux."));
 
-        Translate(lighting, "ar", "إضاءة", "مصابيح وتركيبات.");
-        Translate(lighting, "fr", "Éclairage", "Lampes et luminaires.");
+        Text(lighting,
+            ("en", "Lighting", "Lamps and fixtures."),
+            ("ar", "إضاءة", "مصابيح وتركيبات."),
+            ("fr", "Éclairage", "Lampes et luminaires."));
 
         await db.SaveChangesAsync();
 
-        var desk = new Product
-        {
-            Sku = "DESK-001", Price = 349.00m, CategoryId = furniture.Id,
-            Name = "Oak writing desk", Description = "Solid oak, two drawers."
-        };
-
-        var chair = new Product
-        {
-            Sku = "CHAIR-001", Price = 189.00m, CategoryId = furniture.Id,
-            Name = "Walnut chair", Description = "Bent walnut, woven seat."
-        };
-
-        var lamp = new Product
-        {
-            Sku = "LAMP-001", Price = 79.00m, CategoryId = lighting.Id,
-            Name = "Brass desk lamp", Description = "Adjustable arm, warm light."
-        };
+        // The categories now have ids, which is what the three products are keyed to.
+        var desk  = new Product { Sku = "DESK-001",  Price = 349.00m, CategoryId = furniture.Id };
+        var chair = new Product { Sku = "CHAIR-001", Price = 189.00m, CategoryId = furniture.Id };
+        var lamp  = new Product { Sku = "LAMP-001",  Price =  79.00m, CategoryId = lighting.Id  };
 
         db.Products.AddRange(desk, chair, lamp);
 
-        Translate(desk, "ar", "مكتب كتابة من البلوط", "بلوط صلب، بدرجين.");
-        Translate(desk, "fr", "Bureau en chêne", "Chêne massif, deux tiroirs.");
+        Text(desk,
+            ("en", "Oak writing desk", "Solid oak, two drawers."),
+            ("ar", "مكتب كتابة من البلوط", "بلوط صلب، بدرجين."),
+            ("fr", "Bureau en chêne", "Chêne massif, deux tiroirs."));
 
-        Translate(chair, "ar", "كرسي من الجوز", "جوز منحني، مقعد منسوج.");
-        Translate(chair, "fr", "Chaise en noyer", "Noyer cintré, assise tressée.");
+        Text(chair,
+            ("en", "Walnut chair", "Bent walnut, woven seat."),
+            ("ar", "كرسي من الجوز", "جوز منحني، مقعد منسوج."),
+            ("fr", "Chaise en noyer", "Noyer cintré, assise tressée."));
 
-        Translate(lamp, "ar", "مصباح مكتب نحاسي", "ذراع قابل للتعديل، ضوء دافئ.");
-        Translate(lamp, "fr", "Lampe de bureau en laiton", "Bras réglable, lumière chaude.");
+        Text(lamp,
+            ("en", "Brass desk lamp", "Adjustable arm, warm light."),
+            ("ar", "مصباح مكتب نحاسي", "ذراع قابل للتعديل، ضوء دافئ."),
+            ("fr", "Lampe de bureau en laiton", "Bras réglable, lumière chaude."));
 
         await db.SaveChangesAsync();
     }
