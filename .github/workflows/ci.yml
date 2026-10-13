@@ -104,7 +104,9 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22, not 20: vue-i18n in the dashboard's tree declares engines >= 22, and npm says so
+          # on every install. The README asks for the same.
+          node-version: 22
           cache: npm
           cache-dependency-path: clients/dashboard/package-lock.json
 

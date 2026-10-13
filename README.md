@@ -171,7 +171,7 @@ with](#what-a-catalogue-write-answers-with) has the shapes.
 
 ## Run it
 
-Needs **.NET 10 SDK**, **Node 20+**, and a **container runtime** (Docker Desktop, OrbStack or
+Needs **.NET 10 SDK**, **Node 22+**, and a **container runtime** (Docker Desktop, OrbStack or
 Podman) for PostgreSQL.
 
 The three class libraries also build for `net8.0`, which needs the .NET 8 reference packs — present
@@ -214,7 +214,7 @@ ConnectionStrings__catalog="Host=localhost;Port=5432;Database=catalog;Username=p
 `http://localhost:5180`, with its Scalar reference at `/scalar`. The schema is created and seeded
 on first run either way.
 
-**The dashboard** needs **Node 20+**, its dependencies installed — `aspire run` does that for you
+**The dashboard** needs **Node 22+**, its dependencies installed — `aspire run` does that for you
 and nothing else does — and the address of that API:
 
 ```bash
