@@ -770,8 +770,8 @@ can tell.
 Both regression tests were checked the only way that means anything: the fix was reverted, the test
 failed, the fix was put back.
 
-**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 23 fast
-tests and reports the other 34 as skipped, with the reason. The README already asks for Docker,
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 22 fast
+tests and reports the other 95 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
 ### And the dashboard's own
