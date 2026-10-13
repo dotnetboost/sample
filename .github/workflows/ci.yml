@@ -1,0 +1,125 @@
+# The sample's claims, checked on a machine that is not the author's.
+#
+# This repository argues that what it says is tested rather than asserted — the three libraries
+# never reference each other, no endpoint's response changes with the base language, every
+# published route is called, and even the counts in the README are pinned. All of that was only
+# ever true on one laptop until this file existed.
+#
+# Nothing is packed and nothing is published: there is no package here, only an application. So
+# this is two jobs — the solution, and the dashboard beside it.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  solution:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Both SDKs: the three class libraries multi-target net8.0 and net10.0, and building the
+      # net8.0 half needs its reference packs. The host and the test project are net10.0 only.
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # The three DotNetBoost libraries come from nuget.org like anyone else's — there is no
+      # project reference to them and no local feed, which is the point of the sample.
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      # ubuntu-latest ships a running Docker daemon, which Testcontainers uses to start the real
+      # PostgreSQL this suite needs — twice, since the integration classes boot the application in
+      # both language modes. Without a runtime those tests SKIP rather than fail, so a green run
+      # here that skipped 95 of them would be no signal at all; the step after this one says which
+      # happened.
+      - name: Test
+        run: |
+          dotnet test DotNetBoostSample.slnx \
+            --configuration Release --no-build \
+            --logger "trx;LogFileName=tests.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+      # The suite is meant to run in full on CI. A skip here means the Docker daemon was not
+      # found, which is an infrastructure problem reported as a pass unless something says so.
+      - name: Fail if any test was skipped
+        run: |
+          skipped=$(grep -o 'outcome="NotExecuted"' ./test-results/tests.trx | wc -l | tr -d ' ')
+          echo "Skipped: ${skipped}"
+          if [ "${skipped}" != "0" ]; then
+            echo "::error::${skipped} test(s) were skipped. On CI every test should run — this is"
+            echo "::error::almost always a missing container runtime for Testcontainers."
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./test-results/
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: clients/dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: clients/dashboard/package-lock.json
+
+      # `npm ci` runs the package's own postinstall, `nuxt prepare`, which generates the types
+      # the typecheck below reads. Nothing works without it.
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Vitest, over the composables the pages are assembled from. Not part of `dotnet test`, and
+      # each suite exists because of a bug the .NET side could not have caught.
+      - name: Test
+        run: npm test
