@@ -158,15 +158,24 @@ internal static class Http
     /// same product silently replaces the first test's image and the assertions drift apart
     /// depending on the order they ran in. A row per test costs a round trip and removes the
     /// whole class of problem.</para>
+    ///
+    /// <para><paramref name="categoryId"/> is passed in rather than defaulted to <c>1</c>, which
+    /// is what it was. An extension on <see cref="HttpClient"/> cannot reach the fixture, so a
+    /// default here would be this helper quietly assuming the seed's insert order on behalf of
+    /// every test that calls it — the assumption <c>SampleApp.SeededCategoryId</c> exists to stop
+    /// anyone making. Required, so adding a caller is a question rather than an inheritance.</para>
     /// </summary>
+    /// <param name="client">The application's client.</param>
+    /// <param name="categoryId">The category to file it under — <c>SampleApp.SeededCategoryId</c>.</param>
+    /// <param name="name">Its English name, which several assertions read back.</param>
     public static async Task<int> CreateProductAsync(
-        this HttpClient client, string name = "Test product")
+        this HttpClient client, int categoryId, string name = "Test product")
     {
         var created = await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
         {
             sku = $"T-{Guid.NewGuid():N}"[..12],
             price = 1.0m,
-            categoryId = 1,
+            categoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = name, ["Description"] = "Created by a test." }

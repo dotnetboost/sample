@@ -44,7 +44,7 @@ public abstract class CatalogRefusalTests(SampleApp app)
     public async Task Moving_a_product_into_a_category_that_does_not_exist_is_refused()
     {
         var client = app.Client;
-        var id = await client.CreateProductAsync("Product that stays put");
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Product that stays put");
 
         var response = await client.SendJsonAsync(HttpMethod.Put, $"/api/products/{id}", new
         {
@@ -95,7 +95,7 @@ public abstract class CatalogRefusalTests(SampleApp app)
         {
             sku = "",
             price = -5.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>()
         });
 
@@ -146,7 +146,7 @@ public abstract class CatalogRefusalTests(SampleApp app)
         {
             sku,
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>()
         });
 
@@ -154,7 +154,7 @@ public abstract class CatalogRefusalTests(SampleApp app)
         {
             sku,
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>()
         });
 

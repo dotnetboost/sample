@@ -55,6 +55,26 @@ public class SampleApp : IAsyncLifetime
     public string? Unavailable { get; private set; }
 
     /// <summary>
+    /// The id of the seeded <c>furniture</c> category — what a product created by a test is filed
+    /// under, since <c>categoryId</c> is required and has to name one that exists.
+    ///
+    /// <para>Asked for rather than written down as <c>1</c>, which is what nine of these tests
+    /// did. That literal is not wrong today — every fixture gets a fresh container and the seed
+    /// creates its categories first, so the first identity id is 1 and belongs to furniture. It is
+    /// an undeclared dependency on both of those facts, and it fails badly in either direction:
+    /// if no category has id 1 any more, a test about Arabic text answers 404 on its product
+    /// create and names the seed nowhere; and if id 1 is simply a DIFFERENT category — one added
+    /// above furniture in <c>DatabaseInitialiser</c> — nothing fails at all, the products are
+    /// just filed somewhere nobody meant, which is the worse of the two.</para>
+    ///
+    /// <para>The slug is what the seed actually promises, so it is what this asks by.</para>
+    ///
+    /// <para>Read once per fixture rather than per test, from the same API the tests use: after
+    /// seeding, before the first test, and over a listing that is deliberately not paged.</para>
+    /// </summary>
+    public int SeededCategoryId { get; private set; }
+
+    /// <summary>
     /// A client for the running application. Call <see cref="SkipIfUnavailable"/> first — this
     /// throws rather than returning a client that cannot work.
     /// </summary>
@@ -99,7 +119,13 @@ public class SampleApp : IAsyncLifetime
 
         // Forces the host to build and Program.cs's seeding to run before the first test, so a
         // failure in startup is reported here rather than inside whichever test ran first.
-        _ = _factory.CreateClient();
+        var client = _factory.CreateClient();
+
+        // And the one seeded id the tests need, read now that there is a catalogue to read it
+        // from. By slug, because that is the name the seed actually promises — see
+        // SeededCategoryId.
+        SeededCategoryId = (await client.GetJsonAsync("/api/categories"))
+            .EnumerateArray().First(c => c.Str("slug") == "furniture").Int("id");
     }
 
     public async Task DisposeAsync()

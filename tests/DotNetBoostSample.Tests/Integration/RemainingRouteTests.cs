@@ -81,7 +81,7 @@ public abstract class RemainingRouteTests(SampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with resolvable text");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with resolvable text");
         var fileId = (await client.UploadAsync($"/api/products/{productId}/images?role=primary", "resolve.png")).Str("id");
 
         await client.SendJsonOkAsync(HttpMethod.Put, $"/api/translations/MediaFile/{fileId}", new
@@ -130,7 +130,7 @@ public abstract class RemainingRouteTests(SampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with a gallery");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with a gallery");
 
         var first = (await client.UploadAsync($"/api/products/{productId}/images?role=gallery", "one.png")).Str("id");
         var second = (await client.UploadAsync($"/api/products/{productId}/images?role=gallery", "two.png")).Str("id");
@@ -186,7 +186,7 @@ public abstract class RemainingRouteTests(SampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with a local file");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with a local file");
         var fileId = (await client.UploadAsync($"/api/products/{productId}/images?role=primary", "local.png")).Str("id");
 
         var response = await client.GetAsync($"/api/media/{fileId}/url");

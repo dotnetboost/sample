@@ -70,7 +70,7 @@ public abstract class CatalogCompositionTests(SampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Desk with alt text");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Desk with alt text");
 
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary", "desk.png");
         var fileId = upload.Str("id");
@@ -160,7 +160,7 @@ public abstract class CatalogCompositionTests(SampleApp app)
         {
             sku = $"TMP-{Guid.NewGuid():N}"[..12],
             price = 10.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "Doomed", ["Description"] = "Briefly here." }

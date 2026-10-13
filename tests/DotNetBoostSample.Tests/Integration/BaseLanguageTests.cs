@@ -83,7 +83,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku = $"BL-{Guid.NewGuid():N}"[..12],
             price = 10.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "Base value", ["Description"] = "English." },
@@ -129,13 +129,13 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     {
         var client = app.Client;
 
-        var id = await client.CreateProductAsync("Editable product");
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Editable product");
 
         await client.SendJsonOkAsync(HttpMethod.Put, $"/api/products/{id}", new
         {
             sku = $"ED-{Guid.NewGuid():N}"[..12],
             price = 5.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "Editable product", ["Description"] = "Created by a test." },
@@ -155,7 +155,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku = $"ED-{Guid.NewGuid():N}"[..12],
             price = 6.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string?>>>(
                 text.GetRawText())
         }, language: "fr");
@@ -179,14 +179,14 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     {
         var client = app.Client;
 
-        var id = await client.CreateProductAsync("Untouched base");
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Untouched base");
         var sku = $"UB-{Guid.NewGuid():N}"[..12];
 
         await client.SendJsonOkAsync(HttpMethod.Put, $"/api/products/{id}", new
         {
             sku,
             price = 99.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>()
         }, language: "ar");
 
@@ -219,7 +219,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with alt text");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with alt text");
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary", "base.png");
         var fileId = upload.Str("id");
 
@@ -350,7 +350,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku = $"NB-{Guid.NewGuid():N}"[..12],
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["ar"] = new() { ["Name"] = "بلا أساس", ["Description"] = "لا إنجليزية." }
@@ -391,7 +391,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku,
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "First", ["Description"] = "Has the SKU." }
@@ -403,7 +403,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku,
             price = 2.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "Second", ["Description"] = "Wants the same SKU." }
@@ -431,7 +431,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
         {
             sku = "",
             price = -1m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>()
         });
 
@@ -450,13 +450,13 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     {
         var client = app.Client;
 
-        var id = await client.CreateProductAsync("Doomed product");
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Doomed product");
 
         await client.SendJsonOkAsync(HttpMethod.Put, $"/api/products/{id}", new
         {
             sku = $"DL-{Guid.NewGuid():N}"[..12],
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["ar"] = new() { ["Name"] = "محكوم عليه", ["Description"] = "سيُحذف." }
@@ -481,7 +481,7 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with a doomed image");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with a doomed image");
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary", "gone.png");
         var fileId = upload.Str("id");
 

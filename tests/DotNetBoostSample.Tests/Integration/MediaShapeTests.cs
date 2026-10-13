@@ -25,7 +25,7 @@ public abstract class MediaShapeTests(SampleApp app)
         {
             sku = $"TWO-{Guid.NewGuid():N}"[..12],
             price = 1.0m,
-            categoryId = 1,
+            categoryId = app.SeededCategoryId,
             translations = new Dictionary<string, Dictionary<string, string>>
             {
                 ["en"] = new() { ["Name"] = "Twice attached", ["Description"] = "One file, two roles." }
@@ -83,7 +83,7 @@ public abstract class MediaShapeTests(SampleApp app)
     {
         var client = app.Client;
 
-        var productId = await client.CreateProductAsync("Product with a reachable image");
+        var productId = await client.CreateProductAsync(app.SeededCategoryId, "Product with a reachable image");
 
         var upload = await client.UploadAsync($"/api/products/{productId}/images?role=primary");
         var fileId = upload.Str("id");
