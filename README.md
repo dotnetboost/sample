@@ -921,7 +921,7 @@ That last row is the one place a dependency rule earns its keep. Reading
 line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
 matches index names that the EF configurations declare as constants a few files away.
 
-### Why four projects for 42 files
+### Why four projects for 43 files
 
 It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
 is that the dependency rules above are enforced by the build rather than by a comment; what it costs
