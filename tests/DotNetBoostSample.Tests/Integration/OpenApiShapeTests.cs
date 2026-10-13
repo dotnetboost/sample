@@ -88,6 +88,97 @@ public abstract class OpenApiShapeTests(SampleApp app)
             Properties(document, body).Keys().Order());
     }
 
+    /// <summary>
+    /// Every route this API publishes, by name — the inventory the README's claim counts.
+    ///
+    /// <para><b>What this protects.</b> Not the document, which the two tests above already read:
+    /// the sentence in the README saying the suite calls <em>every one</em> of these. That was
+    /// established by listing this document and crossing it against what the tests request, which
+    /// is how <c>RemainingRouteTests</c> found the six nothing had called — and a cross-check done
+    /// once stays true only until the next route is mapped. These come from four places: this
+    /// application's slices, and three libraries' own endpoints resolved from nuget.org. So the
+    /// surface can grow without a line of this repository changing, and the claim would go quietly
+    /// stale rather than loudly.</para>
+    ///
+    /// <para><b>Why the list rather than the count.</b> 41 on its own survives one route being
+    /// swapped for another, which is precisely the change that leaves a route uncalled while the
+    /// number still reads true. Listed, the failure names the route — call it in a test and add it
+    /// here, or delete the line and correct the README.</para>
+    ///
+    /// <para>Asserted in both modes, which is the strongest form of "same routes": the one promise
+    /// base-language mode makes about the HTTP surface is that it does not touch it.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task The_published_routes_are_the_forty_one_the_suite_was_crossed_against()
+    {
+        var document = await app.Client.GetJsonAsync("/openapi/v1.json");
+
+        // One entry per OPERATION rather than per path, because that is the unit a test calls:
+        // `/api/products/{id}` publishes a GET, a PUT and a DELETE, and covering one says nothing
+        // about the other two.
+        var published =
+            (from path in document.GetProperty("paths").EnumerateObject()
+             from operation in path.Value.EnumerateObject()
+             select $"{operation.Name.ToUpperInvariant()} {path.Name}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(Published, published);
+    }
+
+    /// <summary>
+    /// The 41, in the order <see cref="StringComparer.Ordinal"/> puts them — which groups them by
+    /// method, so a new route lands where it can be read against its neighbours.
+    /// </summary>
+    private static readonly string[] Published =
+    [
+        "DELETE /api/categories/{id}",
+        "DELETE /api/languages/{code}",
+        "DELETE /api/languages/{code}/translations",
+        "DELETE /api/media/{id}",
+        "DELETE /api/media/{id}/attachments/{attachmentId}",
+        "DELETE /api/products/{id}",
+        "DELETE /api/translations/{entityName}/{entityId}",
+
+        "GET /api/categories",
+        "GET /api/categories/{id}",
+        "GET /api/languages",
+        "GET /api/languages/{code}",
+        "GET /api/media",
+        "GET /api/media/roles/{entityName}",
+        "GET /api/media/{id}",
+        "GET /api/media/{id}/content",
+        "GET /api/media/{id}/url",
+        "GET /api/products",
+        "GET /api/products/{id}",
+        "GET /api/settings",
+        "GET /api/settings/branding",
+        "GET /api/settings/branding/schema",
+        "GET /api/settings/catalog",
+        "GET /api/settings/catalog/schema",
+        "GET /api/translations/{entityName}/{entityId}",
+        "GET /api/translations/{entityName}/{entityId}/resolved",
+
+        "PATCH /api/media/{id}",
+
+        "POST /api/categories",
+        "POST /api/languages",
+        "POST /api/languages/{code}/set-default",
+        "POST /api/media",
+        "POST /api/media/{id}/attachments",
+        "POST /api/products",
+        "POST /api/products/{id}/images",
+        "POST /api/settings/branding",
+        "POST /api/settings/catalog",
+        "POST /api/translations/{entityName}/resolve",
+
+        "PUT /api/categories/{id}",
+        "PUT /api/languages/{code}",
+        "PUT /api/media/attachments/order",
+        "PUT /api/products/{id}",
+        "PUT /api/translations/{entityName}/{entityId}"
+    ];
+
     /// <summary>The 200 schema of a path's GET, with any <c>$ref</c> left for the caller to follow.</summary>
     private static JsonElement Documented(JsonElement document, string path) =>
         document

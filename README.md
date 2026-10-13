@@ -617,11 +617,14 @@ do.
 `dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
 `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-**The whole integration suite runs in both modes**: thirty-nine tests against each, the same
-assertions, nothing adapted — and between them they call **every one of the API's 41 published
-routes**, checked by listing the generated document and crossing it against what the tests request. They were not written for this mode and were not changed for it, which
-is what makes them worth re-running — branding, media shapes, settings, refusals, the generated
-document and the catalogue itself all have to come out the same.
+**The whole integration suite runs in both modes**: forty tests against each, the same assertions,
+nothing adapted — and between them they call **every one of the API's 41 published routes**, found
+by listing the generated document and crossing it against what the tests request. That inventory is
+now one of the forty rather than a cross-check someone did once: `OpenApiShapeTests` asserts the
+forty-one by name, so a route mapped by this application or by the next version of a library fails
+the suite instead of quietly going uncalled. The rest were not written for this mode and were not
+changed for it, which is what makes them worth re-running — branding, media shapes, settings,
+refusals, the generated document and the catalogue itself all have to come out the same.
 
 Then **fifteen more** that only base-language mode can be asked, in `BaseLanguageTests`. The first
 reads the `Name` column with raw SQL; without it the other fourteen would pass just as well with
@@ -745,12 +748,14 @@ can tell.
   so the dashboard's generated form draws its controls from the server's rules.
 - **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
   answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
-  refusable ones declare `.Produces<T>()` and the two listings return their value directly.
+  refusable ones declare `.Produces<T>()` and the two listings return their value directly. It also
+  holds the route inventory — all forty-one, by method and path — which is what keeps the claim
+  above from going stale when a library adds an endpoint.
 - **`BaseLanguageTests`** — what only base-language mode can be asked, which is everything the
   classes above cannot express because they have to pass in both: that the `Name` column exists and
   holds English (read with raw SQL — in the default mode that statement would not even parse), that
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the thirty-nine the
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the forty the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
   document against what the suite requests: promoting a language to default (allowed with a base

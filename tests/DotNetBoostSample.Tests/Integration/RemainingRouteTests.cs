@@ -13,6 +13,12 @@ namespace DotNetBoostSample.Tests.Integration;
 /// they are the difference between "the suite is green" and "every published route has been
 /// called".</para>
 ///
+/// <para><b>And the forty-one is pinned rather than remembered.</b> A cross-check done by hand
+/// holds only until the next route is mapped — by this application or by the next version of a
+/// library whose endpoints it publishes. <c>OpenApiShapeTests</c> asserts the inventory by name, so
+/// a new route arrives as a failing test with that route in the message, which is the prompt to
+/// call it here.</para>
+///
 /// <para>Like every other class here, this one runs in both modes. Two of the six are the reason
 /// that matters: promoting a language to default while a base language exists, and reading a
 /// subject's values with the fallback — the first because the default and the base language are
