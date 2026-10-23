@@ -1,13 +1,14 @@
 # DotNetBoost Sample
 
-**Three DotNetBoost libraries in one application, with zero references between them.**
+**Four DotNetBoost libraries in one application, with zero references between them.**
 
 This sample installs [DotNetBoost.Settings](https://www.nuget.org/packages/DotNetBoost.Settings.Core),
-[DotNetBoost.Media](https://www.nuget.org/packages/DotNetBoost.Media.Core) and
-[DotNetBoost.MultiLingual](https://www.nuget.org/packages/DotNetBoost.MultiLingual.Core) from
-nuget.org and composes them into a small product catalogue — a store with categories and products
-whose names are translated, product images with per-language alt text, and branding you can change
-at runtime.
+[DotNetBoost.Media](https://www.nuget.org/packages/DotNetBoost.Media.Core),
+[DotNetBoost.MultiLingual](https://www.nuget.org/packages/DotNetBoost.MultiLingual.Core) and
+[DotNetBoost.Auditing](https://www.nuget.org/packages/DotNetBoost.Auditing.Core) from nuget.org and
+composes them into a small product catalogue — a store with categories and products whose names are
+translated, product images with per-language alt text, branding you can change at runtime, and a
+trail of who changed what, when, and from what to what.
 
 What it is built to demonstrate is as much what is *absent* as what is present:
 
@@ -16,8 +17,17 @@ What it is built to demonstrate is as much what is *absent* as what is present:
 - no integration package pairing any two libraries
 
 Each library is installed on its own and configured on its own terms. Everything that joins them
-is this application's code, in five files — counted honestly below. `tests/` asserts that none of
+is this application's code, in eight files — counted honestly below. `tests/` asserts that none of
 them references another, so the claim cannot quietly stop being true.
+
+**Auditing was added last, to a solution the other three were already in**, which is the one measure
+of "no shared kernel" that cannot be faked by reading the libraries already installed: it cost one
+`Apply*` line, one registration block, and nothing at all in the two projects that do not store
+anything. It also cost something the other three never did — the library's zero-code change capture
+**cannot be used here**, because another library in the same `DbContext` has an entity an audit entry
+cannot address. [The trail the catalogue writes
+itself](#6-the-trail-the-catalogue-writes-itself) is that finding, and it is the most useful thing
+in this repository about what independence actually costs.
 
 The application around them is a monolith in four projects, with its own routes written as vertical
 slices and dispatched as commands and queries — one file per feature, and no MediatR. [How the
@@ -169,6 +179,11 @@ on the write's own response, in the language the list is being read in. A catego
 products is refused in the same language. [What a catalogue write answers
 with](#what-a-catalogue-write-answers-with) has the shapes.
 
+**There is no Audit page.** The trail is API-only for now — `GET /api/audit`, behind the one
+authorization check in this application — and the dashboard's sidebar still has the four pages
+above. A screen that reads it is the obvious next thing and is not here yet, which is said plainly
+rather than implied by a missing tab.
+
 ## Run it
 
 Needs **.NET 10 SDK**, **Node 22+**, and a **container runtime** (Docker Desktop, OrbStack or
@@ -214,6 +229,20 @@ ConnectionStrings__catalog="Host=localhost;Port=5432;Database=catalog;Username=p
 `http://localhost:5180`, with its Scalar reference at `/scalar`. The schema is created and seeded
 on first run either way.
 
+**Reading the trail** needs a caller, because DotNetBoost.Auditing's endpoints require one and this
+sample keeps that default. The sample's authentication scheme trusts a header — it verifies nothing,
+and [says so at length](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs):
+
+```bash
+curl -H 'X-Sample-Actor: alice@example.com' \
+  'http://localhost:5180/api/audit?entityName=Product&take=10'
+```
+
+Change a product in the dashboard first and the entry will say `alice@example.com` did it only if
+the dashboard sent that header; it does not, so changes made through the UI are recorded with no
+actor — honestly, rather than as "system". Send the header with a `curl` write and the next entry
+carries the name.
+
 **The dashboard** needs **Node 22+**, its dependencies installed — `aspire run` does that for you
 and nothing else does — and the address of that API:
 
@@ -233,45 +262,55 @@ are `npm run lint`, `npm run typecheck` and `npm test`, and they are not part of
 
 ## Where the composition happens
 
-Five files, all of them application code, none of them large. Each is a place where this
-application says two libraries are talking about the same thing — which is the only way they ever
-find out, since none of them references another:
+Eight files, all of them this application's own code, none of them large. Each is a place where it
+says two libraries are talking about the same thing — which is the only way they ever
+find out, since none of them references another — except the last two, which are where it says they
+cannot:
 
 | | File | Joins | What it says |
 |---|---|---|---|
-| 1 | `Infrastructure/Persistence/AppDbContext.cs` | all three | these tables live in one database |
+| 1 | `Infrastructure/Persistence/AppDbContext.cs` | all four | these tables live in one database |
 | 2 | `Application/Composition/MediaText.cs` | Media × MultiLingual | a file's alt text is a translation of the subject `("MediaFile", <id>)` |
 | 3 | `Application/Composition/MediaTextCleanup.cs` | Media → MultiLingual | when the file goes, that text goes |
 | 4 | `Application/Composition/MultiLingualSchemaContributor.cs` | Settings × MultiLingual | this settings property is translated |
-| 5 | `Application/Settings/BrandingSettings.cs` | all three | branding's name, its other languages and its logo are one thing |
+| 5 | `Application/Settings/BrandingSettings.cs` | Settings × Media × MultiLingual | branding's name, its other languages and its logo are one thing |
+| 6 | `Application/Composition/CreationTrail.cs` | Auditing → MultiLingual | a creation's entry cannot be saved in this request, because a second save would rewrite the text the first one stored |
+| 7 | `Domain/Catalog/Category.cs` and `Product.cs` | MultiLingual → Auditing | a translated property is not in the trail: `[AuditIgnore]` beside `[MultiLingual]` |
 
-Five rather than a rounder number because every file that joins two libraries is on the list. A
-sixth would mean the claim had quietly stopped being true, so it is worth counting honestly.
+Eight files and seven entries, because the seventh is one sentence said twice, once per entity.
+Counted this way because every file that joins two libraries is on the list — it was five before
+Auditing arrived, and the README said then that a sixth would mean the claim had quietly stopped
+being true. It has: two of these exist because two libraries **disagree**, which is a worse kind of
+glue than "these two tables are about one thing" and is the reason the count is worth keeping
+honest rather than tidy.
 
-**And grep cannot check it, in either direction.** Eight files under `src/` carry `using`
-directives for two or more `DotNetBoost.*` namespaces, and only three of them are above.
-`Program.cs` and `Infrastructure/DependencyInjection.cs` name all three while registering them in
-independent calls, which is the thing this sample is arguing for rather than a join;
-`GetCategory.cs`, `GetProduct.cs` and `ListProducts.cs` consume two side by side — a product's
-translations from one library and its images from another, a page size from Settings and the files
-from Media — without ever saying that one library's subject is the other's. Meanwhile two files
-that *are* above name one library each: `MediaText` references only MultiLingual, because what
-joins it to Media is the subject name `"MediaFile"` and not a type, and `MediaTextCleanup`
-references only Media, because it is that library's own deleted-files handler. A join is the
+**And grep cannot check it, in either direction.** Ten files under `src/` carry `using` directives
+for two or more `DotNetBoost.*` libraries, and only five of them are above. `Program.cs` and
+`Infrastructure/DependencyInjection.cs` name all four while registering them in independent calls,
+which is the thing this sample is arguing for rather than a join; `ListProducts.cs` consumes two
+side by side — a page size from Settings and the files from Media — without ever saying that one
+library's subject is the other's; and `DeleteCategory.cs` and `DeleteProduct.cs` name Media and
+Auditing in one handler because a delete has to detach files and record itself, which is two
+instructions rather than one statement. Meanwhile three files that *are* above name one library
+each: `MediaText` references only MultiLingual, because what joins it to Media is the subject name
+`"MediaFile"` and not a type; `MediaTextCleanup` references only Media, because it is that
+library's own deleted-files handler; and `CreationTrail` names only Auditing, because what makes it
+necessary is a behaviour of MultiLingual's interceptor rather than a type of its. A join is the
 identity assertion — this file's alt text **is** that translation subject, this settings property
-**is** that media owner — and the assertion is usually a string both sides agree on, which is why
-`BrandingOwnerTests` and `KeyFormatAgreementTests` exist.
+**is** that media owner, this translated property **is not** auditable — and the assertion is
+usually a string or an attribute both sides agree on, which is why `BrandingOwnerTests`,
+`KeyFormatAgreementTests` and `AuditRuleTests` exist.
 
-**And note where four of the five sit.** `MediaText`, `MediaTextCleanup`,
-`MultiLingualSchemaContributor` and `BrandingProjector` name `DotNetBoost.*.Core` and nothing else
-— no EF Core, no ASP.NET, no provider — so they live in the application layer, in a folder called
-`Composition`. Only `AppDbContext` is infrastructure. That split is not a filing convention; it is
-the finding. Joining two libraries is not a persistence concern. Joining them **in one database**
-is, and that is one file.
+**And note where seven of the eight sit.** `MediaText`, `MediaTextCleanup`,
+`MultiLingualSchemaContributor`, `BrandingProjector`, `CreationTrail` and the two entities name
+`DotNetBoost.*.Core` and nothing else — no EF Core, no ASP.NET, no provider — so they live in the
+application and domain layers, beside the code that uses them. Only `AppDbContext` is
+infrastructure. That split is not a filing convention; it is the finding. Joining two libraries is
+not a persistence concern. Joining them **in one database** is, and that is one file.
 
-### 1. One database, three libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
+### 1. One database, four libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
 
-The only place all three libraries' **tables** are named together, and all it amounts to is three
+The only place all four libraries' **tables** are named together, and all it amounts to is four
 independent `Apply*` calls:
 
 ```csharp
@@ -284,11 +323,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplySettings(this);
         modelBuilder.ApplyMedia();
         modelBuilder.ApplyMultiLingual(this);
+        modelBuilder.ApplyAuditing();
     }
 }
 ```
 
-Remove a library and you delete its one line. Nothing else changes.
+Remove a library and you delete its one line. Nothing else changes — and adding the fourth was
+exactly that: one line here, one block in `AddInfrastructure`, and no edit to the three above.
+
+`ApplyAuditing()` adds two tables for every entity in the application, now and later. An entry
+points **at** a row by `(entityName, entityId)` with deliberately no foreign key back, which is
+what makes auditing something new cost no migration — and what leaves a deleted product's history
+standing when the row is gone.
 
 Each library used to ask for a marker interface and a pair of `DbSet` properties as well — six
 properties and three interfaces that the stores never read, since each reaches its own tables
@@ -519,6 +565,127 @@ default language keeping its version history, and it is the mirror image of the 
 just above: there, one record won and the audit trail was given up; here, the audit trail won and a
 second editing surface was accepted.
 
+### 6. The trail the catalogue writes itself
+
+`src/DotNetBoostSample.Application/Composition/CreationTrail.cs`, and one line in each of the six
+catalogue write slices.
+
+DotNetBoost.Auditing normally needs **no** application code at all. You add `UseAuditing(sp)` to the
+`DbContext`, its `SaveChangesInterceptor` reads the change tracker, and every create, update and
+delete is recorded in the same `SaveChanges` as the change itself. No handler mentions auditing,
+ever. That is the library's headline, and it is the one claim in four libraries' documentation that
+this sample **could not reproduce**:
+
+```
+Translation has a composite primary key (EntityName, EntityId, PropertyName, LanguageCode).
+An audit entry records a single key. Give the entity a surrogate key, exclude it with
+[AuditIgnore], or record against it by hand with audit.For(name, id).
+```
+
+That is the library's own exception, thrown on the first save that tracks a translation row — which
+is every catalogue write. `Translation` is **DotNetBoost.MultiLingual's** entity, in the `DbContext`
+the libraries share, and its lack of a surrogate key is documented as deliberate: *"the natural key
+is unique by definition"*. So of the three ways out the message offers, this application has access
+to exactly one:
+
+| | |
+|---|---|
+| Give the entity a surrogate key | MultiLingual's decision, and a considered one |
+| Exclude it with `[AuditIgnore]` | an attribute cannot be applied to a type from the outside |
+| Record by hand | **this** |
+
+`RequireOptIn` does not help either — the key is read before the engine asks whether the entity is
+audited at all. **Two independent libraries, in one database, incompatible at the capture level, and
+no shared kernel to arbitrate.** This is the trade the whole repository is about, arriving as a
+stack trace instead of a paragraph.
+
+**What recording by hand actually looks like.** It is the library's first-class path rather than a
+workaround — `audit.For(entity)` and `AuditDiff` exist for the stores that have no change tracker —
+and five of the six writes keep the guarantee the interceptor would have given them, because the EF
+Core store *tracks* an entry rather than writing it:
+
+```csharp
+var before = await db.Products.AsNoTracking().FirstAsync(p => p.Id == request.Id, ct);
+
+product.Sku = request.Sku;        // ... and Price, and CategoryId
+var changes = AuditDiff.Between(before, product);
+
+if (changes.Count > 0) await audit.For(product).UpdatedAsync(changes, ct: ct);
+
+await translatedText.SaveAsync(db, product, request.Translations, ct);   // one save, both rows
+```
+
+The row and its entry commit together or neither does. `AuditDiff` takes the property list off the
+type, so a column added to `Product` tomorrow is in the trail without that line changing — which is
+the one thing an `if` chain per property reliably fails to do. The `before` read is the cost: the
+explicit path has no change tracker's original values, so there has to be a second instance to
+compare.
+
+**A creation is the exception, and it needed a file.** An entry is addressed by the entity's key,
+and a store-generated key does not exist until the `INSERT` has run — so a creation can only be
+recorded afterwards, which means a second save. The obvious shape is wrong here, and wrong in a way
+that costs data rather than a test:
+
+> A second `SaveChanges` on a context still tracking a `[MultiLingual]` entity writes that entity's
+> **in-memory** text over the translations the first save just stored. For a product created through
+> `TranslatedText` those properties were never assigned — the text went to rows, not to the instance
+> — so the second save stores empty values for the request's language and the name reads back as
+> `""`.
+
+Two integration tests caught that, which is how it was found. So `CreationTrail` puts the entry in a
+scope of its own: a second `IAppDbContext`, tracking nothing but the entry, saving only it. The
+`[MultiLingual]` entity is not in that context, so there is nothing for MultiLingual's interceptor to
+rewrite. The honest cost is stated in the file: a creation and its trail are in two transactions, and
+the real fix is keys assigned in the application rather than by the database.
+
+**And what the trail is NOT, which is the half a reader will assume.** `Setting`, `MediaFile`,
+`MediaAttachment`, `Translation` and `Language` are rows in the same database, written through the
+same `DbContext` — and **none of them is in the trail**. There is no interceptor watching that
+context, so nothing is recorded except what the six slices record. `GET /api/audit/entities` says so
+in as many words: it lists `Category` and `Product` and nothing else, and `AuditTrailTests` asserts
+that list rather than leaving it as a sentence here.
+
+**What this sample would ask the library for next**: an ignore-list on the builder —
+`o.Ignore<Translation>()` — which would close the whole thing without either library learning the
+other's name.
+
+### 7. A translated property is not in the trail
+
+`src/DotNetBoostSample.Domain/Catalog/Category.cs` and `Product.cs` — two attributes, one sentence.
+
+```csharp
+[MultiLingual]
+public class Product
+{
+    [AuditIgnore] public string Name { get; set; } = string.Empty;          // translated
+    [AuditIgnore] public string Description { get; set; } = string.Empty;   // translated
+
+    [NotMultiLingual] public string Sku { get; set; } = string.Empty;       // in the trail
+    public decimal Price { get; set; }                                      // in the trail
+}
+```
+
+An audit entry has no language. `Name: "Desk" → "Writing desk"` would be a true sentence about one
+of four languages and silent about which — and in the mode this sample ships in there is no `Name`
+column at all, so the value a diff compares is whatever MultiLingual's interceptor hydrated for the
+language the request happened to be read in. Recording it would produce entries that are confidently
+about nothing.
+
+Said with the **engine's own attribute** rather than filtered in the handlers, which is the whole
+point of where it sits: every way of recording honours it, including the ones nobody has written
+yet, and `GET /api/audit/entities/Product` reports the rule as `Ignore` instead of advertising a
+property the trail never carries. It is also the second time this sample puts another library's
+attribute on a domain property — the same bargain `[MultiLingual]` already struck, and
+`Domain.csproj` is still two packages, both MIT and abstraction-only.
+
+`AuditRuleTests` asserts the two sets are the same set: every `[MultiLingual]` property of each
+entity is an `[AuditIgnore]` property, read through each library's own metadata rather than from a
+list of names. A fifth translated property added without the second attribute is exactly the mistake
+worth catching, because its only symptom is a trail that confidently says the wrong thing.
+
+Translated text has its own history to be given one day — in the `Translations` table, with a
+language on each row. This is the honest shape of that gap until it does.
+
 ---
 
 ## Two places a language can live
@@ -617,12 +784,13 @@ do.
 `dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
 `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-**The whole integration suite runs in both modes**: forty tests against each, the same assertions,
-nothing adapted — and between them they call **every one of the API's 41 published routes**, found
-by listing the generated document and crossing it against what the tests request. That inventory is
-now one of the forty rather than a cross-check someone did once: `OpenApiShapeTests` asserts the
-forty-one by name, so a route mapped by this application or by the next version of a library fails
-the suite instead of quietly going uncalled. The rest were not written for this mode and were not
+**The whole integration suite runs in both modes**: forty-seven tests against each, the same
+assertions, nothing adapted — and between them they call **every one of the API's 45 published
+routes**, found by listing the generated document and crossing it against what the tests request.
+That inventory is now one of the forty-seven rather than a cross-check someone did once:
+`OpenApiShapeTests` asserts the forty-five by name, so a route mapped by this application or by the
+next version of a library fails the suite instead of quietly going uncalled — which is exactly how
+the four `/api/audit` routes announced themselves. The rest were not written for this mode and were not
 changed for it, which is what makes them worth re-running — branding, media shapes, settings,
 refusals, the generated document and the catalogue itself all have to come out the same.
 
@@ -666,13 +834,18 @@ Being honest about the trade-off, because it is the point of the sample:
 
 | | |
 |---|---|
-| **Glue per app** | Every application writes the join itself. Here it is 49 lines of code across three files — `Composition/MediaText.cs` (28), `Composition/MultiLingualSchemaContributor.cs` (14) and `Composition/MediaTextCleanup.cs` (7) — in 189 lines of file, so the comment outweighs the code three to one. The code was four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
+| **Glue per app** | Every application writes the join itself. Here it is 65 lines of code across four files — `Composition/MediaText.cs` (28), `Composition/CreationTrail.cs` (16), `Composition/MultiLingualSchemaContributor.cs` (14) and `Composition/MediaTextCleanup.cs` (7) — in 266 lines of file, so the comment outweighs the code four to one. Plus 16 lines spread through the six catalogue write slices, which is the recording the audit interceptor would have done for free. The first three were four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
 | **Cascade is opt-in** | Deleting a `MediaFile` still does not know its alt text exists. One `IMediaFilesDeletedHandler`, registered once, connects the two — so the cleanup is exact and runs for every delete whatever triggered it, including the media library's own endpoint. Better than the call beside every delete it replaced, but still the application's job to know the two records are about one thing. |
 | **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
-| **Agreement by published spec** | Both libraries must address an entity identically, and now both implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. |
+| **Agreement by published spec** | Three libraries must address an entity identically, and all three implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. It matters most for Auditing: an entry is addressed by `(EntityName, EntityId)` and nothing else, so an addressing change nobody noticed would not break a join, it would silently write a trail no later read can find. |
+| **A capability can be unavailable** | Not reduced — **unavailable**. DotNetBoost.Auditing's change-tracker capture cannot be attached to a `DbContext` holding DotNetBoost.MultiLingual's composite-key `Translation`, and neither of the library's two other remedies belongs to this application. So the catalogue records its own changes, the other libraries' own tables are not in the trail at all, and a creation's entry is a second transaction. [Section 6](#6-the-trail-the-catalogue-writes-itself) is the whole finding. An integration package pairing the two would have shipped this already solved — and would have been the shared kernel this repository exists to argue against. |
 
-None of these are capability limits. They are ergonomics, and they are the price of being able to
-install one library without the other two.
+The first four are ergonomics, and they are the price of being able to install one library without
+the others. The last one is not: it is a capability that is simply missing in this combination, and
+it is the first thing in four libraries' worth of composition that an integration package would
+genuinely have fixed. Worth sitting with, because it is the strongest argument *against* the
+arrangement this repository is making — and the answer is still that the fix belongs in one
+library's builder rather than in a package that knows both names.
 
 ---
 
@@ -683,8 +856,8 @@ dotnet test
 ```
 
 - **`ZeroCouplingTests`** — no library references another, and none references a
-  `DotNetBoost.Core` or `DotNetBoost.Abstractions`. A README sentence decays; a failing build does
-  not.
+  `DotNetBoost.Core` or `DotNetBoost.Abstractions`. Four assemblies now, and the assertions did not
+  change when the fourth arrived. A README sentence decays; a failing build does not.
 The first two groups read attributes and type metadata: no database, no host, milliseconds. They
 say what the code *is*. The third boots the application and says what it *does*.
 
@@ -699,6 +872,12 @@ say what the code *is*. The third boots the application and says what it *does*.
 - **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
   code uses is the one the attribute stores under, and the group's `Id` stays out of both the
   settings table and the JSON.
+- **`AuditRuleTests`** — every `[MultiLingual]` property of `Category` and `Product` is an
+  `[AuditIgnore]` property, asserted as the equality of two sets read through each library's own
+  metadata rather than as a list of names. A fifth translated property added without the second
+  attribute is the mistake worth catching: its only symptom is a trail that confidently says the
+  wrong thing. The other two halves are here too — the language-independent columns *are* recorded,
+  and nothing in the catalogue is redacted.
 
 ### What the code does
 
@@ -709,9 +888,9 @@ bytes land in a temp directory instead of your `media/` folder.
 
 It exists because everything above is blind to the part that matters. That a plain `ToListAsync()`
 comes back translated, that alt text written through one library reads back beside a file owned by
-another, that a settings value changes what an endpoint answers without a restart — all of it is
-behaviour of three libraries sharing one `DbContext`, and none of it is provable without the
-database they share.
+another, that a settings value changes what an endpoint answers without a restart, that a refused
+write takes its audit entry with it — all of it is behaviour of four libraries sharing one
+`DbContext`, and none of it is provable without the database they share.
 
 **Every class below runs twice**, against two applications on two databases: once in the mode the
 sample ships in, and once with `MultiLingualOptions.BaseLanguage = "en"`. Each is an abstract class
@@ -749,13 +928,13 @@ can tell.
 - **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
   answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
   refusable ones declare `.Produces<T>()` and the two listings return their value directly. It also
-  holds the route inventory — all forty-one, by method and path — which is what keeps the claim
+  holds the route inventory — all forty-five, by method and path — which is what keeps the claim
   above from going stale when a library adds an endpoint.
 - **`BaseLanguageTests`** — what only base-language mode can be asked, which is everything the
   classes above cannot express because they have to pass in both: that the `Name` column exists and
   holds English (read with raw SQL — in the default mode that statement would not even parse), that
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the forty the
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the forty-seven the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
   document against what the suite requests: promoting a language to default (allowed with a base
@@ -766,12 +945,20 @@ can tell.
   shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
   a 409, in the request's language. **All three were found by running the application rather than by
   the build** — the suite had never sent an invalid body — which is exactly why they are tests now.
+- **`AuditTrailTests`** — a product's whole life in the trail and the history that outlives the row;
+  the actor on each entry being the caller who made *that* change; a text-only write recording
+  nothing, with `GET /api/audit/entities/Product` reporting the rule as `Ignore`; the trail being the
+  one endpoint set here that refuses an anonymous caller; and the two declared entities being this
+  application's own. One of them earns its keep on its own: **a refused write records nothing** — a
+  `409` from the unique index on the SKU takes the entry with it, because the entry was recorded
+  before the save and rode in the same transaction. That is the test that fails if someone
+  "simplifies" the slices by recording after the save, and nothing else in the suite would notice.
 
 Both regression tests were checked the only way that means anything: the fix was reverted, the test
 failed, the fix was put back.
 
-**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 26 fast
-tests and reports the other 95 as skipped, with the reason. The README already asks for Docker,
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
+tests and reports the other 109 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
 ### And the dashboard's own
@@ -921,7 +1108,7 @@ That last row is the one place a dependency rule earns its keep. Reading
 line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
 matches index names that the EF configurations declare as constants a few files away.
 
-### Why four projects for 43 files
+### Why four projects for 45 files
 
 It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
 is that the dependency rules above are enforced by the build rather than by a comment; what it costs
@@ -942,8 +1129,10 @@ a section on every place it changed on contact with a compiler or a running appl
 ## Layout
 
 ```
-src/DotNetBoostSample.Domain/            net8.0;net10.0 — two entities, one package
-  Catalog/Category.cs                    [MultiLingual] — Name and Description are not columns
+src/DotNetBoostSample.Domain/            net8.0;net10.0 — two entities, two packages
+  Catalog/Category.cs                    [MultiLingual] — Name and Description are not columns;
+                                         [AuditIgnore] on the same two, because a trail has
+                                         no language
   Catalog/Product.cs
 
 src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the composition
@@ -972,13 +1161,15 @@ src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the c
   Composition/MediaTextCleanup.cs        removes a file's text when the file goes
   Composition/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
                                          `translated` on a [MultiLingual] property
+  Composition/CreationTrail.cs           Auditing → MultiLingual — a creation's entry, in a
+                                         scope of its own, and why it cannot be in this one
   Settings/BrandingSettings.cs           the group, its validator, and the projector
                                          behind GET /api/settings/branding
   Settings/CatalogSettings.cs            the second group, with its validator
   DependencyInjection.cs                 AddApplication() — handlers, behaviors, validators
 
 src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
-  Persistence/AppDbContext.cs            one database, three Apply* calls
+  Persistence/AppDbContext.cs            one database, four Apply* calls
   Persistence/Configurations/            one IEntityTypeConfiguration per entity, each
                                          naming its unique index as a constant
   Persistence/PostgresErrorTranslator.cs the only file that reads PostgresException —
@@ -986,12 +1177,18 @@ src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
   Persistence/DatabaseInitialiser.cs     schema + languages + catalogue on first run
   Persistence/MultiLingualModelCacheKeyFactory.cs  the model depends on BaseLanguage, so
                                          EF's cache key has to as well
-  DependencyInjection.cs                 AddInfrastructure() — three independent
-                                         registrations, in three blocks, in any order
+  DependencyInjection.cs                 AddInfrastructure() — four independent
+                                         registrations, in four blocks, in any order — and
+                                         the one place the audit capture's absence is
+                                         explained in full
 
 src/DotNetBoostSample.Api/               net10.0 — the host, and nothing else
   Program.cs                             read configuration, then say in what order the
                                          pieces go together
+  Authentication/SampleActorAuthentication.cs  a header-trusting stand-in for
+                                         authentication — the only reason the audit
+                                         endpoints are reachable and entries have an actor.
+                                         It verifies nothing, and says so at length
   Resources/{en,ar,fr}.json              the API's own messages, one file per language
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
@@ -1040,6 +1237,11 @@ tests/DotNetBoostSample.Tests/           the claim, as tests
   Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
   Integration/BaseLanguageTests.cs       the same application with BaseLanguage = "en",
                                          asserting that nothing a caller sees moved
+  Integration/AuditTrailTests.cs         what the trail records, who it says did it, what it
+                                         deliberately does not carry — and that a refused
+                                         write records nothing
+  AuditRuleTests.cs                      every translated property is an ignored one, read
+                                         through each library's own metadata
 media/                                   file bytes at runtime (gitignored)
 docs/screenshots/                        the images above, and how to retake them
 ```
@@ -1055,7 +1257,22 @@ Each library maps its own, with no coordination between them:
 | `DotNetBoost.Settings.API` | `GET /api/settings`, `GET/POST /api/settings/{group}`, `GET /api/settings/{group}/schema` |
 | `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
 | `DotNetBoost.MultiLingual.API` | `/api/languages`, `/api/translations/{entityName}/{entityId}` |
+| `DotNetBoost.Auditing.API` | `GET /api/audit`, `GET /api/audit/{id}`, `GET /api/audit/entities[/{entityName}]` — **authorized** |
 | This application | `/api/categories`, `/api/products` |
+
+**The audit routes are the one authorized thing here, and that is the library's doing.** The other
+three map their endpoints anonymously and leave securing them to the application; this one requires
+an authenticated caller by default, because a trail says who did what and when — a map of an
+organisation's activity and, through the actor, personal data about its staff. The default is kept:
+`app.MapAuditEndpoints()` is called bare, and `RequireAuthorization = false` — which the library's
+own quick start marks *DO NOT COPY THIS LINE* — is not here. That is why this sample has an
+authentication scheme at all, and why it is a header-trusting stand-in that
+[says so at length](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs).
+
+The erasure and prune endpoints the same call can map — `DELETE /api/audit/entity/…`,
+`POST /api/audit/prune` — are **not mapped**, because `MapErasure` and `MapPrune` are off by
+default and nothing in a sample needs to destroy history. An endpoint that deletes a trail should be
+asked for deliberately rather than inherited.
 
 `GET /api/products` takes `page` and `pageSize` and answers `{ items, total, skip, take }` — the
 shape DotNetBoost.Media answers its own listings with, so the dashboard pages a catalogue the way
@@ -1207,6 +1424,18 @@ to Azure Blob Storage or S3, change one line in `Infrastructure/DependencyInject
 ```
 
 Files uploaded before the switch keep working, because every row records which backend wrote it.
+
+**`X-Sample-Actor`** is who the audit trail says made a change, and it is the sample's stand-in for
+authentication. Any request may carry it; the audit endpoints require it, because
+DotNetBoost.Auditing maps them that way. It verifies nothing — replacing
+`Authentication/SampleActorAuthentication.cs` with a real scheme is the whole of the change, since
+the engine only ever asks `HttpContext.User` who is acting. A request without it is recorded with no
+actor rather than with a guess.
+
+**No retention is configured and no prune is scheduled**, deliberately: retention does nothing
+until a prune runs, and a number in `AddAuditing` would state a policy nothing in the solution
+carries out. The trail grows forever, which for a sample seeded on first run is the honest answer.
+`o.Retention` plus a hosted service calling `PruneAsync` is the real one.
 
 ## License
 

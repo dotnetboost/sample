@@ -3,6 +3,7 @@ using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Abstractions.Results;
 using DotNetBoostSample.Application.Catalog.Shared;
+using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Localization;
 using DotNetBoostSample.Domain.Catalog;
 using FluentValidation;
@@ -48,7 +49,8 @@ public static class CreateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        TranslatedText translatedText) : IRequestHandler<Command, Result<ProductCreated>>
+        TranslatedText translatedText,
+        CreationTrail trail) : IRequestHandler<Command, Result<ProductCreated>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductCreated>> HandleAsync(Command request, CancellationToken ct)
@@ -82,6 +84,12 @@ public static class CreateProduct
             db.Products.Add(product);
 
             await translatedText.SaveAsync(db, product, request.Translations, ct);
+
+            // And who created it — after the save, because the id the entry is addressed by is the
+            // database's to assign, and in a unit of work of its own, because this one cannot be
+            // saved twice without MultiLingual rewriting the text just stored. CreationTrail has
+            // both reasons and what they cost.
+            await trail.RecordAsync(product, ct);
 
             return new ProductCreated(product.Id, product.Sku);
         }

@@ -1,9 +1,11 @@
+using DotNetBoost.Auditing.Core;
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.MultiLingual.Core;
 using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Settings;
+using DotNetBoostSample.Domain.Catalog;
 using DotNetBoostSample.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -12,18 +14,23 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DotNetBoostSample.Infrastructure;
 
 /// <summary>
-/// Where the three libraries' data actually goes — the four blocks that used to be the body of
+/// Where the four libraries' data actually goes — the blocks that used to be the body of
 /// <c>Program.cs</c>, moved whole.
 ///
-/// <para><b>What did not change in the move.</b> Still three independent registrations, in three
-/// blocks, in any order, with no <c>AddDotNetBoost()</c> and no package pairing any two of them.
-/// That is the sample's subject, and a restructure that quietly introduced a coordinating call
-/// here would have deleted the thing it was reorganising.</para>
+/// <para><b>What did not change in the move.</b> Still independent registrations, one block each,
+/// in any order, with no <c>AddDotNetBoost()</c> and no package pairing any two of them. That is
+/// the sample's subject, and a restructure that quietly introduced a coordinating call here would
+/// have deleted the thing it was reorganising.</para>
+///
+/// <para><b>And what did not change when the fourth arrived.</b> Auditing is a fourth block of
+/// the same shape — <c>AddAuditing()</c>, a store, <c>Build()</c> — appended without a line of the
+/// three above moving. It is the cheapest possible evidence for the claim: adding a library here
+/// is additive, because there is nothing for it to be wired into.</para>
 /// </summary>
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers the database and all three stores.
+    /// Registers the database and all four stores.
     ///
     /// <para><b>Why this takes strings rather than <c>IConfiguration</c>.</b> Reading configuration
     /// is the host's job — it is the one that knows about <c>appsettings.json</c>, Aspire's
@@ -64,20 +71,40 @@ public static class DependencyInjection
     /// have put routing in the infrastructure layer, so the host passes its answer in instead.
     /// </para>
     /// </param>
+    /// <param name="configureAuditing">
+    /// Whatever the host wants to add to the audit engine that needs ASP.NET Core.
+    /// <para>
+    /// A delegate for the same reason <paramref name="exposeTranslations"/> is one, and it is the
+    /// same shape of decision: <c>UseHttpContextActor()</c> lives in
+    /// DotNetBoost.Auditing.<b>API</b>, because WHO is acting is a fact about the current request
+    /// and this layer has no requests. Where the trail is STORED is this file's business; whose
+    /// name goes on an entry is the host's.
+    /// </para>
+    /// <para>
+    /// Left null, the engine's default accessor answers null and every entry's actor is honestly
+    /// unknown — which is what a background job or a migration would record, and is a better
+    /// default than inventing "system".
+    /// </para>
+    /// </param>
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         string connectionString,
         string mediaRoot,
         string? baseLanguage = null,
-        Action<MultiLingualBuilder>? exposeTranslations = null)
+        Action<MultiLingualBuilder>? exposeTranslations = null,
+        Action<AuditingBuilder>? configureAuditing = null)
     {
         // ── The database ─────────────────────────────────────────────────────
-        // One PostgreSQL database holds the application's two tables and all six library tables.
+        // One PostgreSQL database holds the application's two tables and every library table.
         // `UseMultiLingual(sp)` adds MultiLingual's EF Core interceptors, which is what makes a
         // plain `db.Products.ToListAsync()` in a handler come back already translated into the
         // request's language. It needs the (sp, options) overload of AddDbContext, so the
         // connection string is read from configuration by the host rather than through
         // AddNpgsqlDbContext.
+        //
+        // There is NO `.UseAuditing(sp)` here, and that is the one thing on this branch that did
+        // not go the way the libraries' READMEs describe. See the Auditing block below: it is not
+        // a preference, and it is not an omission.
         //
         // `ReplaceService` is the one addition the base language asked for here: the model this
         // context builds depends on that option, and EF's own cache key does not. See
@@ -210,6 +237,77 @@ public static class DependencyInjection
         exposeTranslations?.Invoke(multiLingual);
 
         multiLingual.Build();
+
+        // ── DotNetBoost.Auditing ─────────────────────────────────────────────
+        // Who changed what, when, and from what to what — in the AuditEntries and
+        // AuditPropertyChanges tables of the same database.
+        //
+        // Note what is NOT in this block, because it is the library's headline and it does hold:
+        // nothing was added to Category or Product. Domain still references one package, still for
+        // one attribute, and it is MultiLingual's. A trail is addressed by (entityName, entityId)
+        // in two tables of its own, so no column, no collection and no migration appears on an
+        // entity because it is audited.
+        //
+        // ── And one thing is missing that the library's README would have here ──
+        //
+        // `o.UseAuditing(sp)` on the context above — the SaveChangesInterceptor that reads the
+        // change tracker, which is how an application normally gets a trail without a line in a
+        // handler. It cannot be attached to THIS context, and the reason is the most useful thing
+        // this sample has learned from installing a fourth library:
+        //
+        //   Translation has a composite primary key (EntityName, EntityId, PropertyName,
+        //   LanguageCode). An audit entry records a single key. Give the entity a surrogate key,
+        //   exclude it with [AuditIgnore], or record against it by hand with audit.For(name, id).
+        //
+        // That is the library's own exception, thrown on the first save that tracks a translation
+        // row — which is every catalogue write. All three of its suggestions are addressed to
+        // whoever owns the entity, and nobody here owns it: Translation is DotNetBoost.
+        // MultiLingual's, its lack of a surrogate key is documented as deliberate ("the natural
+        // key is unique by definition"), and an attribute cannot be applied to a type from the
+        // outside. RequireOptIn does not help either — the key is read before the engine asks
+        // whether the entity is audited at all.
+        //
+        // So this application records explicitly instead, which is the third suggestion and a
+        // first-class path in the library rather than a workaround: the six catalogue write slices
+        // each report their own change through IAuditManager and AuditDiff. What that costs is in
+        // the README under "What this costs"; what it buys back is that an entry is appended to
+        // this DbContext and committed by the SAME SaveChanges as the change it describes, so an
+        // update and its trail still land together or neither does. A creation is the exception,
+        // and Application/Composition/CreationTrail.cs is the exception written down.
+        //
+        // The honest summary: two independent libraries, in one DbContext, incompatible at the
+        // capture level — and no shared kernel to arbitrate, which is exactly the trade this
+        // repository is about. An ignore-list on the builder (`o.Ignore<Translation>()`) would
+        // close it without either library knowing about the other, and that is what this sample
+        // would ask the library for next.
+        var auditing = services
+            .AddAuditing()
+            // The trail goes in AppDbContext, not in a store of its own, and that is what the
+            // transaction guarantee rests on: AppendAsync TRACKS the entry rather than saving it,
+            // so a handler that records before its SaveChangesAsync writes the change and the
+            // entry in one transaction. The library's Dapper and MongoDb stores write when they
+            // are called instead, and atomicity is then the application's to arrange.
+            .UseEntityFrameworkCore<AppDbContext>()
+            // The application's own two entities, by type — and on the explicit path this is
+            // load-bearing rather than decorative. It is what lets the engine apply a type's
+            // [AuditIgnore] and [AuditRedact] rules to a write addressed by name, what a prune
+            // would read a per-entity retention from, and what GET /api/audit/entities lists.
+            //
+            // DeclareEntities rather than DeclareEntitiesFrom(assembly), because the scan declares
+            // the types that CARRY one of the library's attributes and these two carry none —
+            // which is the point above restated.
+            .DeclareEntities(typeof(Category), typeof(Product));
+
+        // No retention is configured, deliberately. Retention does nothing until a prune runs,
+        // this sample schedules none, and POST /api/audit/prune is not mapped — so a number here
+        // would state a policy that nothing in the solution carries out. The trail grows forever,
+        // which for a sample seeded on first run is the honest answer; `o.Retention` plus a hosted
+        // service that calls PruneAsync is the real one.
+
+        // And whose name goes on an entry, which only the host can answer. See the parameter.
+        configureAuditing?.Invoke(auditing);
+
+        auditing.Build();
 
         return services;
     }

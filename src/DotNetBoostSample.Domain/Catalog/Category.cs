@@ -1,3 +1,4 @@
+using DotNetBoost.Auditing.Core.Attributes;
 using DotNetBoost.MultiLingual.Core.Attributes;
 
 namespace DotNetBoostSample.Domain.Catalog;
@@ -19,10 +20,17 @@ public class Category
 {
     public int Id { get; set; }
 
-    /// <summary>Translatable. Read in the request's language, with fallback to the default.</summary>
+    /// <summary>
+    /// Translatable. Read in the request's language, with fallback to the default.
+    ///
+    /// <para><c>[AuditIgnore]</c> for the reason spelled out on <see cref="Product.Name"/>: a trail
+    /// has no language, and this value has nothing else.</para>
+    /// </summary>
+    [AuditIgnore]
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Translatable.</summary>
+    /// <summary>Translatable, and out of the trail for the same reason as <see cref="Name"/>.</summary>
+    [AuditIgnore]
     public string Description { get; set; } = string.Empty;
 
     /// <summary>NOT translatable — a stable identifier used in URLs, the same in every language.</summary>

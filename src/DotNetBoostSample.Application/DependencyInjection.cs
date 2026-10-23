@@ -70,6 +70,11 @@ public static class DependencyInjection
         // each take an IMultiLingualManager to hand straight on.
         services.AddScoped<TranslatedText>();
 
+        // And the creation half of the audit trail — Auditing × MultiLingual, in the awkward
+        // direction. Scoped like the other two, and the reason it is a service at all rather than
+        // three lines in the two create slices is that it needs a SECOND scope: see CreationTrail.
+        services.AddScoped<CreationTrail>();
+
         return services;
     }
 

@@ -95,12 +95,17 @@ public abstract class OpenApiShapeTests(SampleApp app)
     /// the sentence in the README saying the suite calls <em>every one</em> of these. That was
     /// established by listing this document and crossing it against what the tests request, which
     /// is how <c>RemainingRouteTests</c> found the six nothing had called — and a cross-check done
-    /// once stays true only until the next route is mapped. These come from four places: this
-    /// application's slices, and three libraries' own endpoints resolved from nuget.org. So the
+    /// once stays true only until the next route is mapped. These come from five places: this
+    /// application's slices, and four libraries' own endpoints resolved from nuget.org. So the
     /// surface can grow without a line of this repository changing, and the claim would go quietly
     /// stale rather than loudly.</para>
     ///
-    /// <para><b>Why the list rather than the count.</b> 41 on its own survives one route being
+    /// <para>Which is precisely what installing a fourth library did: the four <c>/api/audit</c>
+    /// routes arrived as a failure of this test, naming each one, and <c>AuditTrailTests</c> is
+    /// where they are now called. Nothing else in the repository had to change for them to appear.
+    /// </para>
+    ///
+    /// <para><b>Why the list rather than the count.</b> 45 on its own survives one route being
     /// swapped for another, which is precisely the change that leaves a route uncalled while the
     /// number still reads true. Listed, the failure names the route — call it in a test and add it
     /// here, or delete the line and correct the README.</para>
@@ -109,7 +114,7 @@ public abstract class OpenApiShapeTests(SampleApp app)
     /// base-language mode makes about the HTTP surface is that it does not touch it.</para>
     /// </summary>
     [RequiresDockerFact]
-    public async Task The_published_routes_are_the_forty_one_the_suite_was_crossed_against()
+    public async Task The_published_routes_are_the_forty_five_the_suite_was_crossed_against()
     {
         var document = await app.Client.GetJsonAsync("/openapi/v1.json");
 
@@ -127,7 +132,7 @@ public abstract class OpenApiShapeTests(SampleApp app)
     }
 
     /// <summary>
-    /// The 41, in the order <see cref="StringComparer.Ordinal"/> puts them — which groups them by
+    /// The 45, in the order <see cref="StringComparer.Ordinal"/> puts them — which groups them by
     /// method, so a new route lands where it can be read against its neighbours.
     /// </summary>
     private static readonly string[] Published =
@@ -139,6 +144,14 @@ public abstract class OpenApiShapeTests(SampleApp app)
         "DELETE /api/media/{id}/attachments/{attachmentId}",
         "DELETE /api/products/{id}",
         "DELETE /api/translations/{entityName}/{entityId}",
+
+        // The audit trail. Read-only, and the only routes here that require an authenticated
+        // caller — DotNetBoost.Auditing's own default, kept. The erasure and prune endpoints the
+        // library can also map are deliberately absent: see Program.cs.
+        "GET /api/audit",
+        "GET /api/audit/entities",
+        "GET /api/audit/entities/{entityName}",
+        "GET /api/audit/{id}",
 
         "GET /api/categories",
         "GET /api/categories/{id}",

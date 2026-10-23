@@ -18,6 +18,10 @@
     <PackageReference Include="DotNetBoost.Settings.Core" />
     <PackageReference Include="DotNetBoost.Media.Core" />
     <PackageReference Include="DotNetBoost.MultiLingual.Core" />
+    <!-- IAuditManager and AuditDiff: the six write slices record their own changes through them,
+         because the change-tracker capture that would have done it for them cannot be attached to
+         this application's context. Composition/CreationTrail.cs says why. -->
+    <PackageReference Include="DotNetBoost.Auditing.Core" />
   </ItemGroup>
 
   <ItemGroup Label="Querying">

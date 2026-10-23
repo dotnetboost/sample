@@ -3,6 +3,9 @@ using DotNetBoost.Media.Core.Metadata;
 using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core.Metadata;
 using DotNetBoostSample.Application.Composition;
+using DotNetBoostSample.Domain.Catalog;
+using AuditingKey = DotNetBoost.Auditing.Core.Metadata.EntityKey;
+using AuditEntityNames = DotNetBoost.Auditing.Core.Metadata.AuditEntityNames;
 using MediaKey = DotNetBoost.Media.Core.Metadata.EntityKey;
 using MultiLingualKey = DotNetBoost.MultiLingual.Core.Metadata.EntityKey;
 
@@ -10,14 +13,22 @@ namespace DotNetBoostSample.Tests;
 
 /// <summary>
 /// Integration/MediaText.cs joins a media row to translation rows by addressing the same subject
-/// in both stores. That only works while the two libraries agree on how a subject is addressed —
-/// and nothing in either library enforces the agreement: each ships its own <c>EntityKey</c>.
+/// in both stores. That only works while the libraries agree on how a subject is addressed — and
+/// nothing in any of them enforces the agreement: each ships its own <c>EntityKey</c>.
 /// <para>
-/// So the agreement is asserted here, in the application that depends on it. Both libraries
-/// publish the spec version they implement as <c>EntityKey.AddressingVersion</c>, and both bump it
+/// So the agreement is asserted here, in the application that depends on it. Each library
+/// publishes the spec version it implements as <c>EntityKey.AddressingVersion</c>, and bumps it
 /// for <em>any</em> change to name resolution, key formatting or either length limit — so one line
 /// covers what used to be a hand-written theory table over key formats, and covers the changes a
 /// table would have missed.
+/// </para>
+/// <para>
+/// Three libraries now, not two. DotNetBoost.Auditing implements the same spec — <em>DotNetBoost
+/// Entity Addressing v1</em> — and its own documentation suggests exactly the assertion below. It
+/// matters here for a reason the other two do not have: an audit entry is addressed by
+/// <c>(EntityName, EntityId)</c> and by nothing else, with no foreign key back to the row, so an
+/// addressing change that nobody noticed would not break a join — it would quietly produce a trail
+/// that no later read can find.
 /// </para>
 /// <para>
 /// The two format checks below are kept on purpose. The version is a promise; they are what catches
@@ -41,6 +52,30 @@ public class KeyFormatAgreementTests
         // deriving from them, which is a promise no consumer can take up today. Hence the
         // constants, which are public and are enough.
         Assert.Equal(MultiLingualKey.AddressingVersion, MediaKey.AddressingVersion);
+        Assert.Equal(MultiLingualKey.AddressingVersion, AuditingKey.AddressingVersion);
+    }
+
+    /// <summary>
+    /// And the same three libraries resolve this application's own entity to the same NAME.
+    ///
+    /// <para>The version covers how a name is resolved; it cannot cover the fact that all three are
+    /// being asked about the same type. A product's trail is filed under
+    /// <c>AuditEntityNames.For(typeof(Product))</c>, its images under Media's answer and its text
+    /// under MultiLingual's — so if one of them ever resolved <c>Product</c> differently, the three
+    /// records of one product would stop sitting beside each other with nothing failing.</para>
+    ///
+    /// <para>Asserted for <c>Product</c> rather than for a type of this test's own, because that is
+    /// the type the three actually share here.</para>
+    /// </summary>
+    [Fact]
+    public void All_three_libraries_file_a_product_under_the_same_entity_name()
+    {
+        Assert.Equal(nameof(Product), AuditEntityNames.For(typeof(Product)));
+        Assert.Equal(AuditEntityNames.For(typeof(Product)), MediaEntityNames.For(typeof(Product)));
+
+        Assert.Equal(
+            AuditEntityNames.For(typeof(Product)),
+            MultiLingualMetadata.EntityNameFor(typeof(Product)));
     }
 
     [Fact]
@@ -53,6 +88,7 @@ public class KeyFormatAgreementTests
         var id = Guid.NewGuid();
 
         Assert.Equal(MultiLingualKey.ToKeyString(id), MediaKey.ToKeyString(id));
+        Assert.Equal(MultiLingualKey.ToKeyString(id), AuditingKey.ToKeyString(id));
         Assert.Equal(id.ToString("D"), MediaKey.ToKeyString(id));
     }
 
@@ -62,6 +98,7 @@ public class KeyFormatAgreementTests
         // The other key type this application addresses owners by — a Category's and a Product's
         // Id. Invariant decimal in both, so a culture with another digit shape cannot reach a key.
         Assert.Equal(MultiLingualKey.ToKeyString(42), MediaKey.ToKeyString(42));
+        Assert.Equal(MultiLingualKey.ToKeyString(42), AuditingKey.ToKeyString(42));
         Assert.Equal("42", MediaKey.ToKeyString(42));
     }
 

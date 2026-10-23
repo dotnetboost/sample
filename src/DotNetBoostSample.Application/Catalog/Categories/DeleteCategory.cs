@@ -1,3 +1,5 @@
+using DotNetBoost.Auditing.Core.Interfaces;
+using DotNetBoost.Auditing.Core.Services;
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
@@ -20,7 +22,8 @@ public static class DeleteCategory
 
     public sealed class Handler(
         IAppDbContext db,
-        IMediaManager media) : IRequestHandler<Command, Result<string>>
+        IMediaManager media,
+        IAuditManager audit) : IRequestHandler<Command, Result<string>>
     {
         /// <inheritdoc/>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -43,6 +46,11 @@ public static class DeleteCategory
             // Read before the row goes: naming the deleted thing is the whole point of the message,
             // and `category.Slug` is only reliable while the entity is still there to read it from.
             var slug = category.Slug;
+
+            // The entry carries the row's final values, and it outlives the row: nothing cascades
+            // to the trail, so after the save below this is the only record of what this category
+            // said. Recorded before the Remove so that both are in the same SaveChanges.
+            await audit.For(category).DeletedAsync(AuditDiff.FinalValues(category), ct: ct);
 
             db.Categories.Remove(category);
             await db.SaveChangesAsync(ct);

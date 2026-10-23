@@ -11,6 +11,10 @@
     <PackageReference Include="DotNetBoost.Media.FileSystem" />
     <PackageReference Include="DotNetBoost.MultiLingual.EntityFrameworkCore" />
     <PackageReference Include="DotNetBoost.MultiLingual.Localization" />
+    <!-- Auditing's store is the application's own AppDbContext, which is what lets an audit row
+         be committed by the same SaveChanges as the change it describes. The capture comes with
+         it: UseAuditing(sp) on the context, in DependencyInjection.cs. -->
+    <PackageReference Include="DotNetBoost.Auditing.EntityFrameworkCore" />
   </ItemGroup>
 
   <ItemGroup Label="PostgreSQL">

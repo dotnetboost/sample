@@ -8,9 +8,16 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DotNetBoostSample.Infrastructure.Persistence;
 
 /// <summary>
-/// Creates the schema and puts enough in it to see all three libraries working on first run.
-/// A real application would use <c>dotnet ef migrations</c>; a sample you start with one command
-/// should not make you run two.
+/// Creates the schema — including the fourth library's two tables — and puts enough in it to see
+/// Settings, Media and MultiLingual working on first run. A real application would use
+/// <c>dotnet ef migrations</c>; a sample you start with one command should not make you run two.
+///
+/// <para><b>The audit trail starts empty, on purpose.</b> This seeder writes through the libraries
+/// and the <c>DbContext</c> directly rather than through the catalogue's write slices, and the
+/// slices are what record entries — there is no capture interceptor on this context to pick the
+/// seed up (see <c>DependencyInjection.cs</c>). So the trail begins with the first change somebody
+/// makes, which is also the more useful first thing to read: nobody is served by forty entries
+/// that say "the seed did it".</para>
 /// </summary>
 public static class DatabaseInitialiser
 {

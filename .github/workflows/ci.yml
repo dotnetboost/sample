@@ -1,6 +1,6 @@
 # The sample's claims, checked on a machine that is not the author's.
 #
-# This repository argues that what it says is tested rather than asserted — the three libraries
+# This repository argues that what it says is tested rather than asserted — the four libraries
 # never reference each other, no endpoint's response changes with the base language, every
 # published route is called, and even the counts in the README are pinned. All of that was only
 # ever true on one laptop until this file existed.
@@ -49,7 +49,7 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # The three DotNetBoost libraries come from nuget.org like anyone else's — there is no
+      # The four DotNetBoost libraries come from nuget.org like anyone else's — there is no
       # project reference to them and no local feed, which is the point of the sample.
       - name: Restore
         run: dotnet restore
@@ -60,8 +60,8 @@ jobs:
       # ubuntu-latest ships a running Docker daemon, which Testcontainers uses to start the real
       # PostgreSQL this suite needs — twice, since the integration classes boot the application in
       # both language modes. Without a runtime those tests SKIP rather than fail, so a green run
-      # here that skipped 95 of them would be no signal at all; the step after this one says which
-      # happened.
+      # here that skipped 109 of them would be no signal at all; the step after this one says
+      # which happened.
       - name: Test
         run: |
           dotnet test DotNetBoostSample.slnx \

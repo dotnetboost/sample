@@ -11,6 +11,10 @@
     <PackageReference Include="DotNetBoost.Settings.API" />
     <PackageReference Include="DotNetBoost.Media.API" />
     <PackageReference Include="DotNetBoost.MultiLingual.API" />
+    <!-- Also the only package that can supply the actor: UseHttpContextActor() needs
+         HttpContext, so it is passed into AddInfrastructure from here the same way
+         ExposeOverHttp is. -->
+    <PackageReference Include="DotNetBoost.Auditing.API" />
   </ItemGroup>
 
   <ItemGroup Label="API docs">

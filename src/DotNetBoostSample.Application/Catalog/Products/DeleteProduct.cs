@@ -1,3 +1,5 @@
+using DotNetBoost.Auditing.Core.Interfaces;
+using DotNetBoost.Auditing.Core.Services;
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
@@ -20,7 +22,8 @@ public static class DeleteProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        IMediaManager media) : IRequestHandler<Command, Result<string>>
+        IMediaManager media,
+        IAuditManager audit) : IRequestHandler<Command, Result<string>>
     {
         /// <inheritdoc/>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -41,6 +44,12 @@ public static class DeleteProduct
 
             // Read before the row goes, for the same reason as the category's slug.
             var sku = product.Sku;
+
+            // The entry survives the row, with its final values — see DeleteCategory's handler.
+            // It is also the one place the trail and the images disagree about what "gone" means:
+            // the files this product held are deleted above, and the entry says only that the
+            // product was deleted. A trail of attachments would be DotNetBoost.Media's to keep.
+            await audit.For(product).DeletedAsync(AuditDiff.FinalValues(product), ct: ct);
 
             // The product's own translations ARE removed automatically: MultiLingual's SaveChanges
             // interceptor sees the entity being deleted.
