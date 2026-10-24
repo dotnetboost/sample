@@ -30,6 +30,11 @@ const links = computed(() => [[{
   to: '/languages',
   onSelect: close
 }, {
+  label: t('nav.audit'),
+  icon: 'i-lucide-history',
+  to: '/audit',
+  onSelect: close
+}, {
   label: t('nav.settings'),
   icon: 'i-lucide-settings',
   to: '/settings',
@@ -88,6 +93,13 @@ const groups = computed(() => [{
       </template>
 
       <template #footer="{ collapsed }">
+        <!--
+          Who the dashboard is acting as, above the appearance menu: it is sent on every call, it
+          is what the audit trail records against a change, and the Audit page cannot be read
+          without it. In the shell rather than in a page header because it is not one page's
+          business — a catalogue write made on another tab is attributed by the same name.
+        -->
+        <ActingAs :collapsed="collapsed" />
         <AppearanceMenu :collapsed="collapsed" />
       </template>
     </UDashboardSidebar>

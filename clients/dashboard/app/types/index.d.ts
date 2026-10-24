@@ -388,3 +388,184 @@ export interface SettingGroup {
    */
   icon: string
 }
+
+// ── DotNetBoost.Auditing ─────────────────────────────────────────────────────
+//
+// The four `/api/audit` routes, as the library returns them. Written out here rather than inferred
+// from a response, for the same reason every other shape in this file is: the names are the
+// library's, and the two that carry a meaning a renderer has to honour — `actor: null` and
+// `isRedacted` — are documented where that renderer will look for them.
+
+/**
+ * What happened to the row. Serialized as its name rather than its number, so this union is the
+ * whole set and a renumbering on the server cannot silently turn one action into another.
+ */
+export type AuditAction = 'Created' | 'Updated' | 'Deleted'
+
+/**
+ * What the model says about one property: recorded with its values, recorded without them, or not
+ * recorded at all.
+ *
+ * `Ignore` is the one this application leans on — `Category.Name`, `Category.Description`,
+ * `Product.Name` and `Product.Description` carry `[AuditIgnore]`, because their value depends on
+ * the language and an entry has no language.
+ */
+export type AuditRule = 'Record' | 'Redact' | 'Ignore'
+
+/** One property's move, as an entry carries it. */
+export interface AuditChange {
+  /** As named on the class, which is how `AuditProperty.name` spells it too. */
+  propertyName: string
+  oldValue: string | null
+  newValue: string | null
+  /**
+   * The values were withheld because the model marks the property sensitive — `Redact`.
+   *
+   * When this is set the two nulls mean "not disclosed" rather than "was empty", and the library's
+   * own documentation asks a client to say so rather than render a blank. `audit.redacted` is that
+   * sentence; nothing here is ever drawn as an empty cell on the strength of a null alone.
+   */
+  isRedacted: boolean
+  /** Either value was cut short at the configured limit. */
+  isTruncated: boolean
+}
+
+/** One recorded change, as `GET api/audit` and `GET api/audit/{id}` return it. */
+export interface AuditEntry {
+  id: string
+  /** The entity's stored name — `Product`, not necessarily the class name. */
+  entityName: string
+  /** That entity's key, formatted the way both other libraries format one. */
+  entityId: string
+  action: AuditAction
+  /**
+   * Who made the change, or `null` when nothing was captured.
+   *
+   * **`null` is not a claim about anybody.** It is not "system", and the library says so in as
+   * many words. The page renders it as `audit.unknownActor` — "unknown" — which is the only
+   * honest reading of an actor that was never recorded.
+   */
+  actor: string | null
+  /** Ties this entry to the others of the same edit. */
+  correlationId: string | null
+  /** Always UTC. Drawn through `formatDate` / `formatRelative`, in the UI locale. */
+  occurredAt: string
+  /**
+   * Whatever the application stored alongside the entry, as the string it stored. The library
+   * never looked inside it and neither does this client.
+   */
+  metadata: string | null
+  /** Empty when the read did not ask for changes, and legitimately empty for some deletions. */
+  changes: AuditChange[]
+}
+
+/** One page of `GET api/audit`. */
+export interface AuditPage {
+  /** Newest first. */
+  entries: AuditEntry[]
+  /**
+   * How many matched, or `null` when the read did not ask — which this dashboard does not.
+   * `null` means "not counted" and never zero, so nothing may paginate against it.
+   */
+  total: number | null
+  skip: number
+  /**
+   * How many entries this page actually holds — the same number as `entries.length`, and **not**
+   * the page size that was asked for: a request for 50 against a trail of 6 comes back with
+   * `take: 6`. Read against the API, because the library documents it as the clamped page size and
+   * a client that trusted that would read a short page as a full one.
+   *
+   * So it cannot report the clamp either. `maxPageSize` on `GET api/audit/entities` is where the
+   * bound is published, which is why that endpoint is read before the first page.
+   */
+  take: number
+  /**
+   * The token to send as `after` for the next page, or `null` when the walk is over.
+   *
+   * Not a promise that more entries exist: it is where this page ended, so the last full page
+   * carries one and the request after it comes back empty. Preferred to `skip` for walking a
+   * trail, which is why this dashboard never sends `skip` — an offset makes the database read and
+   * discard everything before the page, and an entry arriving between two requests shifts a row
+   * across the boundary. Sending both is a `400`.
+   */
+  nextCursor: string | null
+}
+
+/** One row of `GET api/audit/entities`. */
+export interface AuditEntityDescriptor {
+  /** The name entries are stored under, and the value to send as `entityName`. */
+  name: string
+  clrType: string
+  /**
+   * Whether a change to it would be recorded **right now** — the engine's own answer, so it
+   * accounts for the kill switch and opt-in mode as well as for the attributes.
+   */
+  audited: boolean
+  optedIn: boolean
+  ignored: boolean
+  /**
+   * Effective retention once a prune runs. `null` means nothing is configured either way, so a
+   * prune leaves its entries alone — never that they expire immediately. This sample maps no
+   * prune endpoint, so nothing here ever runs one.
+   */
+  retentionDays: number | null
+  hasOwnRetention: boolean
+}
+
+/**
+ * `GET api/audit/entities` — what can be filtered by, and the bound every read is subject to.
+ *
+ * `maxPageSize` is why this endpoint is read before the first page: a client that hard-codes a cap
+ * has a number to keep in step with the server's by hand, and a client that does not know the cap
+ * discovers it by comparing `take` with what it asked for.
+ */
+export interface AuditEntities {
+  entities: AuditEntityDescriptor[]
+  maxPageSize: number
+}
+
+/** One property, as `GET api/audit/entities/{entityName}` describes it. */
+export interface AuditProperty {
+  name: string
+  /** The CLR type name — the underlying type for a nullable. */
+  type: string
+  nullable: boolean
+  rule: AuditRule
+}
+
+/**
+ * `GET api/audit/entities/{entityName}` — what the model says about one entity. Never anything
+ * recorded, which is what makes it answerable before the trail has a single entry in it.
+ */
+export interface AuditEntitySchema {
+  name: string
+  clrType: string
+  audited: boolean
+  retentionDays: number | null
+  hasOwnRetention: boolean
+  /** Every public instance property, the ignored ones included. */
+  properties: AuditProperty[]
+}
+
+/**
+ * The filter the Audit page is currently reading the trail with.
+ *
+ * Every one of these is a query parameter on `GET api/audit` rather than something applied to the
+ * rows already on screen — the same rule the media browser follows, and for the same reason: a
+ * trail is append-only and far longer than a page, so filtering what has been loaded filters the
+ * wrong set.
+ *
+ * `from` and `to` are `yyyy-mm-dd` as a date input produces them; `useAuditTrail` turns them into
+ * the instants the API is asked for.
+ */
+export interface AuditQuery {
+  entityName: string
+  entityId: string
+  actor: string
+  action: AuditAction | ''
+  from: string
+  to: string
+  /** Set by "the rest of this edit", which narrows the trail to one correlation id. */
+  correlationId: string
+  pageSize: number
+}

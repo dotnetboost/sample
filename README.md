@@ -41,8 +41,9 @@ because they are the point.
 ![The overview page: four counts, and the three files where the libraries
 meet](docs/screenshots/overview.png)
 
-A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
-**Languages**, **Settings**, with the reading-language selector in every page header.
+A sidebar shell matching the four libraries' own dashboards — **Catalog**, **Media**,
+**Languages**, **Audit**, **Settings**, with the reading-language selector in every page header
+and, at the foot of the sidebar, who the dashboard is **acting as**.
 
 That one selector moves **both** languages in the dashboard. The content language is a row in
 DotNetBoost.MultiLingual that the API resolves from `Accept-Language`; the dashboard's own labels,
@@ -179,10 +180,43 @@ on the write's own response, in the language the list is being read in. A catego
 products is refused in the same language. [What a catalogue write answers
 with](#what-a-catalogue-write-answers-with) has the shapes.
 
-**There is no Audit page.** The trail is API-only for now — `GET /api/audit`, behind the one
-authorization check in this application — and the dashboard's sidebar still has the four pages
-above. A screen that reads it is the obvious next thing and is not here yet, which is said plainly
-rather than implied by a missing tab.
+**Audit** is DotNetBoost.Auditing's trail, and the one page here that has to be signed in to.
+`MapAuditEndpoints()` requires an authenticated caller *by default* — a trail says who did what and
+when — and this sample keeps that default rather than switching it off, so with nobody set the page
+explains the `401` instead of showing an empty table.
+
+Who you are is the control at the foot of the sidebar: **acting as**. It is a name you type, sent as
+`X-Sample-Actor` on every call the dashboard makes — which is what makes your own catalogue writes
+attributable as well as the trail readable. The dashboard knows nobody, so nothing is invented
+there: acting as nobody is the starting state, changes made that way are recorded with no actor, and
+the trail renders that as `unknown` rather than naming a person who does not exist. The API trusts
+the header outright and [says so at
+length](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs); the dashboard's half
+of the bargain is to send only a name somebody typed.
+
+The filters — entity, key, actor, action and a date range — are parameters on the query the API is
+asked, never a pass over the rows already on screen, which for an append-only trail would search the
+wrong set. The entity list comes from `GET /api/audit/entities`, so it is this installation's own
+two and not a list written into the client, and the page size is bounded by the `maxPageSize` the
+same response publishes rather than by a number the dashboard would have to keep in step by hand.
+Paging is **newer and older** rather than a page count: the walk follows the `nextCursor` the API
+hands back, which is what the library asks a client to prefer over an offset, and the read
+deliberately never asks for a total — so there is no number to page against, which is the honest
+shape of a cursor walk.
+
+An entry expands to the properties that moved, old value → new. Two of those readings are not
+obvious from the data and are worth seeing done: a **redacted** change arrives as two nulls, so it
+is drawn as "not disclosed" rather than as a blank, which would say the field was cleared; and a
+**null actor** is drawn as `unknown`, never as "system", because nothing was captured and the entry
+names nobody.
+
+Pick an entity and the page also shows **what is recorded for it**, from
+`GET /api/audit/entities/{entityName}` — the model's own description rather than a summary of the
+entries, so it answers before the trail has a row in it. `Name` and `Description` are reported as
+`Ignore`, which is where someone who edited a product's Arabic text and saw no new entry finds out
+why: a translated value depends on the language and an entry has no language. [A translated property
+is not in the trail](#7-a-translated-property-is-not-in-the-trail) is the same claim from the other
+side.
 
 ## Run it
 
@@ -238,10 +272,9 @@ curl -H 'X-Sample-Actor: alice@example.com' \
   'http://localhost:5180/api/audit?entityName=Product&take=10'
 ```
 
-Change a product in the dashboard first and the entry will say `alice@example.com` did it only if
-the dashboard sent that header; it does not, so changes made through the UI are recorded with no
-actor — honestly, rather than as "system". Send the header with a `curl` write and the next entry
-carries the name.
+The dashboard sends the same header, from the **acting as** control at the foot of its sidebar — so
+a product changed there is attributed to whatever name is set, and to no actor at all while none is.
+Either way the trail is read on the Audit page as well as with `curl`.
 
 **The dashboard** needs **Node 22+**, its dependencies installed — `aspire run` does that for you
 and nothing else does — and the address of that API:
@@ -967,8 +1000,8 @@ OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 cd clients/dashboard && npm test
 ```
 
-Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Two suites,
-and each exists because of a bug `dotnet test` could not have caught.
+Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Three
+suites, and each exists because of a bug `dotnet test` could not have caught.
 
 The first: attaching a logo on the
 branding tab left the role box showing the file that had just been replaced. The images it draws
@@ -994,6 +1027,18 @@ three independent readers against a real Nitro endpoint and asserts one request 
 that a language created afterwards reaches the two that never asked again. The first assertion
 failed when it was written — three readers, three requests — which is how `dedupe: 'defer'` got
 there.
+
+`test/nuxt/useAuditTrail.spec.ts` is the third, and its bug is the one a cursor walk invites: the
+cursor outlived the filter. A cursor is a position in one ordered, filtered trail, so kept across a
+filter change it was sent with the new filter and addressed a place in a trail that was no longer
+being read — the API answered with the middle of a set nobody had asked for, or with nothing, which
+reads as "no entries match" for a filter that matches plenty. Two more properties are pinned beside
+it: that `skip` is never sent at all, which the API refuses together with `after` anyway; and that
+a filter typed while the first page is still in flight is not answered with that page — the entry is
+registered `dedupe: 'defer'` for the readers that arrive in the same tick, so every deliberate move
+refreshes with `dedupe: 'cancel'` instead. The fourth test is the one the whole page hangs off:
+without the actor header the trail is a `401`, and naming somebody makes it readable — a header that
+never left the browser looks exactly like a server that is down.
 
 The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
 `npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which
@@ -1218,6 +1263,25 @@ clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aw
   app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
   app/utils/settings.ts                  one icon per route, and the label lookups —
                                          the group list itself comes from the API
+  app/components/ActingAs.vue            who the dashboard is acting as — a name you type,
+                                         sent as X-Sample-Actor on every call. No default and
+                                         nothing invented: acting as nobody is a state
+  app/plugins/acting-as.ts               restores that name before the first request and
+                                         remembers it when it changes
+  app/utils/rememberedActor.ts           the name across visits — not a credential, and
+                                         remembering it is not "staying signed in"
+  app/pages/audit.vue                    Auditing's trail: the filters, the walk, and the
+                                         two readings that are not in the data — a redacted
+                                         change is "not disclosed", a null actor is unknown
+  app/components/audit/Filters.vue       entity, key, actor, action, dates, page size — every
+                                         one of them a parameter on the query the API is asked
+  app/components/audit/EntryChanges.vue  one entry's properties, old value → new
+  app/components/audit/EntityRules.vue   what the MODEL says is recorded for one entity, from
+                                         GET api/audit/entities/{entityName} — which is where
+                                         [AuditIgnore] on the translated text becomes visible
+  app/composables/useAuditTrail.ts       one listing, walked by the API's own nextCursor and
+                                         never by an offset — and the cursor is dropped
+                                         whenever the question changes
   app/pages/languages.vue                MultiLingual's own languages table
   app/components/languages/FormModal.vue add or edit a language
   app/composables/useLanguages.ts        create, update, set-default, delete, purge

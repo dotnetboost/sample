@@ -24,6 +24,7 @@
     "catalog": "Catalog",
     "media": "Media",
     "languages": "Languages",
+    "audit": "Audit",
     "settings": "Settings",
     "apiReference": "API reference",
     "github": "DotNetBoost on GitHub",
@@ -35,6 +36,19 @@
   },
   "readingLanguage": {
     "label": "Reading language"
+  },
+  "actingAs": {
+    "trigger": "Acting as",
+    "nobody": "Acting as nobody",
+    "label": "Name",
+    "placeholder": "alice{'@'}example.com",
+    "help": "Sent as X-Sample-Actor on every call. The audit trail records it against each change you make, and reading the trail needs it.",
+    "apply": "Apply",
+    "clear": "Act as nobody",
+    "notAuthentication": {
+      "title": "Not authentication",
+      "description": "The API trusts this header outright — anyone who can reach it can claim to be anyone. It stands in for a sign-in so the sample can show a trail with real names in it."
+    }
   },
   "appearance": {
     "trigger": "Appearance",
@@ -244,6 +258,87 @@
         "required": "Required.",
         "nameTooLong": "At most 128 characters."
       }
+    }
+  },
+  "audit": {
+    "title": "Audit trail",
+    "card": {
+      "description": "Served by MapAuditEndpoints() from DotNetBoost.Auditing.API — library endpoints, not ones this application wrote. Every filter below is a parameter on the query the API is asked, and the pages are walked with the cursor it hands back rather than with an offset."
+    },
+    "reload": "Reload the trail",
+    "loadError": "Could not load the trail",
+    "empty": "Nothing has been recorded yet. Change a product or a category and it will be here.",
+    "emptyFiltered": "No entries match this filter.",
+    "expand": "Show the property changes",
+    "filterToEntity": "Show only {entity} {id}",
+    "unknownActor": "unknown",
+    "unknownActorTooltip": "No actor was captured for this change. The entry names nobody — which is not the same as naming the system.",
+    "changeCount": "{n} change | {n} changes",
+    "noChanges": "No property values were recorded with this entry.",
+    "redacted": "not disclosed",
+    "redactedTooltip": "The model marks this property sensitive, so the values were withheld rather than recorded. They are not missing — they were never stored.",
+    "truncated": "truncated",
+    "truncatedTooltip": "A value was longer than the configured limit and was cut short when it was recorded.",
+    "needsCaller": {
+      "title": "Reading the trail needs a caller",
+      "description": "DotNetBoost.Auditing's endpoints require an authenticated caller, and this sample keeps that default rather than turning it off — a trail says who did what and when. Set a name under \"Acting as\" at the bottom of the sidebar; it is sent on every call, and your own changes are recorded against it from then on. Until then, changes made here are recorded with no actor at all."
+    },
+    "filters": {
+      "entity": "Entity",
+      "anyEntity": "Any entity",
+      "notAudited": "Declared, but changes to it are not being recorded right now.",
+      "entityId": "Key",
+      "actor": "Actor",
+      "action": "Action",
+      "anyAction": "Any action",
+      "from": "From",
+      "to": "To",
+      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own.",
+      "pageSize": "Per page"
+    },
+    "actions": {
+      "created": "Created",
+      "updated": "Updated",
+      "deleted": "Deleted"
+    },
+    "columns": {
+      "occurredAt": "When",
+      "entity": "Entity",
+      "action": "Action",
+      "actor": "Actor",
+      "changes": "Changes"
+    },
+    "changes": {
+      "property": "Property",
+      "oldValue": "Before",
+      "newValue": "After"
+    },
+    "entry": {
+      "id": "Entry",
+      "occurredAt": "Recorded",
+      "metadata": "Metadata",
+      "correlationId": "Edit",
+      "showEdit": "The rest of this edit"
+    },
+    "editFilter": {
+      "title": "One edit",
+      "description": "Every entry written under the same correlation id. An edit is not always one entry: creating a product with text in several languages writes the product's own entry and the creation trail's, in a scope of its own."
+    },
+    "pager": {
+      "page": "Page {n}",
+      "newer": "Newer",
+      "older": "Older"
+    },
+    "rules": {
+      "title": "What is recorded for {entity}",
+      "description": "What the model says about this class — not a summary of the entries, so it answers before the trail has a single row in it.",
+      "notAudited": "not recorded",
+      "record": "recorded with their values",
+      "redact": "recorded without them",
+      "ignore": "never recorded — a translated value depends on the language, and an entry has no language",
+      "retentionOwn": "kept {n} day — its own | kept {n} days — its own",
+      "retentionDefault": "kept {n} day — the configured default | kept {n} days — the configured default",
+      "retentionNone": "kept indefinitely"
     }
   },
   "media": {

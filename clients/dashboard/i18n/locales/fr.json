@@ -24,6 +24,7 @@
     "catalog": "Catalogue",
     "media": "Médias",
     "languages": "Langues",
+    "audit": "Audit",
     "settings": "Paramètres",
     "apiReference": "Référence de l'API",
     "github": "DotNetBoost sur GitHub",
@@ -35,6 +36,19 @@
   },
   "readingLanguage": {
     "label": "Langue de lecture"
+  },
+  "actingAs": {
+    "trigger": "Agir en tant que",
+    "nobody": "Aucun nom",
+    "label": "Nom",
+    "placeholder": "alice{'@'}example.com",
+    "help": "Envoyé dans l'en-tête X-Sample-Actor à chaque appel. Le journal d'audit l'enregistre avec chacune de vos modifications, et sa lecture l'exige.",
+    "apply": "Appliquer",
+    "clear": "N'agir sous aucun nom",
+    "notAuthentication": {
+      "title": "Ce n'est pas une authentification",
+      "description": "L'API fait confiance à cet en-tête tel quel — quiconque peut l'atteindre peut se prétendre n'importe qui. Il tient lieu de connexion pour que cet exemple puisse montrer un journal portant de vrais noms."
+    }
   },
   "appearance": {
     "trigger": "Apparence",
@@ -244,6 +258,87 @@
         "required": "Obligatoire.",
         "nameTooLong": "128 caractères au maximum."
       }
+    }
+  },
+  "audit": {
+    "title": "Journal d'audit",
+    "card": {
+      "description": "Servi par MapAuditEndpoints() de DotNetBoost.Auditing.API — les points de terminaison de la bibliothèque, pas ceux de cette application. Chaque filtre ci-dessous est un paramètre de la requête envoyée à l'API, et les pages se parcourent avec le curseur qu'elle renvoie plutôt qu'avec un décalage."
+    },
+    "reload": "Recharger le journal",
+    "loadError": "Impossible de charger le journal",
+    "empty": "Rien n'a encore été enregistré. Modifiez un produit ou une catégorie et l'entrée apparaîtra ici.",
+    "emptyFiltered": "Aucune entrée ne correspond à ce filtre.",
+    "expand": "Afficher les propriétés modifiées",
+    "filterToEntity": "N'afficher que {entity} {id}",
+    "unknownActor": "inconnu",
+    "unknownActorTooltip": "Aucun acteur n'a été capturé pour cette modification. L'entrée ne nomme personne — ce qui n'est pas la même chose que nommer le système.",
+    "changeCount": "{n} modification | {n} modifications",
+    "noChanges": "Aucune valeur de propriété n'a été enregistrée avec cette entrée.",
+    "redacted": "non divulguée",
+    "redactedTooltip": "Le modèle marque cette propriété comme sensible : les valeurs ont été retenues au lieu d'être enregistrées. Elles ne manquent pas — elles n'ont jamais été stockées.",
+    "truncated": "tronquée",
+    "truncatedTooltip": "Une valeur dépassait la limite configurée et a été coupée à l'enregistrement.",
+    "needsCaller": {
+      "title": "La lecture du journal exige un appelant",
+      "description": "Les points de terminaison de DotNetBoost.Auditing exigent un appelant authentifié, et cet exemple conserve ce comportement par défaut au lieu de le désactiver — un journal dit qui a fait quoi et quand. Définissez un nom sous « Agir en tant que », en bas de la barre latérale ; il est envoyé à chaque appel, et vos modifications sont dès lors enregistrées sous ce nom. D'ici là, les modifications faites ici sont enregistrées sans aucun acteur."
+    },
+    "filters": {
+      "entity": "Entité",
+      "anyEntity": "Toute entité",
+      "notAudited": "Déclarée, mais ses modifications ne sont pas enregistrées actuellement.",
+      "entityId": "Clé",
+      "actor": "Acteur",
+      "action": "Action",
+      "anyAction": "Toute action",
+      "from": "Du",
+      "to": "Au",
+      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres.",
+      "pageSize": "Par page"
+    },
+    "actions": {
+      "created": "Créé",
+      "updated": "Modifié",
+      "deleted": "Supprimé"
+    },
+    "columns": {
+      "occurredAt": "Quand",
+      "entity": "Entité",
+      "action": "Action",
+      "actor": "Acteur",
+      "changes": "Modifications"
+    },
+    "changes": {
+      "property": "Propriété",
+      "oldValue": "Avant",
+      "newValue": "Après"
+    },
+    "entry": {
+      "id": "Entrée",
+      "occurredAt": "Enregistrée",
+      "metadata": "Métadonnées",
+      "correlationId": "Édition",
+      "showEdit": "Le reste de cette édition"
+    },
+    "editFilter": {
+      "title": "Une seule édition",
+      "description": "Toutes les entrées écrites sous le même identifiant de corrélation. Une édition n'est pas toujours une seule entrée : créer un produit avec du texte en plusieurs langues écrit l'entrée du produit et celle du journal de création, dans une portée qui lui est propre."
+    },
+    "pager": {
+      "page": "Page {n}",
+      "newer": "Plus récentes",
+      "older": "Plus anciennes"
+    },
+    "rules": {
+      "title": "Ce qui est enregistré pour {entity}",
+      "description": "Ce que dit le modèle de cette classe — et non un résumé des entrées : la réponse arrive avant que le journal ne contienne la moindre ligne.",
+      "notAudited": "non enregistrée",
+      "record": "enregistrées avec leurs valeurs",
+      "redact": "enregistrées sans leurs valeurs",
+      "ignore": "jamais enregistrées — une valeur traduite dépend de la langue, et une entrée n'a pas de langue",
+      "retentionOwn": "conservées {n} jour — sa propre règle | conservées {n} jours — sa propre règle",
+      "retentionDefault": "conservées {n} jour — la valeur par défaut configurée | conservées {n} jours — la valeur par défaut configurée",
+      "retentionNone": "conservées sans limite"
     }
   },
   "media": {
