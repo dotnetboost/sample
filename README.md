@@ -180,6 +180,9 @@ on the write's own response, in the language the list is being read in. A catego
 products is refused in the same language. [What a catalogue write answers
 with](#what-a-catalogue-write-answers-with) has the shapes.
 
+![The audit trail: one entity's entries, and what the model says is recorded for
+it](docs/screenshots/audit.png)
+
 **Audit** is DotNetBoost.Auditing's trail, and the one page here that has to be signed in to.
 `MapAuditEndpoints()` requires an authenticated caller *by default* — a trail says who did what and
 when — and this sample keeps that default rather than switching it off, so with nobody set the page
