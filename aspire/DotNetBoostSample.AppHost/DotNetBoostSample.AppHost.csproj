@@ -1,8 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Turns this project into an Aspire AppHost: generates the strongly typed
-       `Projects.*` handles used by AddProject<T>() and the `aspire run` entry point. -->
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.5.3" />
+       `Projects.*` handles used by AddProject<T>() and the `aspire run` entry point.
+
+       Version-locked to the Aspire.Hosting.* packages in Directory.Packages.props, which is
+       where the reason for this particular number is written down. -->
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.4" />
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

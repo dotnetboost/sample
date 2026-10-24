@@ -77,10 +77,25 @@
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
   </ItemGroup>
 
+  <!-- ──────────────────────────────────────────────────────────────────────────
+       Aspire — the AppHost and its two integrations.
+
+       All three move together, and so does the Aspire.AppHost.Sdk version in the AppHost csproj:
+       the SDK generates the `Projects.*` handles the hosting packages consume, so a version split
+       between the two is not a combination anybody tests.
+
+       13.6.2 is the floor here, not a preference. Below it the AppHost resolves MessagePack
+       2.5.302 transitively, through StreamJsonRpc, and 2.5.302 is the subject of
+       GHSA-qhrr-8q5h-9q3h (CVE-2026-92707, moderate) — which NuGet's audit reports as NU1902 and
+       TreatWarningsAsErrors turns into a restore that fails before a single file compiles.
+       13.6.2 was the first release to depend on MessagePack 2.5.307 directly, and a package's own
+       dependency sits nearer than one it inherits, so the advisory is answered by the version
+       chosen here rather than by a direct reference to something only Aspire uses.
+       ────────────────────────────────────────────────────────────────────────── -->
   <ItemGroup Label="Aspire — AppHost (orchestration)">
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.4" />
   </ItemGroup>
 
   <ItemGroup Label="Aspire — service defaults and integrations">

@@ -46,7 +46,7 @@ Three reasons specific to this repo, not general taste:
 
 **And a caveat on multi-targeting.** The *libraries* below can target `net8.0;net10.0`. The **host
 cannot today**: `Microsoft.EntityFrameworkCore` / `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3 and
-Aspire 13.5.3 all require `net10.0`. §7 has the conditional-version pattern if you want the host on
+Aspire 13.6.4 all require `net10.0`. §7 has the conditional-version pattern if you want the host on
 both too; the value is mostly in the class libraries, where multi-targeting proves the slices
 compile against DotNetBoost's own `net8.0` TFM.
 
