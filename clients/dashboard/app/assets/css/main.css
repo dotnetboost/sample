@@ -20,10 +20,11 @@
 
 @theme inline {
   /*
-   * Public Sans for Latin, Tajawal for Arabic.
+   * Geist for Latin, Tajawal for Arabic. Geist is the face shadcn-vue's own blocks are drawn in,
+   * with Geist Mono for identifiers below; it has no Arabic, which is exactly why the stack works.
    *
    * This is a stack rather than a pair of `:lang()` rules because CSS falls back per CHARACTER,
-   * not per element: the browser tries Public Sans for every glyph, finds no Arabic in it, and
+   * not per element: the browser tries Geist for every glyph, finds no Arabic in it, and
    * reaches Tajawal for exactly those. So a sidebar entry reading "DotNetBoost على GitHub" is set
    * in both faces, each doing the script it was drawn for, with nothing here having to know which
    * language the dashboard is in.
@@ -37,8 +38,10 @@
    * There is no `@import url(fonts.googleapis.com…)` above, although shadcn-vue's `init` writes one:
    * @nuxt/fonts already self-hosts both faces — see `fonts` in nuxt.config.ts.
    */
-  --font-sans: 'Public Sans', 'Tajawal', sans-serif;
+  --font-sans: 'Geist', 'Tajawal', sans-serif;
   --font-heading: var(--font-sans);
+  /* SKUs, slugs, language codes, GUIDs: always Latin, so no Arabic face behind this one. */
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

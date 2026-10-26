@@ -79,8 +79,9 @@ export default defineNuxtConfig({
     }
   },
 
-  // Tajawal, which sets the Arabic — see `--font-sans` in app/assets/css/main.css for how it and
-  // Public Sans divide the scripts between them.
+  // Geist and Geist Mono, the faces shadcn-vue's blocks use, and Tajawal, which sets the Arabic —
+  // see `--font-sans` in app/assets/css/main.css for how it and Geist divide the scripts between
+  // them.
   //
   // `@nuxt/fonts` self-hosts whatever the CSS asks for: it fetches
   // the files at build time and serves them from this origin, which is why no <link> to
@@ -96,7 +97,7 @@ export default defineNuxtConfig({
   //     them. Without it the Arabic UI renders in a system fallback while the Latin one does not,
   //     which looks like a styling bug and is actually a missing download.
   //
-  // `arabic` ALONE, and not because the Latin is unwanted: Public Sans is ahead of Tajawal in the
+  // `arabic` ALONE, and not because the Latin is unwanted: Geist is ahead of Tajawal in the
   // stack, so Tajawal's Latin faces could never be reached. Asking for them would put seven files
   // in the build that no browser can ever request.
   //
@@ -107,27 +108,38 @@ export default defineNuxtConfig({
   // emits its @font-face rules anyway; `unicode-range` still keeps the files off the wire until
   // Arabic is actually on screen.
   //
-  // `fallbacks: []` on Public Sans is the other half, and it is just as load-bearing. By default
+  // `fallbacks: []` on Geist is the other half, and it is just as load-bearing. By default
   // @nuxt/fonts rewrites the declaration to insert metric-matched local faces straight after the
   // FIRST family, so the stack the browser actually gets reads
   //
-  //   Public Sans, …Fallback: BlinkMacSystemFont, …Segoe UI, …Helvetica Neue, …Arial, …Noto Sans,
+  //   Geist, …Fallback: BlinkMacSystemFont, …Segoe UI, …Helvetica Neue, …Arial, …Noto Sans,
   //   Tajawal, sans-serif
   //
   // Those are whole system fonts, and Arial carries Arabic. Arabic therefore matched Arial and
   // never reached Tajawal — the font looked like it had simply not been applied. Emptying the list
-  // stops the rewrite, which costs the no-layout-shift overrides while Public Sans loads and buys
+  // stops the rewrite, which costs the no-layout-shift overrides while Geist loads and buys
   // back the only thing that makes two scripts in one stack work.
   //
-  // Public Sans is listed for that one setting. Everything else about it stays default: it is
-  // first in the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering
-  // the 400–700 the dashboard draws.
+  // Geist is listed for that one setting. Everything else about it stays default: it is first in
+  // the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering the
+  // 400–700 the dashboard draws.
+  //
+  // Geist Mono is `global` for a reason of its own: `--font-mono` is inlined into Tailwind's
+  // utilities rather than declared where @nuxt/fonts looks, so it is not guaranteed to be found.
+  // It carries Latin only, and only Latin is ever set in it.
   fonts: {
     families: [
       {
-        name: 'Public Sans',
+        name: 'Geist',
         provider: 'google',
         fallbacks: []
+      },
+      {
+        name: 'Geist Mono',
+        provider: 'google',
+        global: true,
+        weights: [400, 500],
+        subsets: ['latin']
       },
       {
         name: 'Tajawal',

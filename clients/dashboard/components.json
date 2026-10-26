@@ -1,7 +1,7 @@
 {
   "$schema": "https://shadcn-vue.com/schema.json",
   "style": "reka-vega",
-  "font": "public-sans",
+  "font": "geist",
   "typescript": true,
   "tailwind": {
     "config": "",
