@@ -17,7 +17,10 @@
     "refresh": "Refresh",
     "none": "None",
     "empty": "—",
-    "filtered": "filtered"
+    "filtered": "filtered",
+    "previous": "Previous page",
+    "next": "Next page",
+    "actions": "Actions"
   },
   "nav": {
     "overview": "Overview",
@@ -29,7 +32,14 @@
     "apiReference": "API reference",
     "github": "DotNetBoost on GitHub",
     "goTo": "Go to",
-    "documentTitle": "{page} — DotNetBoost Sample"
+    "documentTitle": "{page} — DotNetBoost Sample",
+    "main": "Dashboard",
+    "resources": "Resources",
+    "search": "Search…",
+    "searchPlaceholder": "Type a page name…",
+    "searchDescription": "Jump to a page of the dashboard.",
+    "noResults": "No page matches that.",
+    "toggleSidebar": "Toggle sidebar"
   },
   "brand": {
     "subtitle": "Sample"
@@ -40,13 +50,13 @@
   "appearance": {
     "trigger": "Appearance",
     "theme": "Theme",
-    "primary": "Primary",
-    "neutral": "Neutral",
     "mode": "Appearance",
     "light": "Light",
     "dark": "Dark",
-    "nuxtUiDocs": "Nuxt UI documentation",
-    "githubRepository": "GitHub repository"
+    "githubRepository": "GitHub repository",
+    "accent": "Accent",
+    "system": "System",
+    "shadcnVueDocs": "shadcn-vue documentation"
   },
   "errorPage": {
     "title": "Page not found",
@@ -65,7 +75,12 @@
       "categories": "Categories",
       "products": "Products",
       "files": "Files in the library",
-      "languages": "Languages"
+      "languages": "Languages",
+      "categoriesHint": "{count} with a banner image",
+      "productsHint": "{withAltText} of {imageCount} images have alt text",
+      "filesHint": "Stored by DotNetBoost.Media",
+      "languagesHint": "{active} active · default {code}",
+      "open": "Open"
     },
     "composition": {
       "title": "Where the composition happens",
@@ -76,6 +91,17 @@
     "languageAlert": {
       "title": "Switch the language in any page header",
       "description": "Every product name, description and image alt text is re-read in that language — Arabic flips the whole shell to RTL. The API resolves it from Accept-Language. The dashboard's own labels follow the same selector."
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "What the audit trail recorded each day, by action.",
+      "ranges": {
+        "7d": "7 days",
+        "30d": "30 days",
+        "90d": "3 months"
+      },
+      "empty": "Nothing was recorded in this range.",
+      "capped": "Drawn from the latest {shown} of {total} changes in this range — the most one read of the trail returns."
     }
   },
   "catalog": {
@@ -88,13 +114,15 @@
     "categories": {
       "title": "Categories",
       "description": "The application's own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.",
-      "empty": "No categories yet."
+      "empty": "No categories yet.",
+      "emptyHint": "A category holds products, so it comes first."
     },
     "products": {
       "title": "Products",
       "description": "Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.",
       "empty": "No products yet.",
-      "range": "{from}–{to} of {total}"
+      "range": "{from}–{to} of {total}",
+      "emptyHint": "Give it a SKU, a price and its text in each language."
     },
     "productCount": "{n} product | {n} products",
     "imageCount": "{n} image | {n} images",
@@ -105,6 +133,15 @@
     "toast": {
       "deleted": "Deleted",
       "deleteFailed": "Could not delete"
+    },
+    "columns": {
+      "category": "Category",
+      "product": "Product",
+      "slug": "Slug",
+      "products": "Products",
+      "sku": "SKU",
+      "price": "Price",
+      "images": "Images"
     }
   },
   "categoryEditor": {

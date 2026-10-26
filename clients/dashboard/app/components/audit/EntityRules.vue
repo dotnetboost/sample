@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CircleSlash, Clock, Infinity as Forever } from '@lucide/vue'
 import type { AuditEntitySchema } from '~/types'
 
 /**
@@ -39,9 +40,9 @@ const prunedAfterDays = computed(() =>
  * application, because nothing in the catalogue is marked sensitive.
  */
 const groups = computed(() => ([
-  { rule: 'Record', color: 'success', explanation: t('audit.rules.record') },
-  { rule: 'Redact', color: 'warning', explanation: t('audit.rules.redact') },
-  { rule: 'Ignore', color: 'neutral', explanation: t('audit.rules.ignore') }
+  { rule: 'Record', badge: 'bg-success/15 text-success', explanation: t('audit.rules.record') },
+  { rule: 'Redact', badge: 'bg-warning/15 text-warning', explanation: t('audit.rules.redact') },
+  { rule: 'Ignore', badge: 'bg-secondary text-secondary-foreground', explanation: t('audit.rules.ignore') }
 ] as const)
   .map(group => ({
     ...group,
@@ -51,57 +52,41 @@ const groups = computed(() => ([
 </script>
 
 <template>
-  <UPageCard
-    :title="$t('audit.rules.title', { entity: schema.name })"
-    :description="$t('audit.rules.description')"
-    variant="subtle"
-    :ui="{ container: 'gap-3' }"
-  >
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <UBadge
-          color="neutral"
-          variant="subtle"
-          dir="ltr"
-          class="font-mono"
-          :label="schema.clrType"
-        />
+  <Card size="sm">
+    <CardHeader>
+      <CardTitle>{{ $t('audit.rules.title', { entity: schema.name }) }}</CardTitle>
+      <CardDescription>{{ $t('audit.rules.description') }}</CardDescription>
+    </CardHeader>
 
-        <UBadge
-          v-if="!schema.audited"
-          color="warning"
-          variant="subtle"
-          icon="i-lucide-circle-slash"
-          :label="$t('audit.rules.notAudited')"
-        />
+    <CardContent class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" dir="ltr" class="font-mono">
+          {{ schema.clrType }}
+        </Badge>
+
+        <Badge v-if="!schema.audited" class="bg-warning/15 text-warning">
+          <CircleSlash />
+          {{ $t('audit.rules.notAudited') }}
+        </Badge>
 
         <!-- `null` retention means the library has nothing configured either way, so ITS prune
              would leave these entries alone — never that they expire immediately. What prunes in
              this application is the API's retention service, reading the `auditing` settings
              group, so that is the second answer below and the one that applies here. -->
-        <UBadge
-          v-if="schema.retentionDays !== null"
-          color="info"
-          variant="subtle"
-          icon="i-lucide-clock"
-          :label="schema.hasOwnRetention
+        <Badge v-if="schema.retentionDays !== null" class="bg-primary/10 text-primary">
+          <Clock />
+          {{ schema.hasOwnRetention
             ? $t('audit.rules.retentionOwn', schema.retentionDays)
-            : $t('audit.rules.retentionDefault', schema.retentionDays)"
-        />
-        <UBadge
-          v-else-if="prunedAfterDays !== null"
-          color="info"
-          variant="subtle"
-          icon="i-lucide-clock"
-          :label="$t('audit.rules.retentionPruned', prunedAfterDays)"
-        />
-        <UBadge
-          v-else
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-infinity"
-          :label="$t('audit.rules.retentionNone')"
-        />
+            : $t('audit.rules.retentionDefault', schema.retentionDays) }}
+        </Badge>
+        <Badge v-else-if="prunedAfterDays !== null" class="bg-primary/10 text-primary">
+          <Clock />
+          {{ $t('audit.rules.retentionPruned', prunedAfterDays) }}
+        </Badge>
+        <Badge v-else variant="secondary">
+          <Forever />
+          {{ $t('audit.rules.retentionNone') }}
+        </Badge>
       </div>
 
       <div
@@ -109,15 +94,11 @@ const groups = computed(() => ([
         :key="group.rule"
         class="flex flex-wrap items-baseline gap-2"
       >
-        <UBadge
-          :color="group.color"
-          variant="subtle"
-          class="font-mono"
-          dir="ltr"
-          :label="group.rule"
-        />
+        <Badge :class="[group.badge, 'font-mono']" dir="ltr">
+          {{ group.rule }}
+        </Badge>
 
-        <span class="text-xs text-muted">{{ group.explanation }}</span>
+        <span class="text-xs text-muted-foreground">{{ group.explanation }}</span>
 
         <div class="flex flex-wrap gap-1">
           <!-- Property names are the C# ones — the identity this endpoint and a recorded change's
@@ -126,10 +107,10 @@ const groups = computed(() => ([
             v-for="property in group.properties"
             :key="property.name"
             dir="ltr"
-            class="rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted"
+            class="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
           >{{ property.name }}</span>
         </div>
       </div>
-    </div>
-  </UPageCard>
+    </CardContent>
+  </Card>
 </template>

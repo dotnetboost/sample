@@ -17,7 +17,10 @@
     "refresh": "تحديث",
     "none": "بلا",
     "empty": "—",
-    "filtered": "مُرشَّح"
+    "filtered": "مُرشَّح",
+    "previous": "الصفحة السابقة",
+    "next": "الصفحة التالية",
+    "actions": "الإجراءات"
   },
   "nav": {
     "overview": "نظرة عامة",
@@ -29,7 +32,14 @@
     "apiReference": "مرجع الـ API",
     "github": "DotNetBoost على GitHub",
     "goTo": "الانتقال إلى",
-    "documentTitle": "{page} — نموذج DotNetBoost"
+    "documentTitle": "{page} — نموذج DotNetBoost",
+    "main": "لوحة التحكم",
+    "resources": "الموارد",
+    "search": "بحث…",
+    "searchPlaceholder": "اكتب اسم صفحة…",
+    "searchDescription": "انتقل إلى صفحة من لوحة التحكم.",
+    "noResults": "لا توجد صفحة مطابقة.",
+    "toggleSidebar": "إظهار الشريط الجانبي أو إخفاؤه"
   },
   "brand": {
     "subtitle": "نموذج"
@@ -40,13 +50,13 @@
   "appearance": {
     "trigger": "المظهر",
     "theme": "السمة",
-    "primary": "اللون الأساسي",
-    "neutral": "اللون المحايد",
     "mode": "الوضع",
     "light": "فاتح",
     "dark": "داكن",
-    "nuxtUiDocs": "توثيق Nuxt UI",
-    "githubRepository": "مستودع GitHub"
+    "githubRepository": "مستودع GitHub",
+    "accent": "اللون المميز",
+    "system": "النظام",
+    "shadcnVueDocs": "توثيق shadcn-vue"
   },
   "errorPage": {
     "title": "الصفحة غير موجودة",
@@ -65,7 +75,12 @@
       "categories": "التصنيفات",
       "products": "المنتجات",
       "files": "الملفات في المكتبة",
-      "languages": "اللغات"
+      "languages": "اللغات",
+      "categoriesHint": "{count} منها بصورة غلاف",
+      "productsHint": "{withAltText} من {imageCount} صورة لها نص بديل",
+      "filesHint": "تخزّنها DotNetBoost.Media",
+      "languagesHint": "{active} مفعّلة · الافتراضية {code}",
+      "open": "فتح"
     },
     "composition": {
       "title": "حيث يحدث التأليف",
@@ -76,6 +91,17 @@
     "languageAlert": {
       "title": "بدّل اللغة من ترويسة أي صفحة",
       "description": "يُعاد قراءة كل اسم منتج ووصفه والنص البديل لصوره بتلك اللغة — والعربية تقلب الواجهة كلها إلى اليمين. يحلّها الـ API من ترويسة Accept-Language. وتسميات لوحة التحكم نفسها تتبع المحدِّد ذاته."
+    },
+    "activity": {
+      "title": "النشاط",
+      "description": "ما سجّله سجل التدقيق كل يوم، حسب الإجراء.",
+      "ranges": {
+        "7d": "7 أيام",
+        "30d": "30 يومًا",
+        "90d": "3 أشهر"
+      },
+      "empty": "لم يُسجَّل شيء في هذه الفترة.",
+      "capped": "مرسوم من أحدث {shown} من {total} تغييرًا في هذه الفترة — أقصى ما تُرجعه قراءة واحدة للسجل."
     }
   },
   "catalog": {
@@ -88,13 +114,15 @@
     "categories": {
       "title": "التصنيفات",
       "description": "كيان التطبيق نفسه. الاسم والوصف ليسا عمودين في هذا الجدول — بل صفوف ترجمة، تُعاد معبّأة مسبقًا باللغة المحدّدة في الترويسة.",
-      "empty": "لا تصنيفات بعد."
+      "empty": "لا تصنيفات بعد.",
+      "emptyHint": "الفئة تضم المنتجات، لذا تأتي أولًا."
     },
     "products": {
       "title": "المنتجات",
       "description": "الاسم والوصف صفوف ترجمة، والصور مرفقات في مكتبة الوسائط. ولا تعلم أي من المكتبتين بوجود الأخرى.",
       "empty": "لا منتجات بعد.",
-      "range": "{from}–{to} من {total}"
+      "range": "{from}–{to} من {total}",
+      "emptyHint": "أعطه رمز SKU وسعرًا ونصه بكل لغة."
     },
     "productCount": "{n} منتج | منتج واحد | منتجان | {n} منتجات | {n} منتجًا | {n} منتج",
     "imageCount": "{n} صورة | صورة واحدة | صورتان | {n} صور | {n} صورة | {n} صورة",
@@ -105,6 +133,15 @@
     "toast": {
       "deleted": "تم الحذف",
       "deleteFailed": "تعذّر الحذف"
+    },
+    "columns": {
+      "category": "الفئة",
+      "product": "المنتج",
+      "slug": "المعرّف النصي",
+      "products": "المنتجات",
+      "sku": "SKU",
+      "price": "السعر",
+      "images": "الصور"
     }
   },
   "categoryEditor": {

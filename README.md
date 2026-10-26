@@ -1301,13 +1301,15 @@ src/DotNetBoostSample.Api/               net10.0 — the host, and nothing else
 
 aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
 aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
-clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
+clients/dashboard/                       Nuxt 4 + shadcn-vue, sidebar shell, RTL-aware
+  components.json                        shadcn-vue's CLI config — `npx shadcn-vue add <name>`
+  app/components/ui/                     shadcn-vue's components, copied in by that CLI
   test/nuxt/                             Vitest over the composables — `npm test`
   i18n/locales/{en,ar,fr}.json           the dashboard's own labels, one file per locale
   i18n/i18n.config.ts                    CLDR plural rules for Arabic and French
   app/plugins/ui-language.ts             moves the UI locale with the reading language
   app/plugins/reading-language.ts        restores the remembered language before the first paint
-  app/composables/useShellLocale.ts      direction and Nuxt UI's strings, from the API's answer
+  app/composables/useShellLocale.ts      the shell's direction, from the API's answer
   app/utils/locale.ts                    the locale, for helpers that cannot call useI18n()
   app/utils/rememberedLanguage.ts        the choice, and its direction, across visits
   app/pages/settings.vue                 tabbed shell — one tab per settings group

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GitCompareArrows } from '@lucide/vue'
 import type { AuditEntry } from '~/types'
 
 /**
@@ -29,13 +30,13 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
 </script>
 
 <template>
-  <div class="flex flex-col gap-3 py-1">
-    <div v-if="!entry.changes.length" class="text-sm text-muted">
+  <div class="flex flex-col gap-3 px-4 py-3 lg:ps-14">
+    <div v-if="!entry.changes.length" class="text-sm text-muted-foreground">
       {{ $t('audit.noChanges') }}
     </div>
 
     <table v-else class="w-full text-sm">
-      <thead class="text-muted">
+      <thead class="text-muted-foreground">
         <tr>
           <th scope="col" class="w-1/4 pb-1 text-start font-medium">
             {{ $t('audit.changes.property') }}
@@ -54,55 +55,60 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
           <!-- The property name is the C# one, which is how the model's own description spells it
                too — so it is quoted rather than translated, like every other identifier here. -->
           <th scope="row" class="py-1 pe-3 text-start font-normal">
-            <span dir="ltr" class="font-mono text-highlighted">{{ change.propertyName }}</span>
+            <span dir="ltr" class="font-mono font-medium">{{ change.propertyName }}</span>
 
-            <UTooltip v-if="change.isTruncated" :text="$t('audit.truncatedTooltip')">
-              <UBadge
-                color="warning"
-                variant="subtle"
-                size="sm"
-                class="ms-2"
-                :label="$t('audit.truncated')"
-              />
-            </UTooltip>
+            <Tooltip v-if="change.isTruncated">
+              <TooltipTrigger as-child>
+                <Badge class="ms-2 bg-warning/15 text-warning">
+                  {{ $t('audit.truncated') }}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>{{ $t('audit.truncatedTooltip') }}</TooltipContent>
+            </Tooltip>
           </th>
 
           <td v-if="showOld" class="py-1 pe-3">
-            <UTooltip v-if="change.isRedacted" :text="$t('audit.redactedTooltip')">
-              <span class="italic text-dimmed">{{ $t('audit.redacted') }}</span>
-            </UTooltip>
+            <Tooltip v-if="change.isRedacted">
+              <TooltipTrigger as-child>
+                <span class="italic text-muted-foreground">{{ $t('audit.redacted') }}</span>
+              </TooltipTrigger>
+              <TooltipContent>{{ $t('audit.redactedTooltip') }}</TooltipContent>
+            </Tooltip>
             <!-- `dir="auto"`: a recorded value can be Arabic text in an otherwise English page,
                  or the reverse. -->
             <span v-else-if="change.oldValue !== null" dir="auto" class="break-words">
               {{ change.oldValue }}
             </span>
-            <span v-else class="text-dimmed">{{ $t('common.empty') }}</span>
+            <span v-else class="text-muted-foreground/70">{{ $t('common.empty') }}</span>
           </td>
 
           <td v-if="showNew" class="py-1">
-            <UTooltip v-if="change.isRedacted" :text="$t('audit.redactedTooltip')">
-              <span class="italic text-dimmed">{{ $t('audit.redacted') }}</span>
-            </UTooltip>
+            <Tooltip v-if="change.isRedacted">
+              <TooltipTrigger as-child>
+                <span class="italic text-muted-foreground">{{ $t('audit.redacted') }}</span>
+              </TooltipTrigger>
+              <TooltipContent>{{ $t('audit.redactedTooltip') }}</TooltipContent>
+            </Tooltip>
             <span v-else-if="change.newValue !== null" dir="auto" class="break-words">
               {{ change.newValue }}
             </span>
-            <span v-else class="text-dimmed">{{ $t('common.empty') }}</span>
+            <span v-else class="text-muted-foreground/70">{{ $t('common.empty') }}</span>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <dl class="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted">
+    <dl class="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
       <div class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.id') }}</dt>
-        <dd dir="ltr" class="font-mono text-default">
+        <dd dir="ltr" class="font-mono text-foreground">
           {{ entry.id }}
         </dd>
       </div>
 
       <div class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.occurredAt') }}</dt>
-        <dd class="text-default">
+        <dd class="text-foreground">
           {{ formatDate(entry.occurredAt) }}
         </dd>
       </div>
@@ -111,7 +117,7 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
            and neither does this. -->
       <div v-if="entry.metadata" class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.metadata') }}</dt>
-        <dd dir="auto" class="font-mono text-default">
+        <dd dir="auto" class="font-mono text-foreground">
           {{ entry.metadata }}
         </dd>
       </div>
@@ -121,17 +127,13 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
            is what says they belong together. -->
       <div v-if="entry.correlationId" class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.correlationId') }}</dt>
-        <dd dir="ltr" class="font-mono text-default">
+        <dd dir="ltr" class="font-mono text-foreground">
           {{ entry.correlationId }}
         </dd>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-git-compare-arrows"
-          :label="$t('audit.entry.showEdit')"
-          @click="emit('showEdit', entry.correlationId)"
-        />
+        <Button size="xs" variant="secondary" @click="emit('showEdit', entry.correlationId)">
+          <GitCompareArrows />
+          {{ $t('audit.entry.showEdit') }}
+        </Button>
       </div>
     </dl>
   </div>

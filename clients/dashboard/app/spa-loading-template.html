@@ -7,11 +7,11 @@
   removes it on mount; it is the one piece of UI the application cannot draw for itself.
 
   Everything is inline and self-contained on purpose. It has to render before the app's stylesheet,
-  Tailwind, Nuxt UI and the fonts are of any use, so it cannot reach for a design token or a
-  component — hence the literal colours, which are Tailwind's zinc and the violet of
-  `app.config.ts`'s primary.
+  Tailwind, shadcn-vue's theme and the fonts are of any use, so it cannot reach for a design token
+  or a component — hence the literal colours, which are Tailwind's zinc and the violet that is the
+  default accent in `assets/css/main.css`.
 
-  Both dark-mode selectors are here for the same reason: `html.dark` is what Nuxt UI's colour mode
+  Both dark-mode selectors are here for the same reason: `html.dark` is what @nuxtjs/color-mode
   sets, and it is applied by a script that may not have run yet, so the media query answers for the
   gap before it does.
 -->

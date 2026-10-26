@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-import type { Category, Product } from '~/types'
+import { EllipsisVertical, FolderTree, ImageOff, Package, Pencil, Plus, Trash2 } from '@lucide/vue'
 
 const { t } = useI18n()
 
@@ -127,246 +126,290 @@ async function confirmDelete() {
   }
 }
 
-const categoryActions = (category: Category): DropdownMenuItem[][] => [[{
-  label: t('common.edit'),
-  icon: 'i-lucide-pencil',
-  onSelect: () => editCategory(category.id)
-}], [{
-  label: t('common.delete'),
-  icon: 'i-lucide-trash-2',
-  color: 'error',
-  disabled: category.products > 0,
-  onSelect: () => confirming.value = { kind: 'category', id: category.id, name: category.name }
-}]]
-
-const productActions = (product: Product): DropdownMenuItem[][] => [[{
-  label: t('common.edit'),
-  icon: 'i-lucide-pencil',
-  onSelect: () => editProduct(product.id)
-}], [{
-  label: t('common.delete'),
-  icon: 'i-lucide-trash-2',
-  color: 'error',
-  onSelect: () => confirming.value = { kind: 'product', id: product.id, name: product.name }
-}]]
-
 const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.name ?? '—'
-
-// Computed so the tab labels follow the language, as the sidebar's do.
-const items = computed(() => [
-  { label: t('catalog.tabs.categories'), value: 'categories', icon: 'i-lucide-folder-tree' },
-  { label: t('catalog.tabs.products'), value: 'products', icon: 'i-lucide-package' }
-])
 </script>
 
 <template>
-  <UDashboardPanel id="catalog">
-    <template #header>
-      <UDashboardNavbar :title="$t('nav.catalog')">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
+  <DashboardPage :title="$t('nav.catalog')">
+    <template #toolbar>
+      <Tabs v-model="tab">
+        <TabsList>
+          <TabsTrigger value="categories">
+            <FolderTree />
+            {{ $t('catalog.tabs.categories') }}
+          </TabsTrigger>
+          <TabsTrigger value="products">
+            <Package />
+            {{ $t('catalog.tabs.products') }}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-        <template #right>
-          <LanguageSelect />
-        </template>
-      </UDashboardNavbar>
-
-      <UDashboardToolbar>
-        <template #left>
-          <UTabs
-            v-model="tab"
-            :items="items"
-            :content="false"
-            size="sm"
-          />
-        </template>
-
-        <template #right>
-          <UButton
-            v-if="tab === 'categories'"
-            icon="i-lucide-plus"
-            size="sm"
-            :label="$t('catalog.newCategory')"
-            @click="editCategory(null)"
-          />
-          <UButton
-            v-else
-            icon="i-lucide-plus"
-            size="sm"
-            :label="$t('catalog.newProduct')"
-            @click="editProduct(null)"
-          />
-        </template>
-      </UDashboardToolbar>
+      <Button
+        v-if="tab === 'categories'"
+        size="sm"
+        class="ms-auto"
+        @click="editCategory(null)"
+      >
+        <Plus />
+        {{ $t('catalog.newCategory') }}
+      </Button>
+      <Button
+        v-else
+        size="sm"
+        class="ms-auto"
+        @click="editProduct(null)"
+      >
+        <Plus />
+        {{ $t('catalog.newProduct') }}
+      </Button>
     </template>
 
-    <template #body>
-      <UPageCard
-        :title="tab === 'categories' ? $t('catalog.categories.title') : $t('catalog.products.title')"
-        :description="tab === 'categories'
-          ? $t('catalog.categories.description')
-          : $t('catalog.products.description')"
-        variant="naked"
-      />
+    <SectionIntro
+      :title="tab === 'categories' ? $t('catalog.categories.title') : $t('catalog.products.title')"
+      :description="tab === 'categories'
+        ? $t('catalog.categories.description')
+        : $t('catalog.products.description')"
+    />
 
-      <!-- ── Categories ───────────────────────────────────────────────── -->
-      <div v-if="tab === 'categories'" class="space-y-3">
-        <UCard
-          v-for="category in categories"
-          :key="category.id"
-          class="shrink-0"
-          :ui="{ body: 'flex items-center gap-4' }"
-        >
-          <div
-            class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-default bg-elevated/40"
-          >
-            <img
-              v-if="category.banner"
-              :src="contentUrl(category.banner.id)"
-              :alt="category.banner.altText ?? category.name"
-              class="size-full object-cover"
-            >
-            <UIcon v-else name="i-lucide-image-off" class="size-5 text-dimmed" />
-          </div>
+    <!-- ── Categories ───────────────────────────────────────────────── -->
+    <template v-if="tab === 'categories'">
+      <Card v-if="categories?.length" class="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="ps-4">
+                {{ $t('catalog.columns.category') }}
+              </TableHead>
+              <TableHead>{{ $t('catalog.columns.slug') }}</TableHead>
+              <TableHead>{{ $t('catalog.columns.products') }}</TableHead>
+              <TableHead class="w-12 pe-4">
+                <span class="sr-only">{{ $t('common.actions') }}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="category in categories" :key="category.id">
+              <TableCell class="ps-4">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
+                    <img
+                      v-if="category.banner"
+                      :src="contentUrl(category.banner.id)"
+                      :alt="category.banner.altText ?? category.name"
+                      class="size-full object-cover"
+                    >
+                    <ImageOff v-else class="size-4 text-muted-foreground" />
+                  </div>
+                  <div class="min-w-0 max-w-56 lg:max-w-md">
+                    <p class="truncate font-medium">
+                      {{ category.name }}
+                    </p>
+                    <p class="truncate text-muted-foreground">
+                      {{ category.description }}
+                    </p>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <!-- `dir="ltr"`: a slug is a URL segment, declared [NotMultiLingual] for that reason. -->
+                <Badge variant="outline" class="font-mono" dir="ltr">
+                  {{ category.slug }}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {{ $t('catalog.productCount', category.products) }}
+                </Badge>
+              </TableCell>
+              <TableCell class="pe-4 text-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" size="icon-sm" :aria-label="$t('common.actions')">
+                      <EllipsisVertical />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem @select="editCategory(category.id)">
+                      <Pencil />
+                      {{ $t('common.edit') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      :disabled="category.products > 0"
+                      @select="confirming = { kind: 'category', id: category.id, name: category.name }"
+                    >
+                      <Trash2 />
+                      {{ $t('common.delete') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Card>
 
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">
-              {{ category.name }}
-            </p>
-            <p class="truncate text-sm text-muted">
-              {{ category.description }}
-            </p>
-          </div>
-
-          <!-- `dir="ltr"`: a slug is a URL segment, declared [NotMultiLingual] for that reason. -->
-          <UBadge
-            variant="subtle"
-            color="neutral"
-            size="sm"
-            dir="ltr"
-          >
-            {{ category.slug }}
-          </UBadge>
-          <UBadge variant="subtle" size="sm">
-            {{ $t('catalog.productCount', category.products) }}
-          </UBadge>
-
-          <UDropdownMenu :items="categoryActions(category)">
-            <UButton icon="i-lucide-ellipsis-vertical" color="neutral" variant="ghost" />
-          </UDropdownMenu>
-        </UCard>
-
-        <UCard v-if="!categories?.length">
-          <p class="text-muted">
-            {{ $t('catalog.categories.empty') }}
-          </p>
-        </UCard>
-      </div>
-
-      <!-- ── Products ─────────────────────────────────────────────────── -->
-      <div v-else class="space-y-3">
-        <UCard
-          v-for="product in products"
-          :key="product.id"
-          class="shrink-0"
-          :ui="{ body: 'flex items-center gap-4' }"
-        >
-          <div
-            class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-default bg-elevated/40"
-          >
-            <img
-              v-if="product.primary"
-              :src="contentUrl(product.primary.id)"
-              :alt="product.primary.altText ?? product.name"
-              class="size-full object-cover"
-            >
-            <UIcon v-else name="i-lucide-image-off" class="size-5 text-dimmed" />
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">
-              {{ product.name }}
-            </p>
-            <p class="truncate text-sm text-muted">
-              {{ product.description }}
-            </p>
-          </div>
-
-          <UBadge
-            variant="subtle"
-            color="neutral"
-            size="sm"
-            dir="ltr"
-          >
-            {{ product.sku }}
-          </UBadge>
-          <!-- No `dir` override, unlike the SKU beside it: `formatPrice` asks Intl to place the
-               symbol for the reading locale and Intl marks the result's direction itself, so
-               Arabic gets "349.00 $" and forcing LTR here would undo that. A SKU is a Latin code
-               in every language and does need the override. -->
-          <span class="text-sm">{{ formatPrice(product.price, currencySymbol) }}</span>
-          <UBadge variant="subtle" size="sm">
-            {{ categoryName(product.categoryId) }}
-          </UBadge>
-          <UBadge
-            v-if="product.images.length"
-            variant="subtle"
-            color="neutral"
-            size="sm"
-          >
-            {{ $t('catalog.imageCount', product.images.length) }}
-          </UBadge>
-
-          <UDropdownMenu :items="productActions(product)">
-            <UButton icon="i-lucide-ellipsis-vertical" color="neutral" variant="ghost" />
-          </UDropdownMenu>
-        </UCard>
-
-        <UCard v-if="!products.length">
-          <p class="text-muted">
-            {{ $t('catalog.products.empty') }}
-          </p>
-        </UCard>
-
-        <div v-if="productTotal" class="flex items-center justify-between gap-3 pt-1">
-          <p class="text-sm text-muted">
-            {{ range }}
-          </p>
-
-          <UPagination
-            v-if="pageCount > 1"
-            v-model:page="page"
-            :total="productTotal"
-            :items-per-page="pageSize"
-          />
-        </div>
-      </div>
-
-      <CategoryEditor
-        v-model:open="categoryOpen"
-        :category-id="editingCategory"
-        :languages="languages ?? []"
-        @saved="refreshCategories"
-      />
-
-      <ProductEditor
-        v-model:open="productOpen"
-        :product-id="editingProduct"
-        :languages="languages ?? []"
-        :categories="categories ?? []"
-        @saved="onProductSaved"
-      />
-
-      <ConfirmModal
-        :open="confirming !== null"
-        :title="$t('catalog.confirmDelete.title', { name: confirming?.name ?? '' })"
-        :description="$t('catalog.confirmDelete.description')"
-        :confirm-label="$t('common.delete')"
-        :loading="deleting"
-        @update:open="confirming = null"
-        @confirm="confirmDelete"
-      />
+      <Empty v-else class="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FolderTree />
+          </EmptyMedia>
+          <EmptyTitle>{{ $t('catalog.categories.empty') }}</EmptyTitle>
+          <EmptyDescription>{{ $t('catalog.categories.emptyHint') }}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button size="sm" @click="editCategory(null)">
+            <Plus />
+            {{ $t('catalog.newCategory') }}
+          </Button>
+        </EmptyContent>
+      </Empty>
     </template>
-  </UDashboardPanel>
+
+    <!-- ── Products ─────────────────────────────────────────────────── -->
+    <template v-else>
+      <Card v-if="products.length" class="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="ps-4">
+                {{ $t('catalog.columns.product') }}
+              </TableHead>
+              <TableHead>{{ $t('catalog.columns.sku') }}</TableHead>
+              <TableHead>{{ $t('catalog.columns.price') }}</TableHead>
+              <TableHead>{{ $t('catalog.columns.category') }}</TableHead>
+              <TableHead>{{ $t('catalog.columns.images') }}</TableHead>
+              <TableHead class="w-12 pe-4">
+                <span class="sr-only">{{ $t('common.actions') }}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="product in products" :key="product.id">
+              <TableCell class="ps-4">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
+                    <img
+                      v-if="product.primary"
+                      :src="contentUrl(product.primary.id)"
+                      :alt="product.primary.altText ?? product.name"
+                      class="size-full object-cover"
+                    >
+                    <ImageOff v-else class="size-4 text-muted-foreground" />
+                  </div>
+                  <div class="min-w-0 max-w-56 lg:max-w-md">
+                    <p class="truncate font-medium">
+                      {{ product.name }}
+                    </p>
+                    <p class="truncate text-muted-foreground">
+                      {{ product.description }}
+                    </p>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline" class="font-mono" dir="ltr">
+                  {{ product.sku }}
+                </Badge>
+              </TableCell>
+              <!-- No `dir` override, unlike the SKU beside it: `formatPrice` asks Intl to place the
+                   symbol for the reading locale and Intl marks the result's direction itself, so
+                   Arabic gets "349.00 $" and forcing LTR here would undo that. A SKU is a Latin code
+                   in every language and does need the override. -->
+              <TableCell class="tabular-nums">
+                {{ formatPrice(product.price, currencySymbol) }}
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {{ categoryName(product.categoryId) }}
+                </Badge>
+              </TableCell>
+              <TableCell class="text-muted-foreground">
+                {{ product.images.length ? $t('catalog.imageCount', product.images.length) : '—' }}
+              </TableCell>
+              <TableCell class="pe-4 text-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" size="icon-sm" :aria-label="$t('common.actions')">
+                      <EllipsisVertical />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem @select="editProduct(product.id)">
+                      <Pencil />
+                      {{ $t('common.edit') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      @select="confirming = { kind: 'product', id: product.id, name: product.name }"
+                    >
+                      <Trash2 />
+                      {{ $t('common.delete') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Empty v-else class="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Package />
+          </EmptyMedia>
+          <EmptyTitle>{{ $t('catalog.products.empty') }}</EmptyTitle>
+          <EmptyDescription>{{ $t('catalog.products.emptyHint') }}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button size="sm" @click="editProduct(null)">
+            <Plus />
+            {{ $t('catalog.newProduct') }}
+          </Button>
+        </EmptyContent>
+      </Empty>
+
+      <div v-if="productTotal" class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-muted-foreground">
+          {{ range }}
+        </p>
+
+        <PagerControls
+          v-if="pageCount > 1"
+          v-model:page="page"
+          :total="productTotal"
+          :items-per-page="pageSize"
+        />
+      </div>
+    </template>
+
+    <CategoryEditor
+      v-model:open="categoryOpen"
+      :category-id="editingCategory"
+      :languages="languages ?? []"
+      @saved="refreshCategories"
+    />
+
+    <ProductEditor
+      v-model:open="productOpen"
+      :product-id="editingProduct"
+      :languages="languages ?? []"
+      :categories="categories ?? []"
+      @saved="onProductSaved"
+    />
+
+    <ConfirmModal
+      :open="confirming !== null"
+      :title="$t('catalog.confirmDelete.title', { name: confirming?.name ?? '' })"
+      :description="$t('catalog.confirmDelete.description')"
+      :confirm-label="$t('common.delete')"
+      :loading="deleting"
+      @update:open="confirming = null"
+      @confirm="confirmDelete"
+    />
+  </DashboardPage>
 </template>

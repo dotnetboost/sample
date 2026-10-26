@@ -37,54 +37,32 @@ const activeIsRtl = computed(() =>
 <template>
   <div class="space-y-3">
     <!-- One button per available language. -->
-    <div class="flex flex-wrap gap-1.5">
-      <UButton
-        v-for="language in languages"
-        :key="language.code"
-        :label="language.name"
-        :color="active === language.code ? 'primary' : 'neutral'"
-        :variant="active === language.code ? 'solid' : 'outline'"
-        size="sm"
-        @click="active = language.code"
-      >
-        <template #trailing>
-          <span class="flex items-center gap-1">
-            <UIcon
-              v-if="hasContent(language.code)"
-              name="i-lucide-circle-check"
-              class="size-3.5"
-            />
-            <span class="font-mono text-[10px] opacity-60">{{ language.code }}</span>
-          </span>
-        </template>
-      </UButton>
-    </div>
+    <LanguagePills v-model="active" :languages="languages" :filled="hasContent" />
 
     <!-- Fields for the selected language only. -->
-    <div class="space-y-3 rounded-lg border border-default p-4">
-      <UFormField
-        v-for="field in fields"
-        :key="field.name"
-        :label="field.label"
-      >
-        <UTextarea
+    <FieldGroup class="gap-4 rounded-lg border p-4">
+      <Field v-for="field in fields" :key="field.name">
+        <FieldLabel :for="`translation-${active}-${field.name}`">
+          {{ field.label }}
+        </FieldLabel>
+        <Textarea
           v-if="field.textarea"
+          :id="`translation-${active}-${field.name}`"
           v-model="values(active)[field.name] as string"
           :dir="activeIsRtl ? 'rtl' : 'ltr'"
           :rows="3"
-          class="w-full"
         />
-        <UInput
+        <Input
           v-else
+          :id="`translation-${active}-${field.name}`"
           v-model="values(active)[field.name] as string"
           :dir="activeIsRtl ? 'rtl' : 'ltr'"
-          class="w-full"
         />
-      </UFormField>
+      </Field>
 
-      <p class="text-xs text-muted">
+      <FieldDescription class="text-xs">
         {{ $t('translationFields.note') }}
-      </p>
-    </div>
+      </FieldDescription>
+    </FieldGroup>
   </div>
 </template>

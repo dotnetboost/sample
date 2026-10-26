@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FilterX, ImageOff, PlugZap, RefreshCw, Upload } from '@lucide/vue'
 import type { MediaAttachment, MediaFile } from '~/types'
 
 /**
@@ -240,82 +241,78 @@ onMounted(load)
       />
 
       <div class="flex items-center gap-2 lg:shrink-0">
-        <UButton
-          icon="i-lucide-refresh-cw"
-          color="neutral"
+        <Button
           variant="ghost"
-          :loading="pending"
+          size="icon"
+          :disabled="pending"
           :aria-label="$t('common.refresh')"
           @click="load"
-        />
-        <UButton
-          icon="i-lucide-upload"
-          :label="$t('common.upload')"
-          class="flex-1 justify-center lg:flex-none"
-          @click="uploading = true"
-        />
+        >
+          <RefreshCw :class="{ 'animate-spin': pending }" />
+        </Button>
+        <Button class="flex-1 lg:flex-none" @click="uploading = true">
+          <Upload />
+          {{ $t('common.upload') }}
+        </Button>
       </div>
     </div>
 
-    <UAlert
-      v-if="loadError"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-plug-zap"
-      :title="$t('media.browser.loadError')"
-      :description="loadError"
-      :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
-    />
+    <Alert v-if="loadError" variant="destructive">
+      <PlugZap />
+      <AlertTitle>{{ $t('media.browser.loadError') }}</AlertTitle>
+      <AlertDescription>{{ loadError }}</AlertDescription>
+      <AlertAction>
+        <Button variant="outline" size="sm" @click="load">
+          {{ $t('common.tryAgain') }}
+        </Button>
+      </AlertAction>
+    </Alert>
 
     <template v-else>
-      <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-        <UBadge
-          color="neutral"
-          variant="subtle"
-          dir="ltr"
-          class="font-mono"
-          label="GET api/media"
-        />
+      <div class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <Badge variant="outline" dir="ltr" class="font-mono">
+          GET api/media
+        </Badge>
         <span v-if="range">{{ range }}</span>
-        <span v-if="isFiltered" class="text-dimmed">· {{ $t('common.filtered') }}</span>
+        <span v-if="isFiltered" class="text-muted-foreground/70">· {{ $t('common.filtered') }}</span>
       </div>
 
       <div v-if="pending && !items.length" :class="gridClass">
-        <USkeleton v-for="n in pageSize" :key="n" class="h-56 rounded-lg" />
+        <Skeleton v-for="n in pageSize" :key="n" class="h-56 rounded-xl" />
       </div>
 
-      <div
-        v-else-if="!items.length"
-        class="flex flex-col items-center gap-3 rounded-lg border border-dashed border-default py-16 text-center"
-      >
-        <UIcon name="i-lucide-image-off" class="size-8 text-dimmed" />
-        <div>
-          <p class="font-medium text-highlighted">
+      <Empty v-else-if="!items.length" class="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ImageOff />
+          </EmptyMedia>
+          <EmptyTitle>
             {{ isFiltered
               ? $t('media.browser.emptyFiltered.title')
               : $t('media.browser.emptyNone.title') }}
-          </p>
-          <p class="text-sm text-muted">
+          </EmptyTitle>
+          <EmptyDescription>
             {{ isFiltered
               ? $t('media.browser.emptyFiltered.description')
               : $t('media.browser.emptyNone.description') }}
-          </p>
-        </div>
-        <UButton
-          v-if="isFiltered"
-          icon="i-lucide-filter-x"
-          color="neutral"
-          variant="outline"
-          :label="$t('media.browser.clearFilters')"
-          @click="reset"
-        />
-        <UButton
-          v-else
-          icon="i-lucide-upload"
-          :label="$t('media.browser.uploadFirst')"
-          @click="uploading = true"
-        />
-      </div>
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            v-if="isFiltered"
+            variant="outline"
+            size="sm"
+            @click="reset"
+          >
+            <FilterX />
+            {{ $t('media.browser.clearFilters') }}
+          </Button>
+          <Button v-else size="sm" @click="uploading = true">
+            <Upload />
+            {{ $t('media.browser.uploadFirst') }}
+          </Button>
+        </EmptyContent>
+      </Empty>
 
       <div v-else :class="gridClass">
         <MediaCard
@@ -331,11 +328,10 @@ onMounted(load)
       </div>
 
       <div v-if="pageCount > 1" class="flex justify-center pt-1">
-        <UPagination
+        <PagerControls
           v-model:page="query.page"
           :total="total"
           :items-per-page="query.pageSize"
-          :sibling-count="compact ? 0 : 1"
         />
       </div>
     </template>

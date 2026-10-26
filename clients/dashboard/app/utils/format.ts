@@ -1,3 +1,6 @@
+import type { Component } from 'vue'
+import { File, FileArchive, FileText, FileType2, Film, Image, Music, Presentation, Table, Type } from '@lucide/vue'
+
 /**
  * Presentation helpers for a stored file. Nothing here talks to the API — it turns what the API
  * already said into something readable.
@@ -122,26 +125,26 @@ export function isImage(contentType: string): boolean {
 }
 
 /** A Lucide icon for a media type, for the files that cannot be shown as a thumbnail. */
-export function iconFor(contentType: string): string {
-  if (contentType.startsWith('image/')) return 'i-lucide-image'
-  if (contentType.startsWith('video/')) return 'i-lucide-film'
-  if (contentType.startsWith('audio/')) return 'i-lucide-music'
-  if (contentType.startsWith('text/')) return 'i-lucide-file-text'
-  if (contentType === 'application/pdf') return 'i-lucide-file-type-2'
+export function iconFor(contentType: string): Component {
+  if (contentType.startsWith('image/')) return Image
+  if (contentType.startsWith('video/')) return Film
+  if (contentType.startsWith('audio/')) return Music
+  if (contentType.startsWith('text/')) return FileText
+  if (contentType === 'application/pdf') return FileType2
 
   if (contentType.includes('zip') || contentType.includes('compressed') || contentType.includes('tar')) {
-    return 'i-lucide-file-archive'
+    return FileArchive
   }
 
   if (contentType.includes('spreadsheet') || contentType.includes('excel') || contentType === 'text/csv') {
-    return 'i-lucide-table'
+    return Table
   }
 
-  if (contentType.includes('word') || contentType.includes('document')) return 'i-lucide-file-text'
-  if (contentType.includes('presentation') || contentType.includes('powerpoint')) return 'i-lucide-presentation'
-  if (contentType.startsWith('font/')) return 'i-lucide-type'
+  if (contentType.includes('word') || contentType.includes('document')) return FileText
+  if (contentType.includes('presentation') || contentType.includes('powerpoint')) return Presentation
+  if (contentType.startsWith('font/')) return Type
 
-  return 'i-lucide-file'
+  return File
 }
 
 /**

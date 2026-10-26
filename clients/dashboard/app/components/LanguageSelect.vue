@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Languages } from '@lucide/vue'
+
 /**
  * The dashboard's reading language, in the header of every page. It is sent as `Accept-Language`
  * on every call, so the API resolves it and returns translated content — it flips the shell to RTL
@@ -19,26 +21,31 @@ const items = computed(() => languages.value
     value: l.code,
     direction: isRtl(l.direction) ? 'rtl' : 'ltr'
   })))
+
+// Named in the trigger by itself. Left to reka-ui, the trigger would repeat the whole item — the
+// code beside the name included — which is what the open list is for.
+const current = computed(() => items.value.find(item => item.value === language.value))
 </script>
 
 <template>
-  <USelect
-    v-model="language"
-    :items="items"
-    value-key="value"
-    icon="i-lucide-languages"
-    color="neutral"
-    variant="outline"
-    class="w-32 sm:w-40"
-    :content="{ align: 'end' }"
-    :aria-label="$t('readingLanguage.label')"
-  >
-    <template #item-label="{ item }">
-      <span :dir="item.direction">{{ item.label }}</span>
-    </template>
+  <Select v-model="language">
+    <SelectTrigger size="sm" class="w-32 sm:w-40" :aria-label="$t('readingLanguage.label')">
+      <Languages class="text-muted-foreground" />
+      <SelectValue>
+        <span :dir="current?.direction">{{ current?.label ?? language }}</span>
+      </SelectValue>
+    </SelectTrigger>
 
-    <template #item-trailing="{ item }">
-      <span class="font-mono text-xs text-muted">{{ item.value }}</span>
-    </template>
-  </USelect>
+    <SelectContent position="popper" align="end">
+      <SelectItem
+        v-for="item in items"
+        :key="item.value"
+        :value="item.value"
+        :text-value="item.label"
+      >
+        <span :dir="item.direction">{{ item.label }}</span>
+        <span class="ms-auto ps-3 font-mono text-xs text-muted-foreground">{{ item.value }}</span>
+      </SelectItem>
+    </SelectContent>
+  </Select>
 </template>

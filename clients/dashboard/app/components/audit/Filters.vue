@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { parseDate } from '@internationalized/date'
 import type { CalendarDate } from '@internationalized/date'
+import { ArrowDownUp, Box, CalendarRange, CircleSlash, Filter, FilterX, KeyRound, Rows3, UserRound, X } from '@lucide/vue'
 import { watchDebounced } from '@vueuse/core'
+import type { DateRange } from 'reka-ui'
 import type { AuditAction, AuditEntityDescriptor, AuditQuery, AuditSort } from '~/types'
 
 /**
@@ -43,8 +45,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 /**
- * "Any" is a sentinel rather than an empty string: a `USelect` item with an empty value is refused
- * outright, because the component reserves that for clearing the selection.
+ * "Any" is a sentinel rather than an empty string: a reka-ui select item with an empty value is
+ * refused outright, because the component reserves that for clearing the selection.
  */
 const ANY = 'any'
 
@@ -106,18 +108,20 @@ const sorts = computed<{ label: string, value: AuditSort }[]>(() => [
 const range = computed(() => ({
   start: props.query.from ? parseDate(props.query.from) : undefined,
   end: props.query.to ? parseDate(props.query.to) : undefined
-}))
+}) as DateRange)
 
 /**
  * A range is sent once it has both ends. The calendar reports the first click on its own, and
  * sending that would read the trail from a date to forever — one request for a range nobody
  * picked yet.
  */
-function updateRange(value: { start?: CalendarDate, end?: CalendarDate } | null | undefined) {
-  if (!value?.start && !value?.end) {
+function updateRange(value: DateRange | null | undefined) {
+  const { start, end } = (value ?? {}) as { start?: CalendarDate, end?: CalendarDate }
+
+  if (!start && !end) {
     emit('update', { from: '', to: '' })
-  } else if (value.start && value.end) {
-    emit('update', { from: value.start.toString(), to: value.end.toString() })
+  } else if (start && end) {
+    emit('update', { from: start.toString(), to: end.toString() })
   }
 }
 
@@ -159,122 +163,148 @@ watch(() => props.query.entityId, (value) => {
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-      <USelect
+      <Select
         :model-value="entity"
-        :items="entityItems"
-        value-key="value"
-        icon="i-lucide-box"
-        class="w-full sm:w-40"
-        :aria-label="$t('audit.filters.entity')"
-        @update:model-value="emit('update', { entityName: $event === ANY ? '' : $event })"
+        @update:model-value="emit('update', { entityName: $event === ANY ? '' : String($event) })"
       >
-        <template #item-trailing="{ item }">
-          <UTooltip v-if="!item.audited" :text="$t('audit.filters.notAudited')">
-            <UIcon name="i-lucide-circle-slash" class="size-4 text-dimmed" />
-          </UTooltip>
-        </template>
-      </USelect>
+        <SelectTrigger class="w-full sm:w-44" :aria-label="$t('audit.filters.entity')">
+          <Box class="text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem
+            v-for="item in entityItems"
+            :key="item.value"
+            :value="item.value"
+            :text-value="item.label"
+          >
+            {{ item.label }}
+            <!-- `audited` travels with the option so a declared entity whose changes are not being
+                 recorded is marked as such in the list itself. -->
+            <CircleSlash
+              v-if="!item.audited"
+              class="ms-auto text-muted-foreground"
+              :aria-label="$t('audit.filters.notAudited')"
+            />
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
       <!-- `dir="ltr"` on both: a key and an actor are identifiers the API stores verbatim. -->
-      <UInput
-        v-model="entityId"
-        dir="ltr"
-        icon="i-lucide-key-round"
-        autocomplete="off"
-        :placeholder="$t('audit.filters.entityId')"
-        :aria-label="$t('audit.filters.entityId')"
-        class="w-full font-mono sm:w-32"
-      />
+      <InputGroup class="w-full sm:w-36">
+        <InputGroupAddon>
+          <KeyRound />
+        </InputGroupAddon>
+        <InputGroupInput
+          v-model="entityId"
+          dir="ltr"
+          autocomplete="off"
+          class="font-mono"
+          :placeholder="$t('audit.filters.entityId')"
+          :aria-label="$t('audit.filters.entityId')"
+        />
+      </InputGroup>
 
-      <UInput
-        v-model="actor"
-        dir="ltr"
-        icon="i-lucide-user-round"
-        autocomplete="off"
-        :loading="pending"
-        :placeholder="$t('audit.filters.actor')"
-        :aria-label="$t('audit.filters.actor')"
-        class="w-full sm:min-w-44 sm:flex-1"
-      />
+      <InputGroup class="w-full sm:min-w-44 sm:flex-1">
+        <InputGroupAddon>
+          <Spinner v-if="pending" />
+          <UserRound v-else />
+        </InputGroupAddon>
+        <InputGroupInput
+          v-model="actor"
+          dir="ltr"
+          autocomplete="off"
+          :placeholder="$t('audit.filters.actor')"
+          :aria-label="$t('audit.filters.actor')"
+        />
+      </InputGroup>
 
-      <USelect
+      <Select
         :model-value="action"
-        :items="actions"
-        value-key="value"
-        icon="i-lucide-filter"
-        class="w-full sm:w-36"
-        :aria-label="$t('audit.filters.action')"
         @update:model-value="emit('update', { action: $event === ANY ? '' : $event as AuditAction })"
-      />
+      >
+        <SelectTrigger class="w-full sm:w-40" :aria-label="$t('audit.filters.action')">
+          <Filter class="text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="item in actions" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
 
-    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-      <UFormField :label="$t('audit.filters.dates')" :help="$t('audit.filters.datesHelp')">
-        <!-- One control for both ends: a range is one question, and two boxes let it be asked
-             backwards. The value is still the `yyyy-mm-dd` pair the query has always held. -->
-        <div class="flex items-center gap-1">
-          <UPopover>
-            <UButton
-              color="neutral"
+    <!-- One aligned row of controls, each named for assistive technology and by its icon on
+         screen, with the one thing that needs saying about dates written out under it. -->
+    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <!-- One control for both ends: a range is one question, and two boxes let it be asked
+           backwards. The value is still the `yyyy-mm-dd` pair the query has always held. -->
+      <div class="flex items-center gap-1">
+        <Popover>
+          <PopoverTrigger as-child>
+            <Button
               variant="outline"
-              icon="i-lucide-calendar-range"
-              :label="rangeLabel"
-              class="w-full sm:w-64"
-              :class="{ 'text-dimmed': !query.from && !query.to }"
-              :ui="{ label: 'truncate' }"
+              class="w-full justify-start font-normal sm:w-64"
+              :class="{ 'text-muted-foreground': !query.from && !query.to }"
+              :aria-label="$t('audit.filters.dates')"
+            >
+              <CalendarRange />
+              <span class="truncate">{{ rangeLabel }}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-auto p-0" align="start">
+            <RangeCalendar
+              :model-value="range"
+              :number-of-months="2"
+              @update:model-value="updateRange"
             />
+          </PopoverContent>
+        </Popover>
 
-            <template #content>
-              <UCalendar
-                :model-value="range"
-                range
-                :number-of-months="2"
-                class="p-2"
-                @update:model-value="updateRange($event as { start?: CalendarDate, end?: CalendarDate } | null)"
-              />
-            </template>
-          </UPopover>
+        <Button
+          v-if="query.from || query.to"
+          variant="ghost"
+          size="icon"
+          :aria-label="$t('audit.filters.clearDates')"
+          @click="emit('update', { from: '', to: '' })"
+        >
+          <X />
+        </Button>
+      </div>
 
-          <UButton
-            v-if="query.from || query.to"
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            :aria-label="$t('audit.filters.clearDates')"
-            @click="emit('update', { from: '', to: '' })"
-          />
-        </div>
-      </UFormField>
+      <Select v-model="sort">
+        <SelectTrigger class="w-full sm:ms-auto sm:w-44" :aria-label="$t('audit.filters.sort')">
+          <ArrowDownUp class="text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="item in sorts" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
-      <UFormField :label="$t('audit.filters.sort')" class="sm:ms-auto">
-        <USelect
-          v-model="sort"
-          :items="sorts"
-          value-key="value"
-          icon="i-lucide-arrow-down-up"
-          class="w-full sm:w-40"
-        />
-      </UFormField>
+      <Select :model-value="query.pageSize" @update:model-value="emit('pageSize', Number($event))">
+        <SelectTrigger class="w-full sm:w-24" :aria-label="$t('audit.filters.pageSize')">
+          <Rows3 class="text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="item in pageSizes" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
-      <UFormField :label="$t('audit.filters.pageSize')">
-        <USelect
-          :model-value="query.pageSize"
-          :items="pageSizes"
-          value-key="value"
-          icon="i-lucide-rows-3"
-          class="w-full sm:w-24"
-          @update:model-value="emit('pageSize', Number($event))"
-        />
-      </UFormField>
-
-      <UButton
-        v-if="isFiltered"
-        icon="i-lucide-filter-x"
-        color="neutral"
-        variant="ghost"
-        :label="$t('common.clear')"
-        @click="emit('reset')"
-      />
+      <Button v-if="isFiltered" variant="ghost" @click="emit('reset')">
+        <FilterX />
+        {{ $t('common.clear') }}
+      </Button>
     </div>
+
+    <p class="text-xs text-muted-foreground">
+      {{ $t('audit.filters.datesHelp') }}
+    </p>
   </div>
 </template>

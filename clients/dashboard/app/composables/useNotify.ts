@@ -1,3 +1,5 @@
+import { toast } from 'vue-sonner'
+
 /**
  * The two toasts this dashboard actually raises: something worked, something was refused.
  *
@@ -9,15 +11,13 @@
  *
  * **What is deliberately NOT here.** A toast that is neither of these two — the save conflict, with
  * its own colour and icon because a refused write is not a failed one, or a client-side validation
- * message with no API failure behind it at all — stays a plain `toast.add`. Three helpers covering
+ * message with no API failure behind it at all — stays a plain call on vue-sonner's `toast`. Three helpers covering
  * every case would mean every exception reading as the rule.
  */
 export function useNotify() {
-  const toast = useToast()
-
   /** Something worked. */
   function notifySuccess(title: string, description?: string) {
-    toast.add({ title, description, icon: 'i-lucide-check', color: 'success' })
+    toast.success(title, { description })
   }
 
   /**
@@ -33,7 +33,7 @@ export function useNotify() {
    * form, which splits one rejection into per-field errors and a remainder.
    */
   function notifyProblem(title: string, description: string) {
-    toast.add({ title, description, icon: 'i-lucide-triangle-alert', color: 'error' })
+    toast.error(title, { description })
   }
 
   return { notifySuccess, notifyFailure, notifyProblem }

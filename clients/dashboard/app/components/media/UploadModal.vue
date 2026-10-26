@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ShieldCheck, TriangleAlert, Upload, X } from '@lucide/vue'
+
 /**
  * The upload form. One file at a time, with the category and tags it should carry.
  *
@@ -43,6 +45,29 @@ watch(open, (isOpen) => {
   }
 })
 
+/**
+ * The drop zone — what `UFileUpload` drew under Nuxt UI. shadcn-vue has no file control, so it is
+ * a `<label>` around a hidden file input: clicking anywhere on it opens the picker, Enter or Space
+ * do the same from the keyboard because the input is still focusable, and a file dropped on it is
+ * taken from the drag event.
+ */
+const dragging = ref(false)
+const input = useTemplateRef<HTMLInputElement>('input')
+
+function onPicked(event: Event) {
+  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
+}
+
+function onDrop(event: DragEvent) {
+  dragging.value = false
+  file.value = event.dataTransfer?.files?.[0] ?? file.value
+}
+
+function clearFile() {
+  file.value = null
+  if (input.value) input.value.value = ''
+}
+
 function submit() {
   if (!file.value || tooLarge.value) {
     return
@@ -57,88 +82,126 @@ function submit() {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="$t('media.upload.title')"
-    :description="owner
-      ? $t('media.upload.descriptionOwner', { entity: `${owner.entityName} ${owner.entityId}` })
-      : $t('media.upload.descriptionPlain')"
-  >
-    <template #body>
-      <div class="flex flex-col gap-4">
-        <UFormField :label="$t('media.upload.file')" required>
-          <UFileUpload
-            v-model="file"
-            icon="i-lucide-upload"
-            :label="$t('media.upload.dropzone')"
-            :description="$t('media.upload.limit', { size: formatBytes(maxUploadBytes) })"
-            class="w-full min-h-40"
-          />
-        </UFormField>
+  <Dialog v-model:open="open">
+    <DialogContent class="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle>{{ $t('media.upload.title') }}</DialogTitle>
+        <DialogDescription>
+          {{ owner
+            ? $t('media.upload.descriptionOwner', { entity: `${owner.entityName} ${owner.entityId}` })
+            : $t('media.upload.descriptionPlain') }}
+        </DialogDescription>
+      </DialogHeader>
 
-        <UAlert
-          v-if="tooLarge && file"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-triangle-alert"
-          :title="$t('media.upload.tooLarge.title')"
-          :description="$t('media.upload.tooLarge.description', {
-            fileName: file.name,
-            size: formatBytes(file.size),
-            limit: formatBytes(maxUploadBytes)
-          })"
-        />
+      <FieldGroup class="gap-5">
+        <Field>
+          <FieldTitle>{{ $t('media.upload.file') }} <span class="text-destructive">*</span></FieldTitle>
 
-        <UFormField
-          :label="$t('media.upload.category.label')"
-          :description="$t('media.upload.category.description')"
-        >
-          <UInput
+          <div
+            v-if="file"
+            class="flex items-center gap-3 rounded-lg border bg-muted/30 p-3"
+          >
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-background ring-1 ring-foreground/10">
+              <component :is="iconFor(file.type)" class="size-4 text-muted-foreground" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p dir="auto" class="truncate text-sm font-medium">
+                {{ file.name }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                {{ formatBytes(file.size) }}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="$t('common.clear')"
+              @click="clearFile"
+            >
+              <X />
+            </Button>
+          </div>
+
+          <label
+            v-else
+            class="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:bg-muted/40"
+            :class="{ 'border-primary bg-primary/5': dragging }"
+            @dragover.prevent="dragging = true"
+            @dragleave="dragging = false"
+            @drop.prevent="onDrop"
+          >
+            <span class="flex size-10 items-center justify-center rounded-full bg-muted">
+              <Upload class="size-4 text-muted-foreground" />
+            </span>
+            <span class="text-sm font-medium">{{ $t('media.upload.dropzone') }}</span>
+            <span class="text-xs text-muted-foreground">
+              {{ $t('media.upload.limit', { size: formatBytes(maxUploadBytes) }) }}
+            </span>
+            <input
+              ref="input"
+              type="file"
+              class="sr-only"
+              @change="onPicked"
+            >
+          </label>
+        </Field>
+
+        <Alert v-if="tooLarge && file" variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>{{ $t('media.upload.tooLarge.title') }}</AlertTitle>
+          <AlertDescription>
+            {{ $t('media.upload.tooLarge.description', {
+              fileName: file.name,
+              size: formatBytes(file.size),
+              limit: formatBytes(maxUploadBytes)
+            }) }}
+          </AlertDescription>
+        </Alert>
+
+        <Field>
+          <FieldLabel for="upload-category">
+            {{ $t('media.upload.category.label') }}
+          </FieldLabel>
+          <Input
+            id="upload-category"
             v-model="category"
             dir="auto"
             :placeholder="$t('common.none')"
-            class="w-full"
           />
-        </UFormField>
+          <FieldDescription>{{ $t('media.upload.category.description') }}</FieldDescription>
+        </Field>
 
-        <UFormField
-          :label="$t('media.upload.tags.label')"
-          :description="$t('media.upload.tags.description')"
-        >
-          <UInputTags
-            v-model="tags"
-            dir="auto"
-            :placeholder="$t('media.upload.tags.placeholder')"
-            class="w-full"
-          />
-        </UFormField>
+        <Field>
+          <FieldLabel for="upload-tags">
+            {{ $t('media.upload.tags.label') }}
+          </FieldLabel>
+          <TagsInput v-model="tags">
+            <TagsInputItem v-for="tag in tags" :key="tag" :value="tag">
+              <TagsInputItemText />
+              <TagsInputItemDelete />
+            </TagsInputItem>
+            <TagsInputInput id="upload-tags" dir="auto" :placeholder="$t('media.upload.tags.placeholder')" />
+          </TagsInput>
+          <FieldDescription>{{ $t('media.upload.tags.description') }}</FieldDescription>
+        </Field>
 
-        <UAlert
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-shield-check"
-          :title="$t('media.upload.checks.title')"
-          :description="$t('media.upload.checks.description')"
-        />
-      </div>
-    </template>
+        <Alert>
+          <ShieldCheck />
+          <AlertTitle>{{ $t('media.upload.checks.title') }}</AlertTitle>
+          <AlertDescription>{{ $t('media.upload.checks.description') }}</AlertDescription>
+        </Alert>
+      </FieldGroup>
 
-    <template #footer>
-      <div class="flex w-full justify-end gap-2">
-        <UButton
-          :label="$t('common.cancel')"
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        />
-        <UButton
-          icon="i-lucide-upload"
-          :label="$t('common.upload')"
-          :disabled="!canUpload"
-          :loading="busy"
-          @click="submit"
-        />
-      </div>
-    </template>
-  </UModal>
+      <DialogFooter>
+        <Button variant="ghost" @click="open = false">
+          {{ $t('common.cancel') }}
+        </Button>
+        <Button :disabled="!canUpload" @click="submit">
+          <Spinner v-if="busy" />
+          <Upload v-else />
+          {{ $t('common.upload') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

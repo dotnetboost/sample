@@ -385,8 +385,10 @@ export interface SettingGroup {
    * From `utils/settings.ts`, with a default for a group this dashboard has never heard of — the
    * one thing about a settings group that no API can answer. Everything else, down to which
    * properties exist and what bounds they carry, comes from the group's own schema.
+   *
+   * A lucide component, drawn with `<component :is>`.
    */
-  icon: string
+  icon: import('vue').Component
 }
 
 // ── DotNetBoost.Auditing ─────────────────────────────────────────────────────

@@ -11,10 +11,6 @@
  *
  * Until a store attaches one, the framework's own mark stands in — see `logoSrc`.
  */
-defineProps<{
-  collapsed?: boolean
-}>()
-
 const { data: branding } = await useBranding()
 
 /**
@@ -58,21 +54,28 @@ const logoAlt = computed(() => branding.value?.logo?.altText ?? name.value)
 </script>
 
 <template>
-  <NuxtLink
-    to="/"
-    class="flex min-w-0 items-center gap-2 px-1.5 py-2 font-semibold text-highlighted"
-    :title="name"
-  >
-    <img
-      :src="logoSrc"
-      :alt="logoAlt"
-      class="shrink-0 rounded object-contain"
-      :style="{ width: `${logoSize}px`, height: `${logoSize}px` }"
-    >
+  <!--
+    The blocks' header pattern: a large menu button, so it collapses with the rest of the sidebar —
+    the logo stays as the icon and the name goes with the labels. Collapsed, the logo is held to
+    the icon rail's 32px whatever `headerLogoSize` says, or a large one would spill over the page.
+  -->
+  <SidebarMenu>
+    <SidebarMenuItem>
+      <SidebarMenuButton as-child size="lg" :tooltip="name">
+        <NuxtLink to="/" :title="name">
+          <img
+            :src="logoSrc"
+            :alt="logoAlt"
+            class="shrink-0 rounded-md object-contain group-data-[collapsible=icon]:size-8!"
+            :style="{ width: `${logoSize}px`, height: `${logoSize}px` }"
+          >
 
-    <span v-if="!collapsed" class="min-w-0 truncate">
-      <span class="block truncate">{{ name }}</span>
-      <span class="block text-xs font-normal text-muted">{{ $t('brand.subtitle') }}</span>
-    </span>
-  </NuxtLink>
+          <span class="grid min-w-0 flex-1 text-start leading-tight">
+            <span class="truncate font-semibold">{{ name }}</span>
+            <span class="truncate text-xs text-muted-foreground">{{ $t('brand.subtitle') }}</span>
+          </span>
+        </NuxtLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  </SidebarMenu>
 </template>

@@ -129,69 +129,61 @@ async function save() {
 </script>
 
 <template>
-  <UPageCard
-    variant="subtle"
-    class="mt-4 sm:mt-6"
-    :title="$t('settings.groupText.title')"
-    :description="defaultLanguage
-      ? $t('settings.groupText.descriptionWithDefault', { code: defaultLanguage.code })
-      : $t('settings.groupText.descriptionPlain')"
-  >
-    <template #header>
-      <div class="flex items-center justify-end gap-2">
-        <UBadge
-          v-if="missing"
-          color="warning"
-          variant="subtle"
-          size="sm"
-          :label="$t('settings.groupText.missing', missing)"
-        />
-        <UBadge
-          v-else
-          color="success"
-          variant="subtle"
-          size="sm"
-          :label="$t('settings.groupText.covered')"
-        />
+  <Card>
+    <CardHeader>
+      <CardTitle>{{ $t('settings.groupText.title') }}</CardTitle>
+      <CardDescription>
+        {{ defaultLanguage
+          ? $t('settings.groupText.descriptionWithDefault', { code: defaultLanguage.code })
+          : $t('settings.groupText.descriptionPlain') }}
+      </CardDescription>
+      <CardAction>
+        <Badge v-if="missing" class="bg-warning/15 text-warning">
+          {{ $t('settings.groupText.missing', missing) }}
+        </Badge>
+        <Badge v-else class="bg-success/15 text-success">
+          {{ $t('settings.groupText.covered') }}
+        </Badge>
+      </CardAction>
+    </CardHeader>
+
+    <CardContent>
+      <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+        <Spinner />
+        {{ $t('common.loading') }}
       </div>
-    </template>
 
-    <div v-if="loading" class="py-4 text-center text-sm text-muted">
-      {{ $t('common.loading') }}
-    </div>
-
-    <div v-else-if="!translatable.length" class="py-4 text-sm text-muted">
-      {{ $t('settings.groupText.onlyOneLanguage') }}
-    </div>
-
-    <div v-else class="space-y-3">
-      <TranslationEditor
-        v-model="draft"
-        :languages="translatable"
-        :fields="fields"
-      />
-
-      <div class="flex items-center justify-between gap-4">
-        <!-- `i18n-t` so the stored key stays a code span inside the sentence rather than becoming
-             a second message a translator has to guess the placement of. -->
-        <i18n-t
-          scope="global"
-          keypath="settings.groupText.note"
-          tag="p"
-          class="text-xs text-muted"
-        >
-          <template #subject>
-            <!-- Named from the schema, so it stays true as properties are added or removed. -->
-            <code>Branding · branding · {{ fields.map(f => f.name).join(', ') }}</code>
-          </template>
-        </i18n-t>
-        <UButton
-          :label="$t('settings.groupText.save')"
-          :disabled="!dirty"
-          :loading="saving"
-          @click="save"
-        />
+      <div v-else-if="!translatable.length" class="py-4 text-sm text-muted-foreground">
+        {{ $t('settings.groupText.onlyOneLanguage') }}
       </div>
-    </div>
-  </UPageCard>
+
+      <div v-else class="space-y-3">
+        <TranslationEditor
+          v-model="draft"
+          :languages="translatable"
+          :fields="fields"
+        />
+
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <!-- `i18n-t` so the stored key stays a code span inside the sentence rather than becoming
+               a second message a translator has to guess the placement of. -->
+          <i18n-t
+            scope="global"
+            keypath="settings.groupText.note"
+            tag="p"
+            class="text-xs text-muted-foreground"
+          >
+            <template #subject>
+              <!-- Named from the schema, so it stays true as properties are added or removed. -->
+              <code class="rounded bg-muted px-1 py-0.5 font-mono">Branding · branding · {{ fields.map(f => f.name).join(', ') }}</code>
+            </template>
+          </i18n-t>
+          <Button type="button" :disabled="!dirty || saving" @click="save">
+            <Spinner v-if="saving" />
+            {{ $t('settings.groupText.save') }}
+          </Button>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
 </template>

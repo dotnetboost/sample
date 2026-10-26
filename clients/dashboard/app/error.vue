@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { House, SearchX } from '@lucide/vue'
 import type { NuxtError } from '#app'
 
 defineProps<{
@@ -24,7 +25,24 @@ useHead({
 </script>
 
 <template>
-  <UApp>
-    <UError :error="error" />
-  </UApp>
+  <div class="flex min-h-svh items-center justify-center bg-background p-6">
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <SearchX />
+        </EmptyMedia>
+        <p class="font-mono text-sm text-muted-foreground">
+          {{ error.statusCode }}
+        </p>
+        <EmptyTitle>{{ $t('errorPage.title') }}</EmptyTitle>
+        <EmptyDescription>{{ $t('errorPage.description') }}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button @click="clearError({ redirect: '/' })">
+          <House />
+          {{ $t('nav.overview') }}
+        </Button>
+      </EmptyContent>
+    </Empty>
+  </div>
 </template>

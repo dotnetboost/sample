@@ -12,8 +12,8 @@ import { defineVitestConfig } from '@nuxt/test-utils/config'
  * which was true of this file for about ten minutes.
  *
  * There are no component-rendering tests here on purpose. What is worth guarding is the behaviour
- * of the composables the pages are assembled from; rendering Nuxt UI inside a test harness asserts
- * mostly that the harness works.
+ * of the composables the pages are assembled from; rendering shadcn-vue's components inside a test
+ * harness asserts mostly that the harness works.
  */
 export default defineVitestConfig({
   test: {

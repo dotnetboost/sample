@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { FormError } from '@nuxt/ui'
 import type { Language, TextDirection } from '~/types'
 
 /**
@@ -11,8 +10,6 @@ const props = defineProps<{
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
-
-const form = useTemplateRef('form')
 
 const { languages, create, update, busy } = useLanguages()
 const { t } = useI18n()
@@ -50,36 +47,34 @@ watch(open, (isOpen) => {
         isDefault: props.language.isDefault
       }
     : { code: '', name: '', direction: 'auto', isActive: true, isDefault: false })
+
+  errors.code = errors.name = undefined
 })
 
+/** The field-level messages from the last submit, by field. Cleared as soon as the dialog reopens. */
+const errors = reactive<{ code?: string, name?: string }>({})
+
 // The API validates too, and its word is final. These only save a round trip for the obvious.
-function validate(values: typeof state): FormError[] {
-  const errors: FormError[] = []
+function validate() {
+  errors.code = state.code.trim() ? undefined : t('languages.form.validation.required')
 
-  if (!values.code.trim()) {
-    errors.push({ name: 'code', message: t('languages.form.validation.required') })
-  }
+  errors.name = !state.name.trim()
+    ? t('languages.form.validation.required')
+    : state.name.trim().length > 128 ? t('languages.form.validation.nameTooLong') : undefined
 
-  if (!values.name.trim()) {
-    errors.push({ name: 'name', message: t('languages.form.validation.required') })
-  } else if (values.name.trim().length > 128) {
-    errors.push({ name: 'name', message: t('languages.form.validation.nameTooLong') })
-  }
-
-  return errors
+  return !errors.code && !errors.name
 }
 
-/** Enter submits, except mid-composition, where it belongs to the input method. */
-function onEnter(event: KeyboardEvent) {
-  if (event.isComposing) {
+/**
+ * The buttons are inside the `<form>` this time, so Enter submits natively — and a browser does not
+ * submit on the Enter that commits an input method's composition, which the old handler had to
+ * check for by hand.
+ */
+async function submit() {
+  if (!validate()) {
     return
   }
 
-  event.preventDefault()
-  form.value?.submit()
-}
-
-async function submit() {
   const direction = state.direction === 'auto' ? undefined : state.direction
 
   const saved = props.language
@@ -103,122 +98,122 @@ async function submit() {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="editing
-      ? $t('languages.form.titleEdit', { name: language?.name ?? '' })
-      : $t('languages.form.titleAdd')"
-    :description="editing
-      ? $t('languages.form.descriptionEdit')
-      : $t('languages.form.descriptionAdd')"
-  >
-    <template #body>
-      <!-- The submit button sits in the modal footer, outside the form, so Enter is wired up here. -->
-      <UForm
-        id="language-form"
-        ref="form"
-        :state="state"
-        :validate="validate"
-        class="flex flex-col gap-4"
-        @submit="submit"
-        @keydown.enter="onEnter"
-      >
-        <UFormField
-          name="code"
-          :label="$t('languages.form.code.label')"
-          :description="$t('languages.form.code.description')"
-        >
-          <UInput
-            v-model="state.code"
-            dir="ltr"
-            :placeholder="$t('languages.form.code.placeholder')"
-            :disabled="editing"
-            autocomplete="off"
-            class="w-full font-mono"
-          />
-        </UFormField>
+  <Dialog v-model:open="open">
+    <DialogContent class="sm:max-w-lg">
+      <form class="grid gap-6" novalidate @submit.prevent="submit">
+        <DialogHeader>
+          <DialogTitle>
+            {{ editing
+              ? $t('languages.form.titleEdit', { name: language?.name ?? '' })
+              : $t('languages.form.titleAdd') }}
+          </DialogTitle>
+          <DialogDescription>
+            {{ editing ? $t('languages.form.descriptionEdit') : $t('languages.form.descriptionAdd') }}
+          </DialogDescription>
+        </DialogHeader>
 
-        <UFormField
-          name="name"
-          :label="$t('languages.form.name.label')"
-          :description="$t('languages.form.name.description')"
-        >
-          <UInput
-            v-model="state.name"
-            :dir="state.direction === 'auto' ? 'auto' : state.direction"
-            :placeholder="$t('languages.form.name.placeholder')"
-            autocomplete="off"
-            class="w-full"
-          />
-        </UFormField>
+        <FieldGroup class="gap-5">
+          <Field :data-invalid="!!errors.code || undefined">
+            <FieldLabel for="language-code">
+              {{ $t('languages.form.code.label') }}
+            </FieldLabel>
+            <Input
+              id="language-code"
+              v-model="state.code"
+              dir="ltr"
+              :placeholder="$t('languages.form.code.placeholder')"
+              :disabled="editing"
+              :aria-invalid="!!errors.code || undefined"
+              autocomplete="off"
+              class="font-mono"
+            />
+            <FieldDescription>{{ $t('languages.form.code.description') }}</FieldDescription>
+            <FieldError v-if="errors.code">
+              {{ errors.code }}
+            </FieldError>
+          </Field>
 
-        <UFormField
-          name="direction"
-          :label="$t('languages.form.direction.label')"
-          :description="editing
-            ? $t('languages.form.direction.descriptionEdit')
-            : $t('languages.form.direction.descriptionNew')"
-        >
-          <USelect
-            v-model="state.direction"
-            :items="directions"
-            value-key="value"
-            class="w-full"
-          />
-        </UFormField>
+          <Field :data-invalid="!!errors.name || undefined">
+            <FieldLabel for="language-name">
+              {{ $t('languages.form.name.label') }}
+            </FieldLabel>
+            <Input
+              id="language-name"
+              v-model="state.name"
+              :dir="state.direction === 'auto' ? 'auto' : state.direction"
+              :placeholder="$t('languages.form.name.placeholder')"
+              :aria-invalid="!!errors.name || undefined"
+              autocomplete="off"
+            />
+            <FieldDescription>{{ $t('languages.form.name.description') }}</FieldDescription>
+            <FieldError v-if="errors.name">
+              {{ errors.name }}
+            </FieldError>
+          </Field>
 
-        <USeparator />
+          <Field>
+            <FieldLabel for="language-direction">
+              {{ $t('languages.form.direction.label') }}
+            </FieldLabel>
+            <Select v-model="state.direction">
+              <SelectTrigger id="language-direction" class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="item in directions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              {{ editing
+                ? $t('languages.form.direction.descriptionEdit')
+                : $t('languages.form.direction.descriptionNew') }}
+            </FieldDescription>
+          </Field>
 
-        <UFormField
-          name="isActive"
-          :label="$t('languages.form.active.label')"
-          :description="$t('languages.form.active.description')"
-          class="flex items-center justify-between gap-4"
-        >
-          <USwitch v-model="state.isActive" :disabled="language?.isDefault" />
-        </UFormField>
+          <FieldSeparator />
 
-        <UFormField
-          v-if="!editing"
-          name="isDefault"
-          :label="$t('languages.form.makeDefault.label')"
-          :description="first
-            ? $t('languages.form.makeDefault.descriptionFirst')
-            : $t('languages.form.makeDefault.descriptionOther')"
-          class="flex items-center justify-between gap-4"
-        >
-          <USwitch
-            :model-value="first || state.isDefault"
-            :disabled="first"
-            @update:model-value="state.isDefault = $event"
-          />
-        </UFormField>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel for="language-active">
+                {{ $t('languages.form.active.label') }}
+              </FieldLabel>
+              <FieldDescription>{{ $t('languages.form.active.description') }}</FieldDescription>
+            </FieldContent>
+            <Switch id="language-active" v-model="state.isActive" :disabled="language?.isDefault" />
+          </Field>
 
-        <!-- Lets Enter submit, since the visible button is outside the form. -->
-        <button
-          type="submit"
-          class="sr-only"
-          tabindex="-1"
-          aria-hidden="true"
-        />
-      </UForm>
-    </template>
+          <Field v-if="!editing" orientation="horizontal">
+            <FieldContent>
+              <FieldLabel for="language-default">
+                {{ $t('languages.form.makeDefault.label') }}
+              </FieldLabel>
+              <FieldDescription>
+                {{ first
+                  ? $t('languages.form.makeDefault.descriptionFirst')
+                  : $t('languages.form.makeDefault.descriptionOther') }}
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id="language-default"
+              :model-value="first || state.isDefault"
+              :disabled="first"
+              @update:model-value="state.isDefault = $event"
+            />
+          </Field>
+        </FieldGroup>
 
-    <template #footer>
-      <div class="flex w-full justify-end gap-2">
-        <UButton
-          :label="$t('common.cancel')"
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        />
-        <UButton
-          form="language-form"
-          type="submit"
-          :label="editing ? $t('common.save') : $t('languages.add')"
-          :loading="busy !== null"
-        />
-      </div>
-    </template>
-  </UModal>
+        <DialogFooter>
+          <Button type="button" variant="ghost" @click="open = false">
+            {{ $t('common.cancel') }}
+          </Button>
+          <Button type="submit" :disabled="busy !== null">
+            <Spinner v-if="busy !== null" />
+            {{ editing ? $t('common.save') : $t('languages.add') }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>

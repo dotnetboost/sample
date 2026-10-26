@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { Component } from 'vue'
+import { ChevronRight, GitCompareArrows, Pencil, PlugZap, Plus, RefreshCw, ScrollText, Trash2 } from '@lucide/vue'
 import type { AuditAction, AuditEntry, AuditSort } from '~/types'
 
 /**
@@ -50,29 +51,20 @@ const sortedEntries = computed(() => {
   }
 })
 
-/** Which rows are open, by entry id. `UTable`'s own expansion state. */
+/** Which rows are open, by entry id. */
 const expanded = ref<Record<string, boolean>>({})
 
-// Computed: a plain array would freeze the headers in whatever language the table first drew in.
-const columns = computed<TableColumn<AuditEntry>[]>(() => [
-  { id: 'expand', header: '' },
-  { accessorKey: 'occurredAt', header: t('audit.columns.occurredAt') },
-  { accessorKey: 'entityName', header: t('audit.columns.entity') },
-  { accessorKey: 'action', header: t('audit.columns.action') },
-  { accessorKey: 'actor', header: t('audit.columns.actor') },
-  { id: 'changes', header: t('audit.columns.changes') }
-])
-
-const actionColors: Record<AuditAction, 'success' | 'info' | 'error'> = {
-  Created: 'success',
-  Updated: 'info',
-  Deleted: 'error'
+/** The action's badge: green for a row that appeared, the accent for a change, red for a removal. */
+const actionStyles: Record<AuditAction, string> = {
+  Created: 'bg-success/15 text-success',
+  Updated: 'bg-primary/10 text-primary',
+  Deleted: 'bg-destructive/10 text-destructive'
 }
 
-const actionIcons: Record<AuditAction, string> = {
-  Created: 'i-lucide-plus',
-  Updated: 'i-lucide-pencil',
-  Deleted: 'i-lucide-trash-2'
+const actionIcons: Record<AuditAction, Component> = {
+  Created: Plus,
+  Updated: Pencil,
+  Deleted: Trash2
 }
 
 /**
@@ -119,180 +111,195 @@ const range = computed(() => {
 </script>
 
 <template>
-  <UDashboardPanel id="audit">
-    <template #header>
-      <UDashboardNavbar :title="$t('nav.audit')" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-
-        <template #right>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            :loading="pending"
-            :aria-label="$t('audit.reload')"
-            @click="reload()"
-          />
-          <LanguageSelect />
-        </template>
-      </UDashboardNavbar>
+  <DashboardPage :title="$t('nav.audit')">
+    <template #actions>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        :disabled="pending"
+        :aria-label="$t('audit.reload')"
+        @click="reload()"
+      >
+        <RefreshCw :class="{ 'animate-spin': pending }" />
+      </Button>
     </template>
 
-    <template #body>
-      <UPageCard
-        :title="$t('audit.title')"
-        :description="$t('audit.card.description')"
-        variant="naked"
-      >
-        <UBadge
-          color="neutral"
-          variant="subtle"
-          dir="ltr"
-          class="w-fit font-mono"
-          label="api/audit"
-        />
-      </UPageCard>
+    <SectionIntro :title="$t('audit.title')" :description="$t('audit.card.description')">
+      <Badge variant="outline" dir="ltr" class="font-mono">
+        api/audit
+      </Badge>
+    </SectionIntro>
 
-      <UAlert
-        v-if="loadError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-plug-zap"
-        :title="$t('audit.loadError')"
-        :description="loadError"
-        :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: () => reload() }]"
+    <Alert v-if="loadError" variant="destructive">
+      <PlugZap />
+      <AlertTitle>{{ $t('audit.loadError') }}</AlertTitle>
+      <AlertDescription>{{ loadError }}</AlertDescription>
+      <AlertAction>
+        <Button variant="outline" size="sm" @click="() => reload()">
+          {{ $t('common.tryAgain') }}
+        </Button>
+      </AlertAction>
+    </Alert>
+
+    <template v-else>
+      <AuditFilters
+        v-model:sort="sort"
+        :query="query"
+        :entities="entities"
+        :max-page-size="maxPageSize"
+        :is-filtered="isFiltered"
+        :pending="pending"
+        @update="setFilters($event)"
+        @page-size="setPageSize($event)"
+        @reset="reset()"
       />
 
-      <template v-else>
-        <AuditFilters
-          v-model:sort="sort"
-          :query="query"
-          :entities="entities"
-          :max-page-size="maxPageSize"
-          :is-filtered="isFiltered"
-          :pending="pending"
-          @update="setFilters($event)"
-          @page-size="setPageSize($event)"
-          @reset="reset()"
+      <!-- Only with an entity filtered on: "what is recorded for Product" has no answer across
+           entities, and one averaged over two would be a statement the model never made. -->
+      <AuditEntityRules v-if="schema" :schema="schema" />
+
+      <Alert v-if="query.correlationId" class="border-primary/30 bg-primary/5">
+        <GitCompareArrows class="text-primary" />
+        <AlertTitle>{{ $t('audit.editFilter.title') }}</AlertTitle>
+        <AlertDescription>{{ $t('audit.editFilter.description') }}</AlertDescription>
+        <AlertAction>
+          <Button variant="outline" size="sm" @click="setFilters({ correlationId: '' })">
+            {{ $t('common.clear') }}
+          </Button>
+        </AlertAction>
+      </Alert>
+
+      <Card class="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-10 ps-2" />
+              <TableHead>{{ $t('audit.columns.occurredAt') }}</TableHead>
+              <TableHead>{{ $t('audit.columns.entity') }}</TableHead>
+              <TableHead>{{ $t('audit.columns.action') }}</TableHead>
+              <TableHead>{{ $t('audit.columns.actor') }}</TableHead>
+              <TableHead class="pe-4">
+                {{ $t('audit.columns.changes') }}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            <template v-if="pending && !entries.length">
+              <TableRow v-for="n in 6" :key="n">
+                <TableCell v-for="c in 6" :key="c" class="first:ps-2 last:pe-4">
+                  <Skeleton class="h-5 w-full max-w-28" />
+                </TableCell>
+              </TableRow>
+            </template>
+
+            <TableEmpty v-else-if="!entries.length" :colspan="6">
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <ScrollText />
+                  </EmptyMedia>
+                  <EmptyTitle>{{ isFiltered ? $t('audit.emptyFiltered') : $t('audit.empty') }}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            </TableEmpty>
+
+            <template v-for="entry in sortedEntries" v-else :key="entry.id">
+              <TableRow :data-state="expanded[entry.id] ? 'selected' : undefined">
+                <TableCell class="ps-2">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="$t('audit.expand')"
+                    :aria-expanded="!!expanded[entry.id]"
+                    @click="expanded[entry.id] = !expanded[entry.id]"
+                  >
+                    <ChevronRight
+                      class="transition-transform rtl:rotate-180"
+                      :class="{ 'rotate-90! ': expanded[entry.id] }"
+                    />
+                  </Button>
+                </TableCell>
+
+                <TableCell>
+                  <!-- Relative, with the exact instant a hover away: "3 hours ago" is what a trail is
+                       read with, and the timestamp is what it is quoted with. Both through
+                       `utils/format.ts`, so both are in the UI locale. -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <span class="whitespace-nowrap font-medium">
+                        {{ formatRelative(entry.occurredAt) }}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{{ formatDate(entry.occurredAt) }}</TooltipContent>
+                  </Tooltip>
+                </TableCell>
+
+                <TableCell>
+                  <Button
+                    variant="link"
+                    class="h-auto p-0 font-mono"
+                    :aria-label="$t('audit.filterToEntity', {
+                      entity: entry.entityName, id: entry.entityId
+                    })"
+                    @click="showEntity(entry)"
+                  >
+                    <span dir="ltr">{{ entry.entityName }}&nbsp;{{ entry.entityId }}</span>
+                  </Button>
+                </TableCell>
+
+                <TableCell>
+                  <Badge :class="actionStyles[entry.action]">
+                    <component :is="actionIcons[entry.action]" />
+                    {{ actionLabels[entry.action] }}
+                  </Badge>
+                </TableCell>
+
+                <TableCell>
+                  <!--
+                    A null actor is nobody — not "system". The library says so where the field is
+                    documented, and this is the renderer that has to mean it: nothing was captured,
+                    so the entry names no one, and the tooltip says that rather than leaving
+                    "unknown" to be read as an account name.
+                  -->
+                  <Tooltip v-if="!entry.actor">
+                    <TooltipTrigger as-child>
+                      <span class="italic text-muted-foreground">{{ $t('audit.unknownActor') }}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>{{ $t('audit.unknownActorTooltip') }}</TooltipContent>
+                  </Tooltip>
+                  <span v-else dir="ltr">{{ entry.actor }}</span>
+                </TableCell>
+
+                <TableCell class="pe-4">
+                  <span class="whitespace-nowrap text-muted-foreground">
+                    {{ $t('audit.changeCount', entry.changes.length) }}
+                  </span>
+                </TableCell>
+              </TableRow>
+
+              <TableRow v-if="expanded[entry.id]" class="hover:bg-transparent">
+                <TableCell :colspan="6" class="bg-muted/30 p-0 whitespace-normal">
+                  <AuditEntryChanges :entry="entry" @show-edit="go(() => showEdit($event))" />
+                </TableCell>
+              </TableRow>
+            </template>
+          </TableBody>
+        </Table>
+      </Card>
+
+      <div v-if="total" class="flex flex-wrap items-center justify-between gap-3">
+        <span class="text-sm text-muted-foreground">{{ range }}</span>
+
+        <PagerControls
+          v-if="total > query.pageSize"
+          :page="page"
+          :total="total"
+          :items-per-page="query.pageSize"
+          :disabled="pending"
+          @update:page="go(() => goTo($event))"
         />
-
-        <!-- Only with an entity filtered on: "what is recorded for Product" has no answer across
-             entities, and one averaged over two would be a statement the model never made. -->
-        <AuditEntityRules v-if="schema" :schema="schema" />
-
-        <UAlert
-          v-if="query.correlationId"
-          color="info"
-          variant="subtle"
-          icon="i-lucide-git-compare-arrows"
-          :title="$t('audit.editFilter.title')"
-          :description="$t('audit.editFilter.description')"
-          :actions="[{
-            label: $t('common.clear'),
-            color: 'neutral',
-            variant: 'outline',
-            onClick: () => setFilters({ correlationId: '' })
-          }]"
-        />
-
-        <!-- `shrink-0`: the panel body is a scrolling flex column and the table's root scrolls on
-             its own, so once the rules card appeared the table gave up its height and became a
-             few rows in a scroll box of its own. The page scrolls; the table only does sideways. -->
-        <UTable
-          v-model:expanded="expanded"
-          :data="sortedEntries"
-          :columns="columns"
-          :loading="pending && !entries.length"
-          :empty="isFiltered ? $t('audit.emptyFiltered') : $t('audit.empty')"
-          :get-row-id="(entry: AuditEntry) => entry.id"
-          :expanded-options="{ getRowCanExpand: () => true }"
-          class="shrink-0 rounded-lg border border-default"
-        >
-          <template #expand-cell="{ row }">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :icon="row.getIsExpanded() ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-              :aria-label="$t('audit.expand')"
-              :aria-expanded="row.getIsExpanded()"
-              @click="row.toggleExpanded()"
-            />
-          </template>
-
-          <template #occurredAt-cell="{ row }">
-            <!-- Relative, with the exact instant a hover away: "3 hours ago" is what a trail is
-                 read with, and the timestamp is what it is quoted with. Both through
-                 `utils/format.ts`, so both are in the UI locale. -->
-            <UTooltip :text="formatDate(row.original.occurredAt)">
-              <span class="whitespace-nowrap text-highlighted">
-                {{ formatRelative(row.original.occurredAt) }}
-              </span>
-            </UTooltip>
-          </template>
-
-          <template #entityName-cell="{ row }">
-            <UButton
-              color="neutral"
-              variant="link"
-              class="p-0 font-mono"
-              :aria-label="$t('audit.filterToEntity', {
-                entity: row.original.entityName, id: row.original.entityId
-              })"
-              @click="showEntity(row.original)"
-            >
-              <span dir="ltr">{{ row.original.entityName }}&nbsp;{{ row.original.entityId }}</span>
-            </UButton>
-          </template>
-
-          <template #action-cell="{ row }">
-            <UBadge
-              :color="actionColors[row.original.action]"
-              :icon="actionIcons[row.original.action]"
-              variant="subtle"
-              :label="actionLabels[row.original.action]"
-            />
-          </template>
-
-          <template #actor-cell="{ row }">
-            <!--
-              A null actor is nobody — not "system". The library says so where the field is
-              documented, and this is the renderer that has to mean it: nothing was captured, so
-              the entry names no one, and the tooltip says that rather than leaving "unknown" to be
-              read as an account name.
-            -->
-            <UTooltip v-if="!row.original.actor" :text="$t('audit.unknownActorTooltip')">
-              <span class="italic text-dimmed">{{ $t('audit.unknownActor') }}</span>
-            </UTooltip>
-            <span v-else dir="ltr" class="text-highlighted">{{ row.original.actor }}</span>
-          </template>
-
-          <template #changes-cell="{ row }">
-            <span class="whitespace-nowrap text-muted">
-              {{ $t('audit.changeCount', row.original.changes.length) }}
-            </span>
-          </template>
-
-          <template #expanded="{ row }">
-            <AuditEntryChanges :entry="row.original" @show-edit="go(() => showEdit($event))" />
-          </template>
-        </UTable>
-
-        <div v-if="total" class="flex flex-wrap items-center justify-between gap-3">
-          <span class="text-sm text-muted">{{ range }}</span>
-
-          <UPagination
-            v-if="total > query.pageSize"
-            :page="page"
-            :total="total"
-            :items-per-page="query.pageSize"
-            :disabled="pending"
-            @update:page="go(() => goTo($event))"
-          />
-        </div>
-      </template>
+      </div>
     </template>
-  </UDashboardPanel>
+  </DashboardPage>
 </template>

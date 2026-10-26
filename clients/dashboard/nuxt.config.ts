@@ -1,10 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import tailwindcss from '@tailwindcss/vite'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
-    '@nuxt/ui',
+    '@nuxt/fonts',
+    '@nuxtjs/color-mode',
     '@nuxtjs/i18n',
-    '@vueuse/nuxt'
+    '@vueuse/nuxt',
+    'shadcn-nuxt'
   ],
 
   // Client-rendered single-page app. Nitro is still used, but only to proxy the
@@ -32,6 +36,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // shadcn-vue's dark theme hangs off a bare `.dark` class on `<html>`, not `.dark-mode`.
+  colorMode: {
+    classSuffix: ''
+  },
+
   runtimeConfig: {
     // Base address of the sample API: three libraries' endpoints plus the app's own.
     // Read by the proxy handler only, so the browser never sees it.
@@ -57,6 +66,10 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-06-30',
 
+  vite: {
+    plugins: [tailwindcss()]
+  },
+
   eslint: {
     config: {
       stylistic: {
@@ -69,7 +82,7 @@ export default defineNuxtConfig({
   // Tajawal, which sets the Arabic — see `--font-sans` in app/assets/css/main.css for how it and
   // Public Sans divide the scripts between them.
   //
-  // `@nuxt/fonts` comes with @nuxt/ui and already self-hosts whatever the CSS asks for: it fetches
+  // `@nuxt/fonts` self-hosts whatever the CSS asks for: it fetches
   // the files at build time and serves them from this origin, which is why no <link> to
   // fonts.googleapis.com appears anywhere in this app. Adding one would fetch the same typeface a
   // second time, from a third party, on the critical path.
@@ -156,5 +169,14 @@ export default defineNuxtConfig({
       // rendering its own name on the page.
       typedOptionsAndMessages: 'default'
     }
+  },
+
+  // The components under `components/ui` are shadcn-vue's, copied into this repository by its CLI
+  // (`npx shadcn-vue@latest add <name>`) rather than installed as a package — they are ours to read
+  // and change. No prefix, so they are `<Button>` and `<Card>`, the names the shadcn-vue docs and
+  // blocks use, and a block pasted from there works without a rename.
+  shadcn: {
+    prefix: '',
+    componentDir: '@/components/ui'
   }
 })

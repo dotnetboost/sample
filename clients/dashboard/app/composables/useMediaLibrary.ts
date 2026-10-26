@@ -203,7 +203,9 @@ export function useMediaLibrary(options: MediaLibraryOptions = {}) {
    */
   const remove = (file: MediaFile) => run(
     file.id,
-    () => $fetch(`/api/media/${file.id}`, { method: 'DELETE' }),
+    // `<unknown>` and a plain `string` URL: left to infer, Nitro's typed routes compare this template
+    // literal against every route it knows and run the type checker out of stack.
+    () => $fetch<unknown>(`/api/media/${file.id}` as string, { method: 'DELETE' }),
     () => t('media.toast.deleted', { fileName: file.fileName }),
     t('media.toast.deleteFailed')
   )

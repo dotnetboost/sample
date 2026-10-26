@@ -78,8 +78,10 @@ export function useLanguages() {
     description: t('languages.toast.promotedDescription')
   }))
 
+  // `<unknown>` and a plain `string` URL, as in useMediaLibrary: `run` infers its `T` from this call,
+  // and inferring it from Nitro's typed routes runs the type checker out of stack.
   const remove = (code: string) => run(code, () =>
-    $fetch(`/api/languages/${code}`, { method: 'DELETE' }),
+    $fetch<unknown>(`/api/languages/${code}` as string, { method: 'DELETE' }),
   () => ({ title: t('languages.toast.deleted', { code }) }))
 
   const purge = (code: string) => run(code, () =>

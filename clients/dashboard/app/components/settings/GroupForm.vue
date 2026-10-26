@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Eye, EyeOff, GitMerge, PlugZap, TriangleAlert } from '@lucide/vue'
 import type { EntityImage, MediaOwner, SettingField, SettingGroup } from '~/types'
 
 const props = defineProps<{
@@ -178,131 +179,124 @@ function description(key: string) {
 </script>
 
 <template>
-  <UForm
+  <form
     :id="`settings-${group.route}`"
-    :state="state"
-    @submit="submit"
+    class="flex flex-col gap-4 sm:gap-6"
+    novalidate
+    @submit.prevent="submit"
   >
-    <UPageCard
-      :title="groupLabel(group.route, group.name)"
-      variant="naked"
-      orientation="horizontal"
-      class="mb-4"
-    >
-      <template #description>
-        <p>{{ groupDescription(group.route) }}</p>
+    <SectionIntro :title="groupLabel(group.route, group.name)" :description="groupDescription(group.route)">
+      <div class="flex items-center gap-2">
+        <Badge variant="outline" dir="ltr" class="font-mono">
+          api/settings/{{ group.route }}
+        </Badge>
+      </div>
+    </SectionIntro>
 
-        <UBadge
-          color="neutral"
-          variant="subtle"
+    <Alert v-if="loadError" variant="destructive">
+      <PlugZap />
+      <AlertTitle>{{ $t('settings.form.loadError', { name: group.name }) }}</AlertTitle>
+      <AlertDescription>{{ loadError }}</AlertDescription>
+      <AlertAction>
+        <Button
+          type="button"
+          variant="outline"
           size="sm"
-          dir="ltr"
-          class="mt-2 font-mono"
-          :label="`api/settings/${group.route}`"
-        />
-      </template>
+          @click="load"
+        >
+          {{ $t('common.tryAgain') }}
+        </Button>
+      </AlertAction>
+    </Alert>
 
-      <div class="flex items-center gap-2 lg:ms-auto">
-        <UButton
-          :label="$t('common.reset')"
-          color="neutral"
-          variant="ghost"
-          :disabled="!dirty || saving"
-          @click="reset"
-        />
-        <UButton
-          :form="`settings-${group.route}`"
-          :label="$t('common.saveChanges')"
-          type="submit"
-          :loading="saving"
-          :disabled="!dirty"
-        />
-      </div>
-    </UPageCard>
-
-    <UAlert
-      v-if="loadError"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-plug-zap"
-      :title="$t('settings.form.loadError', { name: group.name })"
-      :description="loadError"
-      class="mb-4"
-      :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
-    />
-
-    <UAlert
-      v-else-if="conflict"
-      color="warning"
-      variant="subtle"
-      icon="i-lucide-git-merge"
-      :title="$t('settings.form.conflict.title')"
-      :description="problem"
-      class="mb-4"
-      :actions="[
-        { label: $t('settings.form.conflict.reapply'), color: 'warning', variant: 'solid', loading: saving, onClick: reapply },
-        { label: $t('settings.form.conflict.discard'), color: 'neutral', variant: 'outline', onClick: load }
-      ]"
-    />
-
-    <UAlert
-      v-else-if="problem"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-triangle-alert"
-      :description="problem"
-      class="mb-4"
-    />
-
-    <UPageCard variant="subtle">
-      <div v-if="pending" class="flex flex-col gap-6">
-        <USkeleton v-for="n in 4" :key="n" class="h-9 w-full" />
-      </div>
-
-      <!-- Label over a full-width control, as the catalogue editors do it — rather than the
-           label-left/control-right split the Settings dashboard uses, so a field here looks like a
-           field anywhere else in this dashboard. -->
-      <div v-else class="space-y-4">
-        <template v-for="key in keys" :key="key">
-          <UFormField
-            :name="key"
-            :label="label(key)"
-            :description="description(key)"
-            :error="errors[key]"
+    <Alert v-else-if="conflict" class="border-warning/40 bg-warning/5 text-warning">
+      <GitMerge />
+      <AlertTitle>{{ $t('settings.form.conflict.title') }}</AlertTitle>
+      <AlertDescription class="text-foreground/80">
+        <p>{{ problem }}</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            class="bg-warning text-white hover:bg-warning/90"
+            :disabled="saving"
+            @click="reapply"
           >
-            <template #label>
-              <span class="flex items-center gap-1.5">
-                {{ label(key) }}
-                <UBadge
-                  v-if="field(key).sensitive"
-                  color="warning"
-                  variant="subtle"
-                  size="sm"
-                  :label="$t('settings.form.sensitiveBadge')"
-                />
-                <UBadge
-                  v-if="field(key).translated"
-                  color="info"
-                  variant="subtle"
-                  size="sm"
-                  :label="defaultLanguageLabel"
-                />
-              </span>
-            </template>
+            <Spinner v-if="saving" />
+            {{ $t('settings.form.conflict.reapply') }}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            @click="load"
+          >
+            {{ $t('settings.form.conflict.discard') }}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
 
-            <USwitch
+    <Alert v-else-if="problem" variant="destructive">
+      <TriangleAlert />
+      <AlertDescription>{{ problem }}</AlertDescription>
+    </Alert>
+
+    <Card>
+      <CardContent>
+        <div v-if="pending" class="flex flex-col gap-6">
+          <Skeleton v-for="n in 4" :key="n" class="h-9 w-full" />
+        </div>
+
+        <!-- Label over a full-width control, as the catalogue editors do it — rather than the
+             label-left/control-right split the Settings dashboard uses, so a field here looks like a
+             field anywhere else in this dashboard. -->
+        <FieldGroup v-else>
+          <Field
+            v-for="key in keys"
+            :key="key"
+            :data-invalid="!!errors[key] || undefined"
+            :orientation="typeof state[key] === 'boolean' ? 'horizontal' : 'vertical'"
+          >
+            <FieldContent v-if="typeof state[key] === 'boolean'">
+              <FieldLabel :for="`setting-${group.route}-${key}`">
+                {{ label(key) }}
+              </FieldLabel>
+              <FieldDescription v-if="description(key)">
+                {{ description(key) }}
+              </FieldDescription>
+            </FieldContent>
+
+            <FieldLabel v-else :for="`setting-${group.route}-${key}`" class="flex items-center gap-1.5">
+              {{ label(key) }}
+              <Badge v-if="field(key).sensitive" class="bg-warning/15 text-warning">
+                {{ $t('settings.form.sensitiveBadge') }}
+              </Badge>
+              <Badge v-if="field(key).translated" variant="secondary">
+                {{ defaultLanguageLabel }}
+              </Badge>
+            </FieldLabel>
+
+            <Switch
               v-if="typeof state[key] === 'boolean'"
+              :id="`setting-${group.route}-${key}`"
               v-model="state[key]"
             />
 
-            <UInputNumber
+            <NumberField
               v-else-if="typeof state[key] === 'number'"
+              :id="`setting-${group.route}-${key}`"
               v-model="state[key]"
               :min="field(key).min"
               :max="field(key).max"
               :step="field(key).step"
-              class="w-full"
-            />
+            >
+              <NumberFieldContent>
+                <NumberFieldDecrement />
+                <NumberFieldInput :aria-invalid="!!errors[key] || undefined" />
+                <NumberFieldIncrement />
+              </NumberFieldContent>
+            </NumberField>
 
             <!--
               `dir="auto"` on every box that holds a value rather than a label.
@@ -314,48 +308,66 @@ function description(key: string) {
               decide per value from the first strongly-directional character, so a store name in
               Arabic still reads right-to-left and a hex colour still reads left-to-right.
             -->
-            <UInput
-              v-else-if="field(key).sensitive"
-              v-model="state[key]"
-              dir="auto"
-              :type="revealed[key] ? 'text' : 'password'"
-              autocomplete="new-password"
-              :placeholder="$t('settings.form.notSet')"
-              class="w-full"
-              :ui="{ trailing: 'pe-1' }"
-            >
-              <template #trailing>
-                <UButton
-                  color="neutral"
-                  variant="link"
-                  size="sm"
-                  :icon="revealed[key] ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+            <InputGroup v-else-if="field(key).sensitive">
+              <InputGroupInput
+                :id="`setting-${group.route}-${key}`"
+                v-model="state[key]"
+                dir="auto"
+                :type="revealed[key] ? 'text' : 'password'"
+                autocomplete="new-password"
+                :placeholder="$t('settings.form.notSet')"
+                :aria-invalid="!!errors[key] || undefined"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
                   :aria-label="revealed[key]
                     ? $t('settings.form.hide', { label: label(key) })
                     : $t('settings.form.reveal', { label: label(key) })"
                   @click="revealed[key] = !revealed[key]"
-                />
-              </template>
-            </UInput>
+                >
+                  <EyeOff v-if="revealed[key]" />
+                  <Eye v-else />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
 
-            <UInput
+            <Input
               v-else
+              :id="`setting-${group.route}-${key}`"
               v-model="state[key]"
               dir="auto"
               :type="field(key).type ?? 'text'"
               autocomplete="off"
-              class="w-full"
+              :aria-invalid="!!errors[key] || undefined"
             />
-          </UFormField>
-        </template>
-      </div>
-    </UPageCard>
 
-    <!--
-      Anything the group has that is not a setting. The form is generated from the values the API
-      returns, so it cannot know about branding's logo — that is a media attachment, not a property
-      of the group. The branding tab fills this; the catalog tab leaves it empty.
-    -->
+            <FieldDescription v-if="typeof state[key] !== 'boolean' && description(key)">
+              {{ description(key) }}
+            </FieldDescription>
+            <FieldError v-if="errors[key]">
+              {{ errors[key] }}
+            </FieldError>
+          </Field>
+        </FieldGroup>
+      </CardContent>
+
+      <CardFooter class="justify-end gap-2 border-t">
+        <Button
+          type="button"
+          variant="ghost"
+          :disabled="!dirty || saving"
+          @click="reset"
+        >
+          {{ $t('common.reset') }}
+        </Button>
+        <Button type="submit" :disabled="!dirty || saving">
+          <Spinner v-if="saving" />
+          {{ $t('common.saveChanges') }}
+        </Button>
+      </CardFooter>
+    </Card>
+
     <!--
       The two halves a settings group can have beyond its form, both decided by what the server
       sent rather than by which page rendered this. `branding.vue` used to be this markup with the
@@ -369,14 +381,12 @@ function description(key: string) {
       @saved="refreshGroup(); emit('saved')"
     />
 
-    <UPageCard
-      v-if="owner"
-      variant="subtle"
-      class="mt-4 sm:mt-6"
-      :title="$t('settings.media.title')"
-      :description="$t('settings.media.description')"
-    >
-      <div class="space-y-3">
+    <Card v-if="owner">
+      <CardHeader>
+        <CardTitle>{{ $t('settings.media.title') }}</CardTitle>
+        <CardDescription>{{ $t('settings.media.description') }}</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-3">
         <EntityAttachments
           :entity-name="owner.entityName"
           :entity-id="owner.entityId"
@@ -384,12 +394,12 @@ function description(key: string) {
           @changed="mediaChanged"
         />
 
-        <p class="text-xs text-muted">
+        <p class="text-xs text-muted-foreground">
           {{ $t('settings.media.outsideSave') }}
         </p>
-      </div>
-    </UPageCard>
+      </CardContent>
+    </Card>
 
     <slot name="extra" />
-  </UForm>
+  </form>
 </template>

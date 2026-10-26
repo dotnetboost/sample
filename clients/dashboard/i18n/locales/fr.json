@@ -17,7 +17,10 @@
     "refresh": "Actualiser",
     "none": "Aucune",
     "empty": "—",
-    "filtered": "filtré"
+    "filtered": "filtré",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "actions": "Actions"
   },
   "nav": {
     "overview": "Vue d'ensemble",
@@ -29,7 +32,14 @@
     "apiReference": "Référence de l'API",
     "github": "DotNetBoost sur GitHub",
     "goTo": "Aller à",
-    "documentTitle": "{page} — Exemple DotNetBoost"
+    "documentTitle": "{page} — Exemple DotNetBoost",
+    "main": "Tableau de bord",
+    "resources": "Ressources",
+    "search": "Rechercher…",
+    "searchPlaceholder": "Saisissez le nom d’une page…",
+    "searchDescription": "Accéder à une page du tableau de bord.",
+    "noResults": "Aucune page ne correspond.",
+    "toggleSidebar": "Afficher ou masquer la barre latérale"
   },
   "brand": {
     "subtitle": "Exemple"
@@ -40,13 +50,13 @@
   "appearance": {
     "trigger": "Apparence",
     "theme": "Thème",
-    "primary": "Couleur principale",
-    "neutral": "Couleur neutre",
     "mode": "Mode",
     "light": "Clair",
     "dark": "Sombre",
-    "nuxtUiDocs": "Documentation Nuxt UI",
-    "githubRepository": "Dépôt GitHub"
+    "githubRepository": "Dépôt GitHub",
+    "accent": "Couleur d’accent",
+    "system": "Système",
+    "shadcnVueDocs": "Documentation shadcn-vue"
   },
   "errorPage": {
     "title": "Page introuvable",
@@ -65,7 +75,12 @@
       "categories": "Catégories",
       "products": "Produits",
       "files": "Fichiers dans la bibliothèque",
-      "languages": "Langues"
+      "languages": "Langues",
+      "categoriesHint": "{count} avec une bannière",
+      "productsHint": "{withAltText} images sur {imageCount} ont un texte alternatif",
+      "filesHint": "Stockés par DotNetBoost.Media",
+      "languagesHint": "{active} actives · par défaut {code}",
+      "open": "Ouvrir"
     },
     "composition": {
       "title": "Là où la composition se fait",
@@ -76,6 +91,17 @@
     "languageAlert": {
       "title": "Changez la langue dans l'en-tête de n'importe quelle page",
       "description": "Chaque nom de produit, chaque description et chaque texte alternatif est relu dans cette langue — l'arabe fait basculer toute l'interface en RTL. L'API la résout depuis Accept-Language. Les libellés du tableau de bord suivent le même sélecteur."
+    },
+    "activity": {
+      "title": "Activité",
+      "description": "Ce que la piste d’audit a enregistré chaque jour, par action.",
+      "ranges": {
+        "7d": "7 jours",
+        "30d": "30 jours",
+        "90d": "3 mois"
+      },
+      "empty": "Rien n’a été enregistré sur cette période.",
+      "capped": "Tracé à partir des {shown} dernières modifications sur {total} de la période — le maximum qu’une lecture de la piste renvoie."
     }
   },
   "catalog": {
@@ -88,13 +114,15 @@
     "categories": {
       "title": "Catégories",
       "description": "L'entité propre à l'application. Le nom et la description ne sont pas des colonnes de cette table — ce sont des lignes de traduction, renvoyées déjà remplies pour la langue choisie dans l'en-tête.",
-      "empty": "Aucune catégorie pour l'instant."
+      "empty": "Aucune catégorie pour l'instant.",
+      "emptyHint": "Une catégorie contient des produits : elle vient donc en premier."
     },
     "products": {
       "title": "Produits",
       "description": "Le nom et la description sont des lignes de traduction ; les images sont des pièces jointes dans la bibliothèque de médias. Ni l'une ni l'autre bibliothèque ne sait que l'autre existe.",
       "empty": "Aucun produit pour l'instant.",
-      "range": "{from}–{to} sur {total}"
+      "range": "{from}–{to} sur {total}",
+      "emptyHint": "Donnez-lui un SKU, un prix et son texte dans chaque langue."
     },
     "productCount": "{n} produit | {n} produits",
     "imageCount": "{n} image | {n} images",
@@ -105,6 +133,15 @@
     "toast": {
       "deleted": "Supprimé",
       "deleteFailed": "Suppression impossible"
+    },
+    "columns": {
+      "category": "Catégorie",
+      "product": "Produit",
+      "slug": "Slug",
+      "products": "Produits",
+      "sku": "SKU",
+      "price": "Prix",
+      "images": "Images"
     }
   },
   "categoryEditor": {

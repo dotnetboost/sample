@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUpRight, FolderTree, Images, Languages, Package } from '@lucide/vue'
 import type { MediaPage } from '~/types'
 
 const { t } = useI18n()
@@ -32,62 +33,95 @@ const withAltText = computed(() =>
 
 const imageCount = computed(() =>
   products.value.reduce((total, p) => total + p.images.length, 0))
+
+const activeLanguages = computed(() => languages.value.filter(l => l.isActive))
+const defaultLanguage = computed(() => languages.value.find(l => l.isDefault)?.code ?? '—')
+
+/**
+ * The four counts, as the `dashboard-01` block's section cards: the number, what it counts, one
+ * line that says something about it, and the page it leads to.
+ */
+const stats = computed(() => [{
+  label: t('overview.stats.categories'),
+  value: categories.value?.length ?? 0,
+  icon: FolderTree,
+  hint: t('overview.stats.categoriesHint', {
+    count: categories.value?.filter(c => c.banner).length ?? 0
+  }),
+  to: '/catalog'
+}, {
+  label: t('overview.stats.products'),
+  value: productPage.value?.total ?? 0,
+  icon: Package,
+  hint: t('overview.stats.productsHint', {
+    withAltText: withAltText.value,
+    imageCount: imageCount.value
+  }),
+  to: '/catalog'
+}, {
+  label: t('overview.stats.files'),
+  value: library.value?.total ?? 0,
+  icon: Images,
+  hint: t('overview.stats.filesHint'),
+  to: '/media'
+}, {
+  label: t('overview.stats.languages'),
+  value: languages.value.length,
+  icon: Languages,
+  hint: t('overview.stats.languagesHint', {
+    active: activeLanguages.value.length,
+    code: defaultLanguage.value
+  }),
+  to: '/languages'
+}])
 </script>
 
 <template>
-  <UDashboardPanel id="overview">
-    <template #header>
-      <UDashboardNavbar :title="$t('nav.overview')">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
+  <DashboardPage :title="$t('nav.overview')">
+    <SectionIntro
+      :title="$t('overview.intro.title')"
+      :description="$t('overview.intro.description')"
+    />
 
-        <template #right>
-          <LanguageSelect />
-        </template>
-      </UDashboardNavbar>
-    </template>
+    <!-- The block's section cards: a faint wash of the accent rising from the bottom of each. -->
+    <div
+      class="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @4xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+    >
+      <Card v-for="stat in stats" :key="stat.label" class="@container/card">
+        <CardHeader>
+          <CardDescription>{{ stat.label }}</CardDescription>
+          <CardTitle class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {{ stat.value }}
+          </CardTitle>
+          <CardAction>
+            <span class="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <component :is="stat.icon" class="size-4" />
+            </span>
+          </CardAction>
+        </CardHeader>
+        <CardFooter class="flex items-center justify-between gap-2 text-sm">
+          <span class="line-clamp-1 text-muted-foreground">{{ stat.hint }}</span>
+          <Button
+            as-child
+            variant="ghost"
+            size="icon-sm"
+            class="shrink-0"
+          >
+            <NuxtLink :to="stat.to" :aria-label="`${$t('overview.stats.open')} ${stat.label}`">
+              <ArrowUpRight class="rtl:-scale-x-100" />
+            </NuxtLink>
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
 
-    <template #body>
-      <UPageCard
-        :title="$t('overview.intro.title')"
-        :description="$t('overview.intro.description')"
-        variant="naked"
-      />
+    <OverviewActivityChart />
 
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <UPageCard
-          icon="i-lucide-folder-tree"
-          :title="String(categories?.length ?? 0)"
-          :description="$t('overview.stats.categories')"
-          variant="subtle"
-        />
-        <UPageCard
-          icon="i-lucide-package"
-          :title="String(productPage?.total ?? 0)"
-          :description="$t('overview.stats.products')"
-          variant="subtle"
-        />
-        <UPageCard
-          icon="i-lucide-images"
-          :title="String(library?.total ?? 0)"
-          :description="$t('overview.stats.files')"
-          variant="subtle"
-        />
-        <UPageCard
-          icon="i-lucide-languages"
-          :title="String(languages.length)"
-          :description="$t('overview.stats.languages')"
-          variant="subtle"
-        />
-      </div>
-
-      <UCard class="shrink-0">
-        <template #header>
-          <h2 class="font-semibold">
-            {{ $t('overview.composition.title') }}
-          </h2>
-        </template>
+    <div class="grid gap-4 md:gap-6 @4xl/main:grid-cols-3">
+      <Card class="@4xl/main:col-span-2">
+        <CardHeader>
+          <CardTitle>{{ $t('overview.composition.title') }}</CardTitle>
+        </CardHeader>
 
         <!--
           `i18n-t` rather than `$t`, because these sentences have code spans inside them. The
@@ -95,37 +129,37 @@ const imageCount = computed(() =>
           translator reordering fragments they cannot see the shape of — or rendering the message
           as HTML, which makes every bundle a place markup can arrive from.
         -->
-        <div class="space-y-4 text-sm">
-          <div>
-            <p class="font-medium">
+        <CardContent class="space-y-4 text-sm">
+          <div class="space-y-1">
+            <p class="font-mono text-xs font-medium" dir="ltr">
               Infrastructure/Persistence/AppDbContext.cs
             </p>
             <i18n-t
               scope="global"
               keypath="overview.composition.dbContext"
               tag="p"
-              class="text-muted"
+              class="text-muted-foreground"
             >
               <template #apply>
-                <code>Apply*</code>
+                <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">Apply*</code>
               </template>
             </i18n-t>
           </div>
 
-          <USeparator />
+          <Separator />
 
-          <div>
-            <p class="font-medium">
+          <div class="space-y-1">
+            <p class="font-mono text-xs font-medium" dir="ltr">
               Application/Composition/MediaText.cs
             </p>
             <i18n-t
               scope="global"
               keypath="overview.composition.mediaText"
               tag="p"
-              class="text-muted"
+              class="text-muted-foreground"
             >
               <template #pair>
-                <code>(entityName, entityId)</code>
+                <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">(entityName, entityId)</code>
               </template>
               <template #withAltText>
                 {{ withAltText }}
@@ -136,26 +170,24 @@ const imageCount = computed(() =>
             </i18n-t>
           </div>
 
-          <USeparator />
+          <Separator />
 
-          <div>
-            <p class="font-medium">
+          <div class="space-y-1">
+            <p class="font-mono text-xs font-medium" dir="ltr">
               Application/Settings/BrandingSettings.cs
             </p>
-            <p class="text-muted">
+            <p class="text-muted-foreground">
               {{ $t('overview.composition.branding') }}
             </p>
           </div>
-        </div>
-      </UCard>
+        </CardContent>
+      </Card>
 
-      <UAlert
-        icon="i-lucide-languages"
-        color="primary"
-        variant="subtle"
-        :title="$t('overview.languageAlert.title')"
-        :description="$t('overview.languageAlert.description')"
-      />
-    </template>
-  </UDashboardPanel>
+      <Alert class="h-fit border-primary/30 bg-primary/5">
+        <Languages class="text-primary" />
+        <AlertTitle>{{ $t('overview.languageAlert.title') }}</AlertTitle>
+        <AlertDescription>{{ $t('overview.languageAlert.description') }}</AlertDescription>
+      </Alert>
+    </div>
+  </DashboardPage>
 </template>

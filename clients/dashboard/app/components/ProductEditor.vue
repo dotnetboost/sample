@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Info } from '@lucide/vue'
+import { toast } from 'vue-sonner'
 import type { Category, EntityImage, Language, Translations } from '~/types'
 
 /**
@@ -20,7 +22,6 @@ const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [createdId?: number] }>()
 
 const api = useApi()
-const toast = useToast()
 const { notifySuccess, notifyFailure } = useNotify()
 const { t } = useI18n()
 
@@ -68,13 +69,10 @@ async function refreshImages() {
   emit('saved')
 }
 
-const categoryItems = computed(() =>
-  props.categories.map(c => ({ label: c.name, value: c.id })))
-
 async function save() {
   if (categoryId.value === undefined) {
     // Not an API failure — nothing has been sent yet — so this one is raised directly.
-    toast.add({ title: t('productEditor.toast.pickCategory'), color: 'error' })
+    toast.error(t('productEditor.toast.pickCategory'))
     return
   }
 
@@ -120,94 +118,97 @@ async function save() {
 </script>
 
 <template>
-  <USlideover
+  <EditorSheet
     v-model:open="open"
     :title="productId === null ? $t('productEditor.titleNew') : $t('productEditor.titleEdit')"
     :description="$t('productEditor.description')"
-    :ui="{ content: 'max-w-xl' }"
   >
-    <template #body>
-      <div v-if="loading" class="py-10 text-center text-muted">
-        {{ $t('common.loading') }}
+    <div v-if="loading" class="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+      <Spinner />
+      {{ $t('common.loading') }}
+    </div>
+
+    <FieldGroup v-else>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel for="product-sku">
+            {{ $t('productEditor.sku.label') }}
+          </FieldLabel>
+          <Input
+            id="product-sku"
+            v-model="sku"
+            dir="ltr"
+            :placeholder="$t('productEditor.sku.placeholder')"
+          />
+          <FieldDescription>{{ $t('productEditor.sku.help') }}</FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel for="product-price">
+            {{ $t('productEditor.price') }}
+          </FieldLabel>
+          <Input
+            id="product-price"
+            v-model.number="price"
+            type="number"
+            step="0.01"
+          />
+        </Field>
       </div>
 
-      <div v-else class="space-y-6">
-        <div class="grid gap-3 sm:grid-cols-2">
-          <UFormField :label="$t('productEditor.sku.label')" :help="$t('productEditor.sku.help')">
-            <UInput
-              v-model="sku"
-              dir="ltr"
-              :placeholder="$t('productEditor.sku.placeholder')"
-              class="w-full"
-            />
-          </UFormField>
+      <Field>
+        <FieldLabel for="product-category">
+          {{ $t('productEditor.category') }}
+        </FieldLabel>
+        <Select v-model="categoryId">
+          <SelectTrigger id="product-category" class="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="category in categories" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
 
-          <UFormField :label="$t('productEditor.price')">
-            <UInput
-              v-model.number="price"
-              type="number"
-              step="0.01"
-              class="w-full"
-            />
-          </UFormField>
-        </div>
-
-        <UFormField :label="$t('productEditor.category')">
-          <USelect
-            v-model="categoryId"
-            :items="categoryItems"
-            value-key="value"
-            class="w-full"
-          />
-        </UFormField>
-
-        <div>
-          <p class="mb-2 text-sm font-medium">
-            {{ $t('productEditor.textPerLanguage') }}
-          </p>
-          <TranslationEditor
-            v-model="translations"
-            :languages="languages"
-            :fields="[
-              { name: 'Name', label: $t('translationFields.name') },
-              { name: 'Description', label: $t('translationFields.description'), textarea: true }
-            ]"
-          />
-        </div>
-
-        <div v-if="productId !== null">
-          <p class="mb-2 text-sm font-medium">
-            {{ $t('productEditor.media') }}
-          </p>
-          <EntityAttachments
-            entity-name="Product"
-            :entity-id="String(productId)"
-            :images="images"
-            @changed="refreshImages"
-          />
-        </div>
-
-        <UAlert
-          v-else
-          icon="i-lucide-info"
-          variant="subtle"
-          color="neutral"
-          :title="$t('productEditor.saveFirst.title')"
-          :description="$t('productEditor.saveFirst.description')"
+      <Field>
+        <FieldTitle>{{ $t('productEditor.textPerLanguage') }}</FieldTitle>
+        <TranslationEditor
+          v-model="translations"
+          :languages="languages"
+          :fields="[
+            { name: 'Name', label: $t('translationFields.name') },
+            { name: 'Description', label: $t('translationFields.description'), textarea: true }
+          ]"
         />
-      </div>
-    </template>
+      </Field>
+
+      <Field v-if="productId !== null">
+        <FieldTitle>{{ $t('productEditor.media') }}</FieldTitle>
+        <EntityAttachments
+          entity-name="Product"
+          :entity-id="String(productId)"
+          :images="images"
+          @changed="refreshImages"
+        />
+      </Field>
+
+      <Alert v-else>
+        <Info />
+        <AlertTitle>{{ $t('productEditor.saveFirst.title') }}</AlertTitle>
+        <AlertDescription>{{ $t('productEditor.saveFirst.description') }}</AlertDescription>
+      </Alert>
+    </FieldGroup>
 
     <template #footer>
-      <div class="flex w-full justify-end gap-2">
-        <UButton
-          :label="$t('common.cancel')"
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        />
-        <UButton :loading="saving" :label="$t('common.save')" @click="save" />
-      </div>
+      <Button variant="ghost" @click="open = false">
+        {{ $t('common.cancel') }}
+      </Button>
+      <Button :disabled="saving" @click="save">
+        <Spinner v-if="saving" />
+        {{ $t('common.save') }}
+      </Button>
     </template>
-  </USlideover>
+  </EditorSheet>
 </template>

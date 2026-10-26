@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Images, Link } from '@lucide/vue'
 import type { MediaFile, MediaPage, MediaRole } from '~/types'
 
 /**
@@ -82,11 +83,6 @@ async function loadRoles() {
 
   role.value = preferred?.name ?? ''
 }
-
-const roleOptions = computed(() => declared.value.map(r => ({
-  label: r.name,
-  value: r.name
-})))
 
 /**
  * Whether attaching in the selected role takes it over from whatever held it. A single-valued role
@@ -178,18 +174,6 @@ const description = computed(() => {
     : t('media.picker.descriptionPlain', { shared })
 })
 
-const tabs = computed(() => [
-  { label: t('media.picker.tabs.all'), value: 'library', icon: 'i-lucide-images' },
-  {
-    label: t('media.picker.tabs.attached', {
-      role: selectedRole.value.value,
-      count: attachedIds.value.length
-    }),
-    value: 'attached',
-    icon: 'i-lucide-link'
-  }
-])
-
 /** Both tabs show the same rows from different angles, so a change in one has to reach the other. */
 async function reloadAll() {
   await loadAttached()
@@ -218,57 +202,73 @@ onMounted(() => {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="title ?? $t('media.picker.title', { entity: `${owner.entityName} ${owner.entityId}` })"
-    :description="description"
-    :ui="{ content: 'max-w-5xl' }"
-  >
-    <template #body>
-      <div class="flex flex-col gap-4">
+  <Dialog v-model:open="open">
+    <DialogContent class="flex max-h-[90svh] flex-col gap-0 p-0 sm:max-w-5xl">
+      <DialogHeader class="border-b p-6">
+        <DialogTitle>
+          {{ title ?? $t('media.picker.title', { entity: `${owner.entityName} ${owner.entityId}` }) }}
+        </DialogTitle>
+        <DialogDescription>{{ description }}</DialogDescription>
+      </DialogHeader>
+
+      <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
         <div class="flex flex-wrap items-end justify-between gap-3">
-          <UTabs
-            v-model="tab"
-            :items="tabs"
-            :content="false"
-            size="sm"
-          />
+          <Tabs v-model="tab">
+            <TabsList>
+              <TabsTrigger value="library">
+                <Images />
+                {{ $t('media.picker.tabs.all') }}
+              </TabsTrigger>
+              <TabsTrigger value="attached">
+                <Link />
+                {{ $t('media.picker.tabs.attached', {
+                  role: selectedRole.value,
+                  count: attachedIds.length
+                }) }}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           <!-- Fixed by the host — the box that opened this already stands for one role, and the
                hint below the tabs says which. -->
-          <p v-if="fixedRole && tab === 'library' && !loadingRoles" class="pb-1 text-xs text-muted">
+          <p v-if="fixedRole && tab === 'library' && !loadingRoles" class="pb-1 text-xs text-muted-foreground">
             {{ selectedRole.hint }}
           </p>
 
-          <UFormField
-            v-else-if="!fixedRole && tab === 'library'"
-            :label="$t('media.picker.attachAs')"
-            :description="selectedRole.hint"
-            :ui="{ description: 'text-xs' }"
-          >
-            <USkeleton v-if="loadingRoles" class="h-8 w-40" />
+          <Field v-else-if="!fixedRole && tab === 'library'" class="w-auto gap-1.5">
+            <FieldLabel for="picker-role" class="text-xs">
+              {{ $t('media.picker.attachAs') }}
+            </FieldLabel>
 
-            <USelect
-              v-else-if="roleOptions.length"
-              v-model="role"
-              :items="roleOptions"
-              value-key="value"
-              size="sm"
-              class="w-40"
-            />
+            <Skeleton v-if="loadingRoles" class="h-8 w-40" />
+
+            <Select v-else-if="declared.length" v-model="role">
+              <SelectTrigger id="picker-role" size="sm" class="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="declaredRole in declared" :key="declaredRole.name" :value="declaredRole.name">
+                  <span dir="ltr">{{ declaredRole.name }}</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
             <!-- Nothing declared, so nothing to choose from: the entity takes any role, and the
                  honest control for that is a box you type in. -->
-            <UInput
+            <Input
               v-else
+              id="picker-role"
               v-model="role"
               dir="ltr"
               :placeholder="$t('media.picker.rolePlaceholder')"
-              size="sm"
-              class="w-40"
+              class="h-8 w-40"
               @blur="loadAttached"
             />
-          </UFormField>
+
+            <FieldDescription class="text-xs">
+              {{ selectedRole.hint }}
+            </FieldDescription>
+          </Field>
         </div>
 
         <!-- Both are kept mounted: switching tabs should not throw away a search you just typed. -->
@@ -297,17 +297,12 @@ onMounted(() => {
           @changed="reloadAll"
         />
       </div>
-    </template>
 
-    <template #footer>
-      <div class="flex w-full justify-end">
-        <UButton
-          :label="$t('common.done')"
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        />
-      </div>
-    </template>
-  </UModal>
+      <DialogFooter class="border-t p-4">
+        <Button variant="ghost" @click="open = false">
+          {{ $t('common.done') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
