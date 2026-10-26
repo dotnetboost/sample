@@ -54,11 +54,16 @@ const sortedEntries = computed(() => {
 /** Which rows are open, by entry id. */
 const expanded = ref<Record<string, boolean>>({})
 
-/** The action's badge: green for a row that appeared, the accent for a change, red for a removal. */
+/**
+ * The action's icon colour, inside an outline badge as the `dashboard-01` block draws a status:
+ * green for a row that appeared, the accent for a change, red for a removal. The colour is on the
+ * icon alone, so a column of them reads as a list of words with a marker each, not as a wall of
+ * coloured pills.
+ */
 const actionStyles: Record<AuditAction, string> = {
-  Created: 'bg-success/15 text-success',
-  Updated: 'bg-primary/10 text-primary',
-  Deleted: 'bg-destructive/10 text-destructive'
+  Created: 'text-success',
+  Updated: 'text-primary',
+  Deleted: 'text-destructive'
 }
 
 const actionIcons: Record<AuditAction, Component> = {
@@ -169,16 +174,21 @@ const range = computed(() => {
         </AlertAction>
       </Alert>
 
-      <Card class="py-0">
+      <!-- A row opens and closes wherever it is clicked; the chevron is the same toggle as a real
+           button, for the keyboard, and the entity link stops the click so following it does not
+           also unfold the row. -->
+      <TableFrame>
         <Table>
-          <TableHeader>
+          <TableHeader class="sticky-head">
             <TableRow>
               <TableHead class="w-10 ps-2" />
               <TableHead>{{ $t('audit.columns.occurredAt') }}</TableHead>
               <TableHead>{{ $t('audit.columns.entity') }}</TableHead>
               <TableHead>{{ $t('audit.columns.action') }}</TableHead>
-              <TableHead>{{ $t('audit.columns.actor') }}</TableHead>
-              <TableHead class="pe-4">
+              <TableHead class="hidden lg:table-cell">
+                {{ $t('audit.columns.actor') }}
+              </TableHead>
+              <TableHead class="hidden pe-4 text-end md:table-cell">
                 {{ $t('audit.columns.changes') }}
               </TableHead>
             </TableRow>
@@ -186,9 +196,11 @@ const range = computed(() => {
 
           <TableBody>
             <template v-if="pending && !entries.length">
+              <!-- One bar across the row rather than one per cell: how many cells a row shows
+                   depends on the screen, and a placeholder should not have to know. -->
               <TableRow v-for="n in 6" :key="n">
-                <TableCell v-for="c in 6" :key="c" class="first:ps-2 last:pe-4">
-                  <Skeleton class="h-5 w-full max-w-28" />
+                <TableCell :colspan="6" class="px-4">
+                  <Skeleton class="h-5 w-full" />
                 </TableCell>
               </TableRow>
             </template>
@@ -205,14 +217,18 @@ const range = computed(() => {
             </TableEmpty>
 
             <template v-for="entry in sortedEntries" v-else :key="entry.id">
-              <TableRow :data-state="expanded[entry.id] ? 'selected' : undefined">
+              <TableRow
+                :data-state="expanded[entry.id] ? 'selected' : undefined"
+                class="cursor-pointer"
+                @click="expanded[entry.id] = !expanded[entry.id]"
+              >
                 <TableCell class="ps-2">
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     :aria-label="$t('audit.expand')"
                     :aria-expanded="!!expanded[entry.id]"
-                    @click="expanded[entry.id] = !expanded[entry.id]"
+                    @click.stop="expanded[entry.id] = !expanded[entry.id]"
                   >
                     <ChevronRight
                       class="transition-transform rtl:rotate-180"
@@ -236,26 +252,31 @@ const range = computed(() => {
                 </TableCell>
 
                 <TableCell>
+                  <!-- Truncated, with the whole of it on hover: a media file's key is a GUID, and
+                       one of those at full width would push every other column off the table. -->
                   <Button
                     variant="link"
-                    class="h-auto p-0 font-mono"
+                    class="h-auto max-w-32 p-0 font-mono sm:max-w-56 lg:max-w-80"
+                    :title="`${entry.entityName} ${entry.entityId}`"
                     :aria-label="$t('audit.filterToEntity', {
                       entity: entry.entityName, id: entry.entityId
                     })"
-                    @click="showEntity(entry)"
+                    @click.stop="showEntity(entry)"
                   >
-                    <span dir="ltr">{{ entry.entityName }}&nbsp;{{ entry.entityId }}</span>
+                    <span dir="ltr" class="truncate">{{ entry.entityName }}&nbsp;{{ entry.entityId }}</span>
                   </Button>
                 </TableCell>
 
                 <TableCell>
-                  <Badge :class="actionStyles[entry.action]">
-                    <component :is="actionIcons[entry.action]" />
-                    {{ actionLabels[entry.action] }}
+                  <!-- On a phone the icon alone, so the row fits without scrolling sideways; the word
+                       stays for assistive technology. -->
+                  <Badge variant="outline" class="text-muted-foreground">
+                    <component :is="actionIcons[entry.action]" :class="actionStyles[entry.action]" />
+                    <span class="max-sm:sr-only">{{ actionLabels[entry.action] }}</span>
                   </Badge>
                 </TableCell>
 
-                <TableCell>
+                <TableCell class="hidden lg:table-cell">
                   <!--
                     A null actor is nobody — not "system". The library says so where the field is
                     documented, and this is the renderer that has to mean it: nothing was captured,
@@ -271,10 +292,8 @@ const range = computed(() => {
                   <span v-else dir="ltr">{{ entry.actor }}</span>
                 </TableCell>
 
-                <TableCell class="pe-4">
-                  <span class="whitespace-nowrap text-muted-foreground">
-                    {{ $t('audit.changeCount', entry.changes.length) }}
-                  </span>
+                <TableCell class="hidden pe-4 text-end tabular-nums text-muted-foreground md:table-cell">
+                  {{ $t('audit.changeCount', entry.changes.length) }}
                 </TableCell>
               </TableRow>
 
@@ -286,7 +305,7 @@ const range = computed(() => {
             </template>
           </TableBody>
         </Table>
-      </Card>
+      </TableFrame>
 
       <div v-if="total" class="flex flex-wrap items-center justify-between gap-3">
         <span class="text-sm text-muted-foreground">{{ range }}</span>

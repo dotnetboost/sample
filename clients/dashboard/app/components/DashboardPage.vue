@@ -13,10 +13,20 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
+const slots = useSlots()
+
+/**
+ * How far down the page the header (and the toolbar, when there is one) reaches — where a table's
+ * sticky header row has to stop. The toolbar is a fixed `3rem` from `lg` up for exactly this: a
+ * height that wraps cannot be added up in CSS.
+ */
+const stickyTop = computed(() => slots.toolbar
+  ? 'calc(var(--header-height) + 3rem)'
+  : 'var(--header-height)')
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="flex min-h-0 flex-1 flex-col" :style="{ '--page-sticky-top': stickyTop }">
     <header
       class="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70"
     >
@@ -37,7 +47,7 @@ const { t } = useI18n()
 
     <div
       v-if="$slots.toolbar"
-      class="sticky top-(--header-height) z-10 flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70 lg:px-6"
+      class="sticky top-(--header-height) z-10 flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b lg:h-12 lg:flex-nowrap bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70 lg:px-6"
     >
       <slot name="toolbar" />
     </div>

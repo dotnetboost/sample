@@ -78,9 +78,10 @@ async function onConfirm() {
       >
         <RefreshCw :class="{ 'animate-spin': pending }" />
       </Button>
-      <Button size="sm" @click="add">
+      <!-- Icon-only on a phone, or the header's own title is the thing that gets squeezed out. -->
+      <Button size="sm" :aria-label="$t('languages.add')" @click="add">
         <Plus />
-        {{ $t('languages.add') }}
+        <span class="max-sm:sr-only">{{ $t('languages.add') }}</span>
       </Button>
     </template>
 
@@ -101,16 +102,22 @@ async function onConfirm() {
       </AlertAction>
     </Alert>
 
-    <Card v-else class="py-0">
+    <!-- A row opens the language's editor; the switch and the menu stop the click, because each
+         is a control of its own and toggling one must not also open a dialog. -->
+    <TableFrame v-else>
       <Table>
-        <TableHeader>
+        <TableHeader class="sticky-head">
           <TableRow>
             <TableHead class="ps-4">
               {{ $t('languages.columns.code') }}
             </TableHead>
             <TableHead>{{ $t('languages.columns.name') }}</TableHead>
-            <TableHead>{{ $t('languages.columns.direction') }}</TableHead>
-            <TableHead>{{ $t('languages.columns.role') }}</TableHead>
+            <TableHead class="hidden md:table-cell">
+              {{ $t('languages.columns.direction') }}
+            </TableHead>
+            <TableHead class="hidden sm:table-cell">
+              {{ $t('languages.columns.role') }}
+            </TableHead>
             <TableHead>{{ $t('languages.columns.active') }}</TableHead>
             <TableHead class="w-12 pe-4">
               <span class="sr-only">{{ $t('common.actions') }}</span>
@@ -120,8 +127,10 @@ async function onConfirm() {
         <TableBody>
           <template v-if="pending && !languages.length">
             <TableRow v-for="n in 3" :key="n">
-              <TableCell v-for="c in 6" :key="c" class="first:ps-4 last:pe-4">
-                <Skeleton class="h-5 w-full max-w-24" />
+              <!-- One bar across the row rather than one per cell: how many cells a row shows
+                   depends on the screen, and a placeholder should not have to know. -->
+              <TableCell :colspan="6" class="px-4">
+                <Skeleton class="h-5 w-full" />
               </TableCell>
             </TableRow>
           </template>
@@ -137,34 +146,49 @@ async function onConfirm() {
             </Empty>
           </TableEmpty>
 
-          <TableRow v-for="language in languages" v-else :key="language.code">
+          <TableRow
+            v-for="language in languages"
+            v-else
+            :key="language.code"
+            class="cursor-pointer"
+            @click="edit(language)"
+          >
             <TableCell class="ps-4">
               <!-- `dir="ltr"`: a language tag is an identifier, even on a right-to-left page. -->
               <span dir="ltr" class="font-mono font-medium">{{ language.code }}</span>
             </TableCell>
 
             <TableCell>
-              <span :dir="language.direction" class="font-medium">{{ language.name }}</span>
+              <button
+                type="button"
+                :dir="language.direction"
+                class="font-medium outline-none hover:underline focus-visible:underline"
+                @click.stop="edit(language)"
+              >
+                {{ language.name }}
+              </button>
             </TableCell>
 
-            <TableCell>
-              <Badge variant="outline" dir="ltr" class="font-mono">
+            <TableCell class="hidden md:table-cell">
+              <Badge variant="outline" dir="ltr" class="font-mono text-muted-foreground">
                 <PilcrowLeft v-if="language.direction === 'rtl'" />
                 <PilcrowRight v-else />
                 {{ language.direction }}
               </Badge>
             </TableCell>
 
-            <TableCell>
+            <TableCell class="hidden sm:table-cell">
+              <!-- The block's status badges: an outline, muted text, and the one thing that matters
+                   carried by a coloured icon. -->
               <div class="flex flex-wrap gap-1">
-                <Badge v-if="language.isDefault" class="bg-primary/10 text-primary">
-                  <Star />
+                <Badge v-if="language.isDefault" variant="outline" class="text-muted-foreground">
+                  <Star class="fill-primary text-primary" />
                   {{ $t('languages.badge.default') }}
                 </Badge>
                 <Tooltip v-if="isBase(language.code)">
                   <TooltipTrigger as-child>
-                    <Badge variant="secondary">
-                      <Database />
+                    <Badge variant="outline" class="text-muted-foreground">
+                      <Database class="text-primary" />
                       {{ $t('languages.badge.base') }}
                     </Badge>
                   </TooltipTrigger>
@@ -173,7 +197,7 @@ async function onConfirm() {
               </div>
             </TableCell>
 
-            <TableCell>
+            <TableCell @click.stop>
               <div class="flex items-center gap-2">
                 <Switch
                   :model-value="language.isActive"
@@ -187,7 +211,7 @@ async function onConfirm() {
               </div>
             </TableCell>
 
-            <TableCell class="pe-4 text-end">
+            <TableCell class="pe-4 text-end" @click.stop>
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                   <Button
@@ -232,7 +256,7 @@ async function onConfirm() {
           </TableRow>
         </TableBody>
       </Table>
-    </Card>
+    </TableFrame>
 
     <LanguagesFormModal v-model:open="formOpen" :language="editing" />
 

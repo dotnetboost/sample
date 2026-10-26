@@ -124,8 +124,6 @@
       "range": "{from}–{to} sur {total}",
       "emptyHint": "Donnez-lui un SKU, un prix et son texte dans chaque langue."
     },
-    "productCount": "{n} produit | {n} produits",
-    "imageCount": "{n} image | {n} images",
     "confirmDelete": {
       "title": "Supprimer {name} ?",
       "description": "Cette action est irréversible. Les images d'un produit et leurs textes alternatifs partent avec lui — écrits à la main, car rien ne se propage en cascade au-delà des frontières d'une bibliothèque."

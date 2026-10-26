@@ -245,6 +245,18 @@
   --sidebar-ring: oklch(0.586 0.253 17.585);
 }
 
+/*
+ * A table's header row, as the `dashboard-01` block draws it: shaded, and from `lg` up stuck to
+ * the top of the page — under the page header, and under its toolbar when it has one, which is
+ * what `--page-sticky-top` on `DashboardPage` measures. Below `lg` the table scrolls sideways
+ * instead, and a header inside a scrolling box cannot stick to the page; see `TableFrame.vue`.
+ *
+ * The row's own hover is turned off, or the header would flash as the pointer crossed it.
+ */
+@utility sticky-head {
+  @apply z-[5] bg-muted lg:sticky lg:top-(--page-sticky-top) [&_tr]:hover:bg-transparent;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -124,8 +124,6 @@
       "range": "{from}–{to} of {total}",
       "emptyHint": "Give it a SKU, a price and its text in each language."
     },
-    "productCount": "{n} product | {n} products",
-    "imageCount": "{n} image | {n} images",
     "confirmDelete": {
       "title": "Delete {name}?",
       "description": "This cannot be undone. A product's images and their alt text go with it — written out by hand, because nothing cascades across library boundaries."
