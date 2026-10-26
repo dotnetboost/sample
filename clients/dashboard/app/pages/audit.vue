@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { AuditAction, AuditEntry } from '~/types'
+import type { AuditAction, AuditEntry, AuditSort } from '~/types'
 
 /**
  * DotNetBoost.Auditing's trail, as the one page in this dashboard that has to be signed in to.
@@ -25,6 +25,31 @@ const {
   pending, page, hasNewer, hasOlder, isFiltered, loadError,
   setFilters, setPageSize, older, newer, showEdit, reset, reload
 } = useAuditTrail()
+
+/**
+ * How the rows on screen are ordered.
+ *
+ * Over this page only, and that is the API's limit rather than a choice: the trail is served newest
+ * first with no parameter for another order, and a cursor walk could not honour one anyway — the
+ * cursor *is* a position in that order. So "oldest first" is the oldest of these rows, and the
+ * pager still walks the trail the one way it can.
+ */
+const sort = ref<AuditSort>('newest')
+
+const sortedEntries = computed(() => {
+  const rows = [...entries.value]
+  // Newest first is the order the API already answered in, so the tiebreak for every other sort.
+  const byKey = (key: (entry: AuditEntry) => string) =>
+    rows.sort((a, b) => key(a).localeCompare(key(b)) || b.occurredAt.localeCompare(a.occurredAt))
+
+  switch (sort.value) {
+    case 'oldest': return rows.reverse()
+    case 'entity': return byKey(entry => `${entry.entityName}\u0000${entry.entityId}`)
+    case 'action': return byKey(entry => entry.action)
+    case 'actor': return byKey(entry => entry.actor ?? '\uffff')
+    default: return rows
+  }
+})
 
 /** Which rows are open, by entry id. `UTable`'s own expansion state. */
 const expanded = ref<Record<string, boolean>>({})
@@ -128,6 +153,7 @@ async function go(move: () => unknown) {
 
       <template v-else>
         <AuditFilters
+          v-model:sort="sort"
           :query="query"
           :entities="entities"
           :max-page-size="maxPageSize"
@@ -157,15 +183,18 @@ async function go(move: () => unknown) {
           }]"
         />
 
+        <!-- `shrink-0`: the panel body is a scrolling flex column and the table's root scrolls on
+             its own, so once the rules card appeared the table gave up its height and became a
+             few rows in a scroll box of its own. The page scrolls; the table only does sideways. -->
         <UTable
           v-model:expanded="expanded"
-          :data="entries"
+          :data="sortedEntries"
           :columns="columns"
           :loading="pending && !entries.length"
           :empty="isFiltered ? $t('audit.emptyFiltered') : $t('audit.empty')"
           :get-row-id="(entry: AuditEntry) => entry.id"
           :expanded-options="{ getRowCanExpand: () => true }"
-          class="rounded-lg border border-default"
+          class="shrink-0 rounded-lg border border-default"
         >
           <template #expand-cell="{ row }">
             <UButton

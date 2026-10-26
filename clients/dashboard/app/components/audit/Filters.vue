@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { parseDate } from '@internationalized/date'
+import type { CalendarDate } from '@internationalized/date'
 import { watchDebounced } from '@vueuse/core'
-import type { AuditAction, AuditEntityDescriptor, AuditQuery } from '~/types'
+import type { AuditAction, AuditEntityDescriptor, AuditQuery, AuditSort } from '~/types'
 
 /**
- * The filter bar: the entity, its key, the actor, the action, a date range and the page size.
+ * The filter bar: the entity, its key, the actor, the action, a date range, the sort and the page
+ * size.
  *
  * Every one of them is a parameter on `GET api/audit`. Nothing here filters the rows already on
  * screen — a trail only grows, so the page you are looking at is never the set you meant to
@@ -23,6 +26,13 @@ const props = defineProps<{
   isFiltered: boolean
   pending?: boolean
 }>()
+
+/**
+ * How the page on screen is ordered. A model rather than part of the query: the API has one order,
+ * newest first, and this is the one control here that rearranges rows already fetched — see
+ * `audit.vue`.
+ */
+const sort = defineModel<AuditSort>('sort', { required: true })
 
 const emit = defineEmits<{
   update: [patch: Partial<AuditQuery>]
@@ -62,9 +72,9 @@ const entity = computed(() => props.query.entityName || ANY)
 
 const actions = computed<{ label: string, value: AuditAction | typeof ANY }[]>(() => [
   { label: t('audit.filters.anyAction'), value: ANY },
-  { label: t('audit.actions.Created'), value: 'Created' },
-  { label: t('audit.actions.Updated'), value: 'Updated' },
-  { label: t('audit.actions.Deleted'), value: 'Deleted' }
+  { label: t('audit.actions.created'), value: 'Created' },
+  { label: t('audit.actions.updated'), value: 'Updated' },
+  { label: t('audit.actions.deleted'), value: 'Deleted' }
 ])
 
 const action = computed(() => props.query.action || ANY)
@@ -78,6 +88,48 @@ const pageSizes = computed(() =>
   [10, 25, 50, 100]
     .filter(size => !props.maxPageSize || size <= props.maxPageSize)
     .map(size => ({ label: String(size), value: size })))
+
+const sorts = computed<{ label: string, value: AuditSort }[]>(() => [
+  { label: t('audit.filters.sorts.newest'), value: 'newest' },
+  { label: t('audit.filters.sorts.oldest'), value: 'oldest' },
+  { label: t('audit.filters.sorts.entity'), value: 'entity' },
+  { label: t('audit.filters.sorts.action'), value: 'action' },
+  { label: t('audit.filters.sorts.actor'), value: 'actor' }
+])
+
+/**
+ * `from` and `to` as the range the calendar draws. The query keeps them as `yyyy-mm-dd`, which is
+ * what `CalendarDate` reads and writes, and `useAuditTrail` turns into the instants the API is
+ * asked for.
+ */
+const range = computed(() => ({
+  start: props.query.from ? parseDate(props.query.from) : undefined,
+  end: props.query.to ? parseDate(props.query.to) : undefined
+}))
+
+/**
+ * A range is sent once it has both ends. The calendar reports the first click on its own, and
+ * sending that would read the trail from a date to forever — one request for a range nobody
+ * picked yet.
+ */
+function updateRange(value: { start?: CalendarDate, end?: CalendarDate } | null | undefined) {
+  if (!value?.start && !value?.end) {
+    emit('update', { from: '', to: '' })
+  } else if (value.start && value.end) {
+    emit('update', { from: value.start.toString(), to: value.end.toString() })
+  }
+}
+
+/** The trigger's text, in the UI locale through `utils/format.ts`'s own formatter. */
+const rangeLabel = computed(() => {
+  const { from, to } = props.query
+
+  if (!from && !to) {
+    return t('audit.filters.anyDate')
+  }
+
+  return `${from ? formatDay(from) : '…'} – ${to ? formatDay(to) : '…'}`
+})
 
 /**
  * The two free-text boxes are bound to their own refs and debounced into the query: bound straight
@@ -156,32 +208,54 @@ watch(() => props.query.entityId, (value) => {
     </div>
 
     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-      <UFormField :label="$t('audit.filters.from')" :help="$t('audit.filters.datesHelp')">
-        <!-- A native date input: it is already localized and keyboard-accessible, and the value it
-             produces (`yyyy-mm-dd`) is the one `useAuditTrail` turns into the instants the API is
-             asked for. `dir="ltr"` because the parts of a date are laid out by the control. -->
-        <UInput
-          :model-value="query.from"
-          type="date"
-          dir="ltr"
+      <UFormField :label="$t('audit.filters.dates')" :help="$t('audit.filters.datesHelp')">
+        <!-- One control for both ends: a range is one question, and two boxes let it be asked
+             backwards. The value is still the `yyyy-mm-dd` pair the query has always held. -->
+        <div class="flex items-center gap-1">
+          <UPopover>
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-calendar-range"
+              :label="rangeLabel"
+              class="w-full sm:w-64"
+              :class="{ 'text-dimmed': !query.from && !query.to }"
+              :ui="{ label: 'truncate' }"
+            />
+
+            <template #content>
+              <UCalendar
+                :model-value="range"
+                range
+                :number-of-months="2"
+                class="p-2"
+                @update:model-value="updateRange($event as { start?: CalendarDate, end?: CalendarDate } | null)"
+              />
+            </template>
+          </UPopover>
+
+          <UButton
+            v-if="query.from || query.to"
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            :aria-label="$t('audit.filters.clearDates')"
+            @click="emit('update', { from: '', to: '' })"
+          />
+        </div>
+      </UFormField>
+
+      <UFormField :label="$t('audit.filters.sort')" class="sm:ms-auto">
+        <USelect
+          v-model="sort"
+          :items="sorts"
+          value-key="value"
+          icon="i-lucide-arrow-down-up"
           class="w-full sm:w-40"
-          :max="query.to || undefined"
-          @update:model-value="emit('update', { from: String($event) })"
         />
       </UFormField>
 
-      <UFormField :label="$t('audit.filters.to')">
-        <UInput
-          :model-value="query.to"
-          type="date"
-          dir="ltr"
-          class="w-full sm:w-40"
-          :min="query.from || undefined"
-          @update:model-value="emit('update', { to: String($event) })"
-        />
-      </UFormField>
-
-      <UFormField :label="$t('audit.filters.pageSize')" class="sm:ms-auto">
+      <UFormField :label="$t('audit.filters.pageSize')">
         <USelect
           :model-value="query.pageSize"
           :items="pageSizes"

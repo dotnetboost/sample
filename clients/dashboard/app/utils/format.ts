@@ -74,6 +74,18 @@ export function formatDate(iso: string | null | undefined): string {
     : NO_VALUE
 }
 
+/**
+ * A calendar day (`yyyy-mm-dd`) written for the UI locale. Read and written in UTC: it is a day,
+ * not an instant, and in local time "the 24th" would print as the 23rd west of Greenwich.
+ */
+export function formatDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`)
+
+  return Number.isNaN(date.getTime())
+    ? NO_VALUE
+    : date.toLocaleDateString(intlLocale(), { dateStyle: 'medium', timeZone: 'UTC' })
+}
+
 /** A UTC timestamp as "3 hours ago", falling back to the date once it is old. */
 export function formatRelative(iso: string | null | undefined): string {
   const date = parseTimestamp(iso)

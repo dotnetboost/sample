@@ -274,8 +274,17 @@
       "actor": "Acteur",
       "action": "Action",
       "anyAction": "Toute action",
-      "from": "Du",
-      "to": "Au",
+      "dates": "Dates",
+      "anyDate": "Toutes les dates",
+      "clearDates": "Effacer les dates",
+      "sort": "Trier par",
+      "sorts": {
+        "newest": "Plus récentes",
+        "oldest": "Plus anciennes",
+        "entity": "Entité",
+        "action": "Action",
+        "actor": "Acteur"
+      },
       "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres.",
       "pageSize": "Par page"
     },
