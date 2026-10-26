@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { ChevronRight, GitCompareArrows, Pencil, PlugZap, Plus, RefreshCw, ScrollText, Trash2 } from '@lucide/vue'
-import type { AuditAction, AuditEntry, AuditSort } from '~/types'
+import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
+import {
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns3, GitCompareArrows, Pencil,
+  PlugZap, Plus, RefreshCw, ScrollText, Trash2
+} from '@lucide/vue'
+import {
+  columnVisibilityFeature,
+  createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_basic,
+  sortFn_text,
+  tableFeatures,
+  useTable
+} from '@tanstack/vue-table'
+import type { AuditAction, AuditEntry } from '~/types'
 
 /**
  * DotNetBoost.Auditing's trail, as the one page in this dashboard that has to be signed in to.
@@ -28,28 +42,103 @@ const {
 } = useAuditTrail()
 
 /**
- * How the rows on screen are ordered.
+ * The table, on TanStack Table — which owns two things here and no more: the order of the rows on
+ * screen, and which columns are shown. The markup stays this file's; TanStack is headless.
  *
- * Over this page only, and that is the API's limit rather than a choice: the trail is served newest
- * first with no parameter for another order. So "oldest first" is the oldest of these rows, and
- * page 1 is still the newest entries.
+ * **Sorting is over this page only**, and that is the API's limit rather than a choice: the trail
+ * is served newest first with no parameter for another order. TanStack's own guidance calls
+ * client sorting of one server page a mistake when the order is meant to span the dataset, and
+ * here it is not meant to — so the sorted header says "within this page" under the table rather
+ * than letting "oldest first" pass for the oldest entries in the trail. Page 1 is still the newest.
+ *
+ * Its sort is stable, so rows that tie keep the order the API sent — newest first — which is the
+ * tiebreak the hand-written sort this replaces had to write out.
+ *
+ * Features and columns are module-level constants, as the library asks: rebuilding either on a
+ * render invalidates every row model.
  */
-const sort = ref<AuditSort>('newest')
-
-const sortedEntries = computed(() => {
-  const rows = [...entries.value]
-  // Newest first is the order the API already answered in, so the tiebreak for every other sort.
-  const byKey = (key: (entry: AuditEntry) => string) =>
-    rows.sort((a, b) => key(a).localeCompare(key(b)) || b.occurredAt.localeCompare(a.occurredAt))
-
-  switch (sort.value) {
-    case 'oldest': return rows.reverse()
-    case 'entity': return byKey(entry => `${entry.entityName}\u0000${entry.entityId}`)
-    case 'action': return byKey(entry => entry.action)
-    case 'actor': return byKey(entry => entry.actor ?? '\uffff')
-    default: return rows
-  }
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { basic: sortFn_basic, text: sortFn_text },
+  columnVisibilityFeature
 })
+
+const helper = createColumnHelper<typeof features, AuditEntry>()
+
+const columns = helper.columns([
+  helper.display({ id: 'expand', enableSorting: false, enableHiding: false }),
+  // ISO 8601 in UTC sorts as text in time order, which is the point of the format.
+  helper.accessor('occurredAt', { sortFn: 'text', enableHiding: false }),
+  helper.accessor(entry => `${entry.entityName}\u0000${entry.entityId}`, { id: 'entity', sortFn: 'text' }),
+  helper.accessor('action', { sortFn: 'text' }),
+  // An entry with no actor names nobody, so it sorts after everyone who is named, either way up.
+  helper.accessor(entry => entry.actor ?? undefined, { id: 'actor', sortFn: 'text', sortUndefined: 'last' }),
+  helper.accessor(entry => entry.changes.length, { id: 'changes', sortFn: 'basic' })
+])
+
+/** The API's own order. A column is always sorted — the cycle is asc ↔ desc, never "off". */
+const newestFirst: SortingState = [{ id: 'occurredAt', desc: true }]
+
+const sorting = ref<SortingState>(newestFirst)
+
+/**
+ * Which columns are shown, remembered per browser: it is how one reader likes the table laid out,
+ * not something worth a setting. Only an explicit `false` hides a column, so an empty object is
+ * "everything", and a column added later starts out visible.
+ */
+const columnVisibility = useLocalStorage<ColumnVisibilityState>('audit-table-columns', {})
+
+/** TanStack hands state changes over as a value or as a function of the old one. */
+function resolve<T>(next: Updater<T>, current: T): T {
+  return typeof next === 'function' ? (next as (old: T) => T)(current) : next
+}
+
+const table = useTable({
+  features,
+  columns,
+  data: entries,
+  getRowId: (entry: AuditEntry) => entry.id,
+  enableSortingRemoval: false,
+  state: computed(() => ({ sorting: sorting.value, columnVisibility: columnVisibility.value })),
+  onSortingChange: next => sorting.value = resolve(next, sorting.value),
+  onColumnVisibilityChange: next => columnVisibility.value = resolve(next, columnVisibility.value)
+})
+
+const rows = computed(() => table.getRowModel().rows)
+
+/** Whether a column is on. The template draws each cell by hand, so it asks per column. */
+const shown = (id: string) => table.getColumn(id)?.getIsVisible() ?? true
+
+/** The column for a header, which `SortableHead` drives. Every id asked for is one defined above. */
+const column = (id: string) => table.getColumn(id)!
+
+const isNewestFirst = computed(() =>
+  sorting.value.length === 1 && sorting.value[0]!.id === 'occurredAt' && sorting.value[0]!.desc)
+
+/** The columns the Columns menu offers. `When` and the chevron are the row; they stay. */
+const hideable = computed(() => table.getAllLeafColumns().filter(c => c.getCanHide()))
+
+const columnLabels = computed<Record<string, string>>(() => ({
+  occurredAt: t('audit.columns.occurredAt'),
+  entity: t('audit.columns.entity'),
+  action: t('audit.columns.action'),
+  actor: t('audit.columns.actor'),
+  changes: t('audit.columns.changes')
+}))
+
+/** How many columns a full-width cell spans: whatever is on, the chevron included. */
+const span = computed(() => table.getVisibleLeafColumns().length)
+
+/**
+ * The page sizes the API will actually serve, which is why `maxPageSize` is read rather than
+ * assumed. A size above the cap is not refused — it is clamped — so offering one would leave the
+ * control disagreeing with the `take` the response reports.
+ */
+const pageSizes = computed(() =>
+  [10, 25, 50, 100].filter(size => !maxPageSize.value || size <= maxPageSize.value))
+
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / query.pageSize)))
 
 /** Which rows are open, by entry id. */
 const expanded = ref<Record<string, boolean>>({})
@@ -93,7 +182,11 @@ function showEntity(entry: AuditEntry) {
   setFilters({ entityName: entry.entityName, entityId: entry.entityId, correlationId: '' })
 }
 
-/** Paging closes whatever was open: a row id on one page means nothing on the next. */
+/**
+ * Paging closes whatever was open: a row id on one page means nothing on the next. The sort stays,
+ * as it does in any table — it is still over the page on screen, and the note under the table
+ * still says so.
+ */
 async function go(move: () => unknown) {
   expanded.value = {}
   await move()
@@ -148,16 +241,34 @@ const range = computed(() => {
 
     <template v-else>
       <AuditFilters
-        v-model:sort="sort"
         :query="query"
         :entities="entities"
-        :max-page-size="maxPageSize"
         :is-filtered="isFiltered"
         :pending="pending"
         @update="setFilters($event)"
-        @page-size="setPageSize($event)"
         @reset="reset()"
-      />
+      >
+        <!-- The block's "Customize columns": which columns this reader wants, kept per browser. -->
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" class="sm:ms-auto">
+              <Columns3 />
+              {{ $t('audit.table.columns') }}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-48">
+            <DropdownMenuCheckboxItem
+              v-for="item in hideable"
+              :key="item.id"
+              :model-value="item.getIsVisible()"
+              @update:model-value="item.toggleVisibility(!!$event)"
+              @select.prevent
+            >
+              {{ columnLabels[item.id] }}
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </AuditFilters>
 
       <!-- Only with an entity filtered on: "what is recorded for Product" has no answer across
            entities, and one averaged over two would be a statement the model never made. -->
@@ -176,21 +287,33 @@ const range = computed(() => {
 
       <!-- A row opens and closes wherever it is clicked; the chevron is the same toggle as a real
            button, for the keyboard, and the entity link stops the click so following it does not
-           also unfold the row. -->
+           also unfold the row.
+
+           Each cell is drawn by hand and asks `shown()` whether its column is on, rather than
+           looping over TanStack's visible cells: the cells differ too much for one loop to read
+           well, and the responsive `hidden lg:table-cell` on top of the menu's choice is a class,
+           not table state. -->
       <TableFrame>
         <Table>
           <TableHeader class="sticky-head">
             <TableRow>
               <TableHead class="w-10 ps-2" />
-              <TableHead>{{ $t('audit.columns.occurredAt') }}</TableHead>
-              <TableHead>{{ $t('audit.columns.entity') }}</TableHead>
-              <TableHead>{{ $t('audit.columns.action') }}</TableHead>
-              <TableHead class="hidden lg:table-cell">
-                {{ $t('audit.columns.actor') }}
-              </TableHead>
-              <TableHead class="hidden pe-4 text-end md:table-cell">
-                {{ $t('audit.columns.changes') }}
-              </TableHead>
+              <SortableHead :column="column('occurredAt')" :label="columnLabels.occurredAt!" />
+              <SortableHead v-if="shown('entity')" :column="column('entity')" :label="columnLabels.entity!" />
+              <SortableHead v-if="shown('action')" :column="column('action')" :label="columnLabels.action!" />
+              <SortableHead
+                v-if="shown('actor')"
+                :column="column('actor')"
+                :label="columnLabels.actor!"
+                class="hidden lg:table-cell"
+              />
+              <SortableHead
+                v-if="shown('changes')"
+                :column="column('changes')"
+                :label="columnLabels.changes!"
+                align="end"
+                class="hidden pe-4 md:table-cell"
+              />
             </TableRow>
           </TableHeader>
 
@@ -199,13 +322,13 @@ const range = computed(() => {
               <!-- One bar across the row rather than one per cell: how many cells a row shows
                    depends on the screen, and a placeholder should not have to know. -->
               <TableRow v-for="n in 6" :key="n">
-                <TableCell :colspan="6" class="px-4">
+                <TableCell :colspan="span" class="px-4">
                   <Skeleton class="h-5 w-full" />
                 </TableCell>
               </TableRow>
             </template>
 
-            <TableEmpty v-else-if="!entries.length" :colspan="6">
+            <TableEmpty v-else-if="!entries.length" :colspan="span">
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -216,23 +339,23 @@ const range = computed(() => {
               </Empty>
             </TableEmpty>
 
-            <template v-for="entry in sortedEntries" v-else :key="entry.id">
+            <template v-for="row in rows" v-else :key="row.id">
               <TableRow
-                :data-state="expanded[entry.id] ? 'selected' : undefined"
+                :data-state="expanded[row.id] ? 'selected' : undefined"
                 class="cursor-pointer"
-                @click="expanded[entry.id] = !expanded[entry.id]"
+                @click="expanded[row.id] = !expanded[row.id]"
               >
                 <TableCell class="ps-2">
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     :aria-label="$t('audit.expand')"
-                    :aria-expanded="!!expanded[entry.id]"
-                    @click.stop="expanded[entry.id] = !expanded[entry.id]"
+                    :aria-expanded="!!expanded[row.id]"
+                    @click.stop="expanded[row.id] = !expanded[row.id]"
                   >
                     <ChevronRight
                       class="transition-transform rtl:rotate-180"
-                      :class="{ 'rotate-90! ': expanded[entry.id] }"
+                      :class="{ 'rotate-90!': expanded[row.id] }"
                     />
                   </Button>
                 </TableCell>
@@ -244,81 +367,161 @@ const range = computed(() => {
                   <Tooltip>
                     <TooltipTrigger as-child>
                       <span class="whitespace-nowrap font-medium">
-                        {{ formatRelative(entry.occurredAt) }}
+                        {{ formatRelative(row.original.occurredAt) }}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>{{ formatDate(entry.occurredAt) }}</TooltipContent>
+                    <TooltipContent>{{ formatDate(row.original.occurredAt) }}</TooltipContent>
                   </Tooltip>
                 </TableCell>
 
-                <TableCell>
+                <TableCell v-if="shown('entity')">
                   <!-- Truncated, with the whole of it on hover: a media file's key is a GUID, and
                        one of those at full width would push every other column off the table. -->
                   <Button
                     variant="link"
                     class="h-auto max-w-32 p-0 font-mono sm:max-w-56 lg:max-w-80"
-                    :title="`${entry.entityName} ${entry.entityId}`"
+                    :title="`${row.original.entityName} ${row.original.entityId}`"
                     :aria-label="$t('audit.filterToEntity', {
-                      entity: entry.entityName, id: entry.entityId
+                      entity: row.original.entityName, id: row.original.entityId
                     })"
-                    @click.stop="showEntity(entry)"
+                    @click.stop="showEntity(row.original)"
                   >
-                    <span dir="ltr" class="truncate">{{ entry.entityName }}&nbsp;{{ entry.entityId }}</span>
+                    <span dir="ltr" class="truncate">{{ row.original.entityName }}&nbsp;{{ row.original.entityId }}</span>
                   </Button>
                 </TableCell>
 
-                <TableCell>
+                <TableCell v-if="shown('action')">
                   <!-- On a phone the icon alone, so the row fits without scrolling sideways; the word
                        stays for assistive technology. -->
                   <Badge variant="outline" class="text-muted-foreground">
-                    <component :is="actionIcons[entry.action]" :class="actionStyles[entry.action]" />
-                    <span class="max-sm:sr-only">{{ actionLabels[entry.action] }}</span>
+                    <component :is="actionIcons[row.original.action]" :class="actionStyles[row.original.action]" />
+                    <span class="max-sm:sr-only">{{ actionLabels[row.original.action] }}</span>
                   </Badge>
                 </TableCell>
 
-                <TableCell class="hidden lg:table-cell">
+                <TableCell v-if="shown('actor')" class="hidden lg:table-cell">
                   <!--
                     A null actor is nobody — not "system". The library says so where the field is
                     documented, and this is the renderer that has to mean it: nothing was captured,
                     so the entry names no one, and the tooltip says that rather than leaving
                     "unknown" to be read as an account name.
                   -->
-                  <Tooltip v-if="!entry.actor">
+                  <Tooltip v-if="!row.original.actor">
                     <TooltipTrigger as-child>
                       <span class="italic text-muted-foreground">{{ $t('audit.unknownActor') }}</span>
                     </TooltipTrigger>
                     <TooltipContent>{{ $t('audit.unknownActorTooltip') }}</TooltipContent>
                   </Tooltip>
-                  <span v-else dir="ltr">{{ entry.actor }}</span>
+                  <span v-else dir="ltr">{{ row.original.actor }}</span>
                 </TableCell>
 
-                <TableCell class="hidden pe-4 text-end tabular-nums text-muted-foreground md:table-cell">
-                  {{ $t('audit.changeCount', entry.changes.length) }}
+                <TableCell
+                  v-if="shown('changes')"
+                  class="hidden pe-4 text-end tabular-nums text-muted-foreground md:table-cell"
+                >
+                  {{ $t('audit.changeCount', row.original.changes.length) }}
                 </TableCell>
               </TableRow>
 
-              <TableRow v-if="expanded[entry.id]" class="hover:bg-transparent">
-                <TableCell :colspan="6" class="bg-muted/30 p-0 whitespace-normal">
-                  <AuditEntryChanges :entry="entry" @show-edit="go(() => showEdit($event))" />
+              <TableRow v-if="expanded[row.id]" class="hover:bg-transparent">
+                <TableCell :colspan="span" class="bg-muted/30 p-0 whitespace-normal">
+                  <AuditEntryChanges :entry="row.original" @show-edit="go(() => showEdit($event))" />
                 </TableCell>
               </TableRow>
             </template>
           </TableBody>
         </Table>
+
+        <!--
+          The block's table footer, inside the frame: where the rows are and how many there are on
+          the start side, and the page controls on the end side. Pages are the API's — every move is
+          a request — so these drive `useAuditTrail`, not TanStack's own pagination.
+        -->
+        <div
+          v-if="total"
+          class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t px-4 py-3 text-sm"
+        >
+          <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+            <span class="tabular-nums">{{ range }}</span>
+            <span v-if="!isNewestFirst" class="flex items-center gap-1.5 text-xs">
+              <span aria-hidden="true">·</span>
+              {{ $t('audit.table.sortedThisPage') }}
+              <Button
+                variant="link"
+                size="xs"
+                class="h-auto p-0"
+                @click="sorting = newestFirst"
+              >
+                {{ $t('audit.table.resetSort') }}
+              </Button>
+            </span>
+          </div>
+
+          <div class="ms-auto flex items-center gap-4 lg:gap-6">
+            <div class="hidden items-center gap-2 sm:flex">
+              <Label for="audit-rows-per-page" class="text-sm font-medium">
+                {{ $t('audit.pager.rowsPerPage') }}
+              </Label>
+              <Select :model-value="query.pageSize" @update:model-value="go(() => setPageSize(Number($event)))">
+                <SelectTrigger id="audit-rows-per-page" size="sm" class="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  <SelectItem v-for="size in pageSizes" :key="size" :value="size">
+                    {{ size }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <span class="font-medium tabular-nums">
+              {{ $t('audit.pager.pageOf', { page, count: pageCount }) }}
+            </span>
+
+            <!-- Chevrons mirrored in Arabic, where the first page is to the right. -->
+            <div class="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                class="hidden lg:inline-flex"
+                :disabled="pending || page <= 1"
+                :aria-label="$t('audit.pager.first')"
+                @click="go(() => goTo(1))"
+              >
+                <ChevronsLeft class="rtl:rotate-180" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                :disabled="pending || page <= 1"
+                :aria-label="$t('common.previous')"
+                @click="go(() => goTo(page - 1))"
+              >
+                <ChevronLeft class="rtl:rotate-180" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                :disabled="pending || page >= pageCount"
+                :aria-label="$t('common.next')"
+                @click="go(() => goTo(page + 1))"
+              >
+                <ChevronRight class="rtl:rotate-180" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                class="hidden lg:inline-flex"
+                :disabled="pending || page >= pageCount"
+                :aria-label="$t('audit.pager.last')"
+                @click="go(() => goTo(pageCount))"
+              >
+                <ChevronsRight class="rtl:rotate-180" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </TableFrame>
-
-      <div v-if="total" class="flex flex-wrap items-center justify-between gap-3">
-        <span class="text-sm text-muted-foreground">{{ range }}</span>
-
-        <PagerControls
-          v-if="total > query.pageSize"
-          :page="page"
-          :total="total"
-          :items-per-page="query.pageSize"
-          :disabled="pending"
-          @update:page="go(() => goTo($event))"
-        />
-      </div>
     </template>
   </DashboardPage>
 </template>

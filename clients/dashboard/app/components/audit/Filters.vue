@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { parseDate } from '@internationalized/date'
 import type { CalendarDate } from '@internationalized/date'
-import { ArrowDownUp, Box, CalendarRange, CircleSlash, Filter, FilterX, KeyRound, Rows3, UserRound, X } from '@lucide/vue'
+import { Box, CalendarRange, CircleSlash, Filter, FilterX, KeyRound, UserRound, X } from '@lucide/vue'
 import { watchDebounced } from '@vueuse/core'
 import type { DateRange } from 'reka-ui'
-import type { AuditAction, AuditEntityDescriptor, AuditQuery, AuditSort } from '~/types'
+import type { AuditAction, AuditEntityDescriptor, AuditQuery } from '~/types'
 
 /**
- * The filter bar: the entity, its key, the actor, the action, a date range, the sort and the page
- * size.
+ * The filter bar: the entity, its key, the actor, the action and a date range. The sort is the
+ * table's column headers and the page size is in its footer — see `audit.vue` — and the default
+ * slot is the end of the second row, where the page puts its Columns menu.
  *
  * Every one of them is a parameter on `GET api/audit`. Nothing here filters the rows already on
  * screen — a trail only grows, so the page you are looking at is never the set you meant to
@@ -23,22 +24,12 @@ const props = defineProps<{
   query: AuditQuery
   /** From `GET api/audit/entities` — the entities this installation declares. */
   entities: AuditEntityDescriptor[]
-  /** The API's own bound on a page, from the same response. 0 until it has answered. */
-  maxPageSize: number
   isFiltered: boolean
   pending?: boolean
 }>()
 
-/**
- * How the page on screen is ordered. A model rather than part of the query: the API has one order,
- * newest first, and this is the one control here that rearranges rows already fetched — see
- * `audit.vue`.
- */
-const sort = defineModel<AuditSort>('sort', { required: true })
-
 const emit = defineEmits<{
   update: [patch: Partial<AuditQuery>]
-  pageSize: [size: number]
   reset: []
 }>()
 
@@ -81,24 +72,6 @@ const actions = computed<{ label: string, value: AuditAction | typeof ANY }[]>((
 ])
 
 const action = computed(() => props.query.action || ANY)
-
-/**
- * The sizes the API will actually serve, which is why `maxPageSize` is read rather than assumed.
- * A size above the cap is not refused — it is clamped — so offering one would leave the box
- * disagreeing with the `take` the response reports.
- */
-const pageSizes = computed(() =>
-  [10, 25, 50, 100]
-    .filter(size => !props.maxPageSize || size <= props.maxPageSize)
-    .map(size => ({ label: String(size), value: size })))
-
-const sorts = computed<{ label: string, value: AuditSort }[]>(() => [
-  { label: t('audit.filters.sorts.newest'), value: 'newest' },
-  { label: t('audit.filters.sorts.oldest'), value: 'oldest' },
-  { label: t('audit.filters.sorts.entity'), value: 'entity' },
-  { label: t('audit.filters.sorts.action'), value: 'action' },
-  { label: t('audit.filters.sorts.actor'), value: 'actor' }
-])
 
 /**
  * `from` and `to` as the range the calendar draws. The query keeps them as `yyyy-mm-dd`, which is
@@ -273,34 +246,12 @@ watch(() => props.query.entityId, (value) => {
         </Button>
       </div>
 
-      <Select v-model="sort">
-        <SelectTrigger class="w-full sm:ms-auto sm:w-44" :aria-label="$t('audit.filters.sort')">
-          <ArrowDownUp class="text-muted-foreground" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="item in sorts" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select :model-value="query.pageSize" @update:model-value="emit('pageSize', Number($event))">
-        <SelectTrigger class="w-full sm:w-24" :aria-label="$t('audit.filters.pageSize')">
-          <Rows3 class="text-muted-foreground" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="item in pageSizes" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-
       <Button v-if="isFiltered" variant="ghost" @click="emit('reset')">
         <FilterX />
         {{ $t('common.clear') }}
       </Button>
+
+      <slot />
     </div>
 
     <p class="text-xs text-muted-foreground">

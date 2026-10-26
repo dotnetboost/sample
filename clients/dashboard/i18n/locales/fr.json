@@ -20,7 +20,8 @@
     "filtered": "filtré",
     "previous": "Page précédente",
     "next": "Page suivante",
-    "actions": "Actions"
+    "actions": "Actions",
+    "sortBy": "Trier par {column}"
   },
   "nav": {
     "overview": "Vue d'ensemble",
@@ -312,16 +313,7 @@
       "dates": "Dates",
       "anyDate": "Toutes les dates",
       "clearDates": "Effacer les dates",
-      "sort": "Trier par",
-      "sorts": {
-        "newest": "Plus récentes",
-        "oldest": "Plus anciennes",
-        "entity": "Entité",
-        "action": "Action",
-        "actor": "Acteur"
-      },
-      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres.",
-      "pageSize": "Par page"
+      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres."
     },
     "actions": {
       "created": "Créé",
@@ -352,7 +344,11 @@
       "description": "Toutes les entrées écrites sous le même identifiant de corrélation. Une édition n'est pas toujours une seule entrée : créer un produit avec du texte en plusieurs langues écrit l'entrée du produit et celle du journal de création, dans une portée qui lui est propre."
     },
     "pager": {
-      "range": "{from}–{to} sur {total}"
+      "range": "{from}–{to} sur {total}",
+      "rowsPerPage": "Lignes par page",
+      "pageOf": "Page {page} sur {count}",
+      "first": "Première page",
+      "last": "Dernière page"
     },
     "rules": {
       "title": "Ce qui est enregistré pour {entity}",
@@ -365,6 +361,11 @@
       "retentionDefault": "conservées {n} jour — la valeur par défaut configurée | conservées {n} jours — la valeur par défaut configurée",
       "retentionPruned": "supprimées après {n} jour — réglage Journal d'audit | supprimées après {n} jours — réglage Journal d'audit",
       "retentionNone": "conservées sans limite"
+    },
+    "table": {
+      "columns": "Colonnes",
+      "sortedThisPage": "Trié au sein de cette page — la piste elle-même est lue de la plus récente à la plus ancienne.",
+      "resetSort": "Plus récentes d’abord"
     }
   },
   "media": {

@@ -570,9 +570,3 @@ export interface AuditQuery {
   correlationId: string
   pageSize: number
 }
-
-/**
- * How the audit page orders the rows it has fetched. Not part of {@link AuditQuery}: the API serves
- * one order, newest first, and has no parameter to ask for another.
- */
-export type AuditSort = 'newest' | 'oldest' | 'entity' | 'action' | 'actor'

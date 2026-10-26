@@ -20,7 +20,8 @@
     "filtered": "filtered",
     "previous": "Previous page",
     "next": "Next page",
-    "actions": "Actions"
+    "actions": "Actions",
+    "sortBy": "Sort by {column}"
   },
   "nav": {
     "overview": "Overview",
@@ -312,16 +313,7 @@
       "dates": "Dates",
       "anyDate": "Any date",
       "clearDates": "Clear dates",
-      "sort": "Sort by",
-      "sorts": {
-        "newest": "Newest first",
-        "oldest": "Oldest first",
-        "entity": "Entity",
-        "action": "Action",
-        "actor": "Actor"
-      },
-      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own.",
-      "pageSize": "Per page"
+      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own."
     },
     "actions": {
       "created": "Created",
@@ -352,7 +344,11 @@
       "description": "Every entry written under the same correlation id. An edit is not always one entry: creating a product with text in several languages writes the product's own entry and the creation trail's, in a scope of its own."
     },
     "pager": {
-      "range": "{from}–{to} of {total}"
+      "range": "{from}–{to} of {total}",
+      "rowsPerPage": "Rows per page",
+      "pageOf": "Page {page} of {count}",
+      "first": "First page",
+      "last": "Last page"
     },
     "rules": {
       "title": "What is recorded for {entity}",
@@ -365,6 +361,11 @@
       "retentionDefault": "kept {n} day — the configured default | kept {n} days — the configured default",
       "retentionPruned": "deleted after {n} day — the Audit trail setting | deleted after {n} days — the Audit trail setting",
       "retentionNone": "kept indefinitely"
+    },
+    "table": {
+      "columns": "Columns",
+      "sortedThisPage": "Sorted within this page — the trail itself is read newest first.",
+      "resetSort": "Newest first"
     }
   },
   "media": {

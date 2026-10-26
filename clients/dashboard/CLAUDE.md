@@ -17,6 +17,10 @@ header, ⌘K command palette.
   `<Card>` is Vue's self-reference.
 - App building blocks: `DashboardPage` (header + toolbar slot), `SectionIntro`, `EditorSheet`,
   `ConfirmModal`, `PagerControls`, `LanguagePills`, `SuggestInput`.
+- Tables sit in `TableFrame` with `<TableHeader class="sticky-head">`. A table that sorts or hides
+  columns uses TanStack Table **v9** (`useTable` + `tableFeatures`, not v8's `useVueTable`) with
+  `SortableHead` for its headers — see `pages/audit.vue`. The installed package ships its own
+  guidance under `node_modules/@tanstack/{vue-table,table-core}/skills/`.
 
 ## Rules
 
