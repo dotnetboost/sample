@@ -22,17 +22,16 @@ useHead({ title: () => t('nav.documentTitle', { page: t('nav.audit') }) })
 
 const {
   query, entries, entities, maxPageSize, schema,
-  pending, page, hasNewer, hasOlder, isFiltered, loadError,
-  setFilters, setPageSize, older, newer, showEdit, reset, reload
+  pending, page, total, isFiltered, loadError,
+  setFilters, setPageSize, goTo, showEdit, reset, reload
 } = useAuditTrail()
 
 /**
  * How the rows on screen are ordered.
  *
  * Over this page only, and that is the API's limit rather than a choice: the trail is served newest
- * first with no parameter for another order, and a cursor walk could not honour one anyway — the
- * cursor *is* a position in that order. So "oldest first" is the oldest of these rows, and the
- * pager still walks the trail the one way it can.
+ * first with no parameter for another order. So "oldest first" is the oldest of these rows, and
+ * page 1 is still the newest entries.
  */
 const sort = ref<AuditSort>('newest')
 
@@ -102,6 +101,21 @@ async function go(move: () => unknown) {
   expanded.value = {}
   await move()
 }
+
+/** "1–25 of 140", or nothing for an empty trail. */
+const range = computed(() => {
+  if (!total.value) {
+    return ''
+  }
+
+  const size = query.pageSize
+
+  return t('audit.pager.range', {
+    from: (page.value - 1) * size + 1,
+    to: Math.min(page.value * size, total.value),
+    total: total.value
+  })
+})
 </script>
 
 <template>
@@ -266,33 +280,17 @@ async function go(move: () => unknown) {
           </template>
         </UTable>
 
-        <!--
-          Newer and older rather than a page number and a total. The walk is by cursor, which is
-          what the library asks a client to prefer, and a cursor has no notion of how many pages
-          there are — the read deliberately does not ask for a count, because counting a trail is
-          the expensive half of reading one.
-        -->
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm text-muted">{{ $t('audit.pager.page', { n: page }) }}</span>
+        <div v-if="total" class="flex flex-wrap items-center justify-between gap-3">
+          <span class="text-sm text-muted">{{ range }}</span>
 
-          <div class="flex gap-2">
-            <UButton
-              icon="i-lucide-chevron-up"
-              color="neutral"
-              variant="outline"
-              :label="$t('audit.pager.newer')"
-              :disabled="!hasNewer || pending"
-              @click="go(newer)"
-            />
-            <UButton
-              trailing-icon="i-lucide-chevron-down"
-              color="neutral"
-              variant="outline"
-              :label="$t('audit.pager.older')"
-              :disabled="!hasOlder || pending"
-              @click="go(older)"
-            />
-          </div>
+          <UPagination
+            v-if="total > query.pageSize"
+            :page="page"
+            :total="total"
+            :items-per-page="query.pageSize"
+            :disabled="pending"
+            @update:page="go(() => goTo($event))"
+          />
         </div>
       </template>
     </template>

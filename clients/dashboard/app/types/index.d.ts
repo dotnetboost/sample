@@ -464,8 +464,8 @@ export interface AuditPage {
   /** Newest first. */
   entries: AuditEntry[]
   /**
-   * How many matched, or `null` when the read did not ask — which this dashboard does not.
-   * `null` means "not counted" and never zero, so nothing may paginate against it.
+   * How many matched, or `null` when the read did not ask. The Audit page always asks, for its
+   * numbered pager. `null` means "not counted" and never zero, so nothing may paginate against it.
    */
   total: number | null
   skip: number
@@ -483,10 +483,8 @@ export interface AuditPage {
    * The token to send as `after` for the next page, or `null` when the walk is over.
    *
    * Not a promise that more entries exist: it is where this page ended, so the last full page
-   * carries one and the request after it comes back empty. Preferred to `skip` for walking a
-   * trail, which is why this dashboard never sends `skip` — an offset makes the database read and
-   * discard everything before the page, and an entry arriving between two requests shifts a row
-   * across the boundary. Sending both is a `400`.
+   * carries one and the request after it comes back empty. The Audit page does not use it: it
+   * pages by `skip` so it can number its pages, and sending both is a `400`.
    */
   nextCursor: string | null
 }

@@ -51,18 +51,20 @@ export function useAuditEntities() {
 }
 
 /**
- * One reading of the audit trail: the filter, the page, the walk, and the rules for whichever
- * entity is selected.
+ * One reading of the audit trail: the filter, the page, and the rules for whichever entity is
+ * selected.
  *
  * **Every filter lives in the query the API is asked.** Nothing here narrows rows already on
  * screen — the same rule the media browser follows, and more load-bearing here: a trail is
  * append-only and only grows, so the page you are looking at is never the set you meant to search.
  *
- * **The walk is by cursor, not by offset.** `nextCursor` is the token the API hands back for the
- * next page; `skip` is never sent, because an offset makes the database read and discard everything
- * ahead of the page and shifts a row across the boundary whenever an entry arrives mid-walk. The
- * API refuses both at once with a `400`, so "send the cursor and also the offset" is not a mistake
- * that can hide.
+ * **Pages are numbered, by offset and a count.** Each read sends `skip` and asks for the total, so
+ * the pager can show page numbers and jump to any of them. That is the costlier of the API's two
+ * ways to page — it counts the matches on every read, and the database reads and discards
+ * everything ahead of the page — and it is chosen anyway because "page 3 of 7" is what people
+ * expect from a table. An entry recorded between two reads shifts the rows down by one, so a row
+ * can appear at the bottom of one page and again at the top of the next. `after` is never sent:
+ * the API refuses it together with `skip`.
  *
  * **Three keys, one per resource.** The listing, the declared entities, and the selected entity's
  * rules are three endpoints; `useAuditEntities` is shared with the filter bar, and the other two
@@ -88,17 +90,10 @@ export function useAuditTrail() {
     pageSize: 25
   })
 
-  /**
-   * The cursor that opened each page past the first, so "newer" is a pop rather than a second walk
-   * from the top.
-   *
-   * A cursor walk is one-directional — the API hands back where a page ended and nothing else — so
-   * going back means remembering where you came from. Emptied by every change to the question
-   * below; see {@link setFilters}.
-   */
-  const cursors = ref<string[]>([])
+  /** Which page is on screen, 1-based. Back to 1 on every change to the question; see {@link setFilters}. */
+  const page = ref(1)
 
-  const after = computed(() => cursors.value.at(-1))
+  const skip = computed(() => (page.value - 1) * query.pageSize)
 
   /**
    * The two date boxes as the instants the API is asked for.
@@ -116,7 +111,7 @@ export function useAuditTrail() {
 
   const asyncData = useAsyncData<AuditPage>(
     AUDIT_TRAIL_KEY,
-    (_nuxtApp, { signal }) => api.audit.query(query, { after: after.value, ...bounds.value }, { signal }),
+    (_nuxtApp, { signal }) => api.audit.query(query, { skip: skip.value, ...bounds.value }, { signal }),
     // `defer` for the arrivals nobody asked for — the page and its filter bar resolving in the
     // same tick — and never for a deliberate move: every call below refreshes with
     // `dedupe: 'cancel'`, because an answer already in flight is the answer to the previous
@@ -145,30 +140,8 @@ export function useAuditTrail() {
 
   const entries = computed(() => data.value?.entries ?? [])
 
-  /** Which page of the walk is on screen. 1-based, and only ever reached one page at a time. */
-  const page = computed(() => cursors.value.length + 1)
-
-  const hasNewer = computed(() => cursors.value.length > 0)
-
-  /**
-   * Whether there is an older page to ask for.
-   *
-   * `nextCursor` alone is not the answer, and this is the trap in it: the API returns one for every
-   * page that holds anything, the last one included — it is where the page ended, never a promise
-   * that more exist. Six entries read twenty-five at a time come back with a cursor, and a pager
-   * that trusted it would offer "older" on a trail it had just shown all of.
-   *
-   * So the other half is the page being full: fewer entries than were asked for is the end of the
-   * walk. `take` cannot answer this — it reports how many entries came back, which is the same
-   * number — so the comparison is against the size this page asked for, which is never above
-   * `maxPageSize` because {@link setPageSize} clamps it there.
-   *
-   * A last page that is exactly full still offers "older" once, and the answer is an empty page
-   * with "newer" beside it. That is the honest shape of a cursor walk, and the alternative is a
-   * count this read deliberately never asked for.
-   */
-  const hasOlder = computed(() =>
-    !!data.value?.nextCursor && entries.value.length >= query.pageSize)
+  /** How many entries match, across every page. 0 until the first answer lands. */
+  const total = computed(() => data.value?.total ?? 0)
 
   const isFiltered = computed(() => !!(
     query.entityName || query.entityId || query.actor || query.action
@@ -181,41 +154,22 @@ export function useAuditTrail() {
   const reload = () => refresh({ dedupe: 'cancel' })
 
   /**
-   * Changes the question and starts the walk again from the newest entry.
+   * Changes the question and goes back to the first page.
    *
-   * **Emptying `cursors` is the whole of it, and it is not optional.** A cursor is a position in
-   * one ordered, filtered trail. Kept across a filter change it addresses a place in a trail that
-   * is no longer being read: the API is handed `after` from the old walk together with the new
-   * filter, and answers with entries from the middle of a set the user never asked for — or with
+   * Back to page 1 because the old page number belongs to the old question: page 4 of the whole
+   * trail can be past the end of a filter that matches one page, and the API answers that with
    * nothing at all, which reads as "no entries match" for a filter that matches plenty.
    */
   function setFilters(patch: Partial<AuditQuery>) {
     Object.assign(query, patch)
-    cursors.value = []
+    page.value = 1
 
     return reload()
   }
 
-  /** Asks for the next page, from where this one ended. */
-  function older() {
-    const cursor = data.value?.nextCursor
-
-    if (!cursor) {
-      return
-    }
-
-    cursors.value = [...cursors.value, cursor]
-
-    return reload()
-  }
-
-  /** Back to the page before, by the cursor that opened it. */
-  function newer() {
-    if (!hasNewer.value) {
-      return
-    }
-
-    cursors.value = cursors.value.slice(0, -1)
+  /** Moves to another page of the same question. */
+  function goTo(target: number) {
+    page.value = target
 
     return reload()
   }
@@ -272,7 +226,7 @@ export function useAuditTrail() {
 
   return {
     query, entries, entities, maxPageSize, schema: schemaData.data,
-    pending, page, hasNewer, hasOlder, isFiltered, loadError,
-    setFilters, setPageSize, older, newer, showEdit, reset, reload
+    pending, page, total, isFiltered, loadError,
+    setFilters, setPageSize, goTo, showEdit, reset, reload
   }
 }

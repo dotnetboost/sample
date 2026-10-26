@@ -250,7 +250,7 @@
   "audit": {
     "title": "Journal d'audit",
     "card": {
-      "description": "Servi par MapAuditEndpoints() de DotNetBoost.Auditing.API — les points de terminaison de la bibliothèque, pas ceux de cette application. Chaque filtre ci-dessous est un paramètre de la requête envoyée à l'API, et les pages se parcourent avec le curseur qu'elle renvoie plutôt qu'avec un décalage."
+      "description": "Servi par MapAuditEndpoints() de DotNetBoost.Auditing.API — les points de terminaison de la bibliothèque, pas ceux de cette application. Chaque filtre ci-dessous est un paramètre de la requête envoyée à l'API."
     },
     "reload": "Recharger le journal",
     "loadError": "Impossible de charger le journal",
@@ -317,9 +317,7 @@
       "description": "Toutes les entrées écrites sous le même identifiant de corrélation. Une édition n'est pas toujours une seule entrée : créer un produit avec du texte en plusieurs langues écrit l'entrée du produit et celle du journal de création, dans une portée qui lui est propre."
     },
     "pager": {
-      "page": "Page {n}",
-      "newer": "Plus récentes",
-      "older": "Plus anciennes"
+      "range": "{from}–{to} sur {total}"
     },
     "rules": {
       "title": "Ce qui est enregistré pour {entity}",

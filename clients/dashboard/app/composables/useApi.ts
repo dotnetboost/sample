@@ -117,21 +117,19 @@ export function useApi() {
       /**
        * One page of the trail, newest first.
        *
-       * `after` rather than `skip`: an offset makes the database read and discard everything
-       * before the page, and an entry arriving mid-walk shifts a row across the boundary. The API
-       * refuses both at once with a `400`, which is why nothing here ever sends `skip`.
+       * By `skip` and with `includeTotal`, which is what a numbered pager needs: the offset to jump
+       * to any page and the count to know how many there are. `useAuditTrail` says what that costs.
+       * `after` is never sent — the API refuses it together with `skip` with a `400`.
        *
        * `includeChanges` is asked for with the page. The changes are what a row of this trail is
-       * *for* — the alternative is a request per row the moment one is opened — and `includeTotal`
-       * is deliberately not asked for: a cursor walk cannot use a total, and counting a trail is
-       * the expensive half of reading one.
+       * *for*; the alternative is a request per row the moment one is opened.
        *
        * Empty strings are left out rather than sent: to this API a blank parameter is an absent
        * filter, and relying on that would mean relying on it staying true.
        */
       query: (
         query: AuditQuery,
-        page: { after?: string, from?: string, to?: string },
+        page: { skip: number, from?: string, to?: string },
         { signal }: Abortable = {}
       ) => $fetch<AuditPage>('/api/audit', {
         query: {
@@ -142,8 +140,9 @@ export function useApi() {
           correlationId: query.correlationId || undefined,
           from: page.from,
           to: page.to,
+          skip: page.skip,
           take: query.pageSize,
-          after: page.after,
+          includeTotal: true,
           includeChanges: true
         },
         headers: headers(),

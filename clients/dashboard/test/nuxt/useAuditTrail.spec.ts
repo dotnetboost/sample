@@ -8,14 +8,12 @@ import type { AuditEntry } from '~/types'
 /**
  * How the Audit page asks the trail its question, and what happens when the question changes.
  *
- * <b>Why this file exists.</b> The three properties below were all wrong in a first cut of
- * `useAuditTrail`, and none of them is visible from inside one request:
+ * <b>Why this file exists.</b> None of the three properties below is visible from inside one
+ * request:
  *
  * <ul>
- *   <li><b>the cursor outlived the filter.</b> A cursor is a position in one ordered, filtered
- *   trail. Kept across a filter change it addresses a place in a trail that is no longer being
- *   read, so the API was handed `after` from the old walk together with the new filter — and
- *   answered with entries from the middle of a set nobody asked for, or with nothing at all, which
+ *   <li><b>the page number must not outlive the filter.</b> Page 2 of the whole trail can be past
+ *   the end of a filter that matches one page, and the API answers that with nothing at all, which
  *   reads as "no entries match" for a filter that matches plenty;</li>
  *
  *   <li><b>the second question was answered with the first one's page.</b> The entry is registered
@@ -78,11 +76,9 @@ let entityReads: number
 let gate: Promise<void> | null
 
 /**
- * `GET api/audit`, close enough to the real one where it matters: it filters by actor, it pages by cursor, and it refuses `skip` and `after` together the way the
- * API does — which is what makes "never send `skip`" an assertion rather than a convention.
- *
- * The cursor is the last entry's id. The real tokens are opaque, and nothing in the composable may
- * read one, which is exactly why a stand-in can stand in.
+ * `GET api/audit`, close enough to the real one where it matters: it filters by actor, it pages by
+ * offset, it counts only when asked, and it refuses `skip` and `after` together the way the API
+ * does — which is what makes "never send `after`" an assertion rather than a convention.
  */
 registerEndpoint('/api/audit', defineEventHandler(async (event) => {
   const query = getQuery(event) as Record<string, string | undefined>
@@ -98,22 +94,17 @@ registerEndpoint('/api/audit', defineEventHandler(async (event) => {
 
   const take = Number(query.take ?? 25)
   const matching = TRAIL.filter(entry => !query.actor || entry.actor === query.actor)
-  const start = query.after ? matching.findIndex(entry => entry.id === query.after) + 1 : 0
-  const entries = matching.slice(start, start + take)
+  const skip = Number(query.skip ?? 0)
+  const entries = matching.slice(skip, skip + take)
 
   return {
     entries,
-    // Never counted: the dashboard does not ask for a total, and `null` is what the API answers
-    // when it has not been asked. A client that paginated against it would be paginating against
-    // "not counted".
-    total: null,
-    skip: 0,
+    // `null` unless asked for, which is what the API answers: "not counted", never zero.
+    total: query.includeTotal === 'true' ? matching.length : null,
+    skip,
     // How many came back, which is what the real endpoint reports — not the size that was asked
-    // for. Mimicked because a client that reads it as the page size reads a short page as a full
-    // one, and the pager's "is there more" hangs off exactly that.
+    // for.
     take: entries.length,
-    // Returned for every page that holds anything, the last one included. It says where this page
-    // ended and never that another exists, which is the other half of the same trap.
     nextCursor: entries.length ? entries[entries.length - 1]!.id : null
   }
 }))
@@ -208,57 +199,39 @@ describe('useAuditTrail', () => {
     expect(trail.maxPageSize.value).toBe(50)
   })
 
-  it('walks by cursor, and starts the walk again whenever the question changes', async () => {
+  it('pages by offset with a count, and goes back to page 1 whenever the question changes', async () => {
     const { trail } = await mountTrail()
 
     await vi.waitFor(() => expect(trail.entries.value).toHaveLength(3))
 
-    // One entry a page, so the walk has somewhere to go.
+    // The count comes with every page: it is what the numbered pager is drawn from.
+    expect(reads.at(-1)).toMatchObject({ skip: '0', includeTotal: 'true' })
+    expect(trail.total.value).toBe(3)
+
+    // One entry a page, so there are pages to move between.
     await trail.setPageSize(1)
 
     expect(trail.entries.value.map(entry => entry.id)).toEqual(['e3'])
     expect(trail.page.value).toBe(1)
-    expect(trail.hasNewer.value).toBe(false)
-    expect(trail.hasOlder.value).toBe(true)
 
-    await trail.older()
+    // Straight to the last page, which only an offset can do.
+    await trail.goTo(3)
 
-    // The next page is asked for from where the last one ended, by the token the API handed back.
-    expect(reads.at(-1)).toMatchObject({ after: 'e3' })
-    expect(trail.entries.value.map(entry => entry.id)).toEqual(['e2'])
-    expect(trail.page.value).toBe(2)
+    expect(reads.at(-1)).toMatchObject({ skip: '2', take: '1' })
+    expect(trail.entries.value.map(entry => entry.id)).toEqual(['e1'])
+    expect(trail.page.value).toBe(3)
 
-    // Now the question changes. The cursor from the old walk must not go with it: `e3` is a
-    // position in the unfiltered trail, and bob has no entry there at all — sent together with
-    // his name the API answers empty, which reads as "bob changed nothing".
+    // Now the question changes. Bob has one entry, so page 3 of his trail is empty — kept across
+    // the change, it would read as "bob changed nothing".
     await trail.setFilters({ actor: 'bob@example.com' })
 
-    expect(reads.at(-1)!.after).toBeUndefined()
-    expect(reads.at(-1)).toMatchObject({ actor: 'bob@example.com' })
+    expect(reads.at(-1)).toMatchObject({ actor: 'bob@example.com', skip: '0' })
     expect(trail.page.value).toBe(1)
+    expect(trail.total.value).toBe(1)
     expect(trail.entries.value.map(entry => entry.id)).toEqual(['e3'])
 
-    // Bob has exactly one entry and a page holds exactly one, so this is a full page that happens
-    // to be the last — and `nextCursor` says where the page ended, never that another exists. A
-    // cursor walk finds out by asking: the answer is an empty page with a step back from it, which
-    // is the honest end of a walk that deliberately never counted the trail.
-    expect(trail.hasOlder.value).toBe(true)
-
-    await trail.older()
-
-    expect(trail.entries.value).toEqual([])
-    expect(trail.page.value).toBe(2)
-    expect(trail.hasNewer.value).toBe(true)
-    expect(trail.hasOlder.value).toBe(false)
-
-    await trail.newer()
-
-    expect(trail.entries.value.map(entry => entry.id)).toEqual(['e3'])
-    expect(reads.at(-1)!.after).toBeUndefined()
-
-    // `skip` is never sent, by anything, ever: the API refuses it together with `after`, and an
-    // offset re-reads and discards the whole trail ahead of the page it serves.
-    expect(reads.every(read => read.skip === undefined)).toBe(true)
+    // `after` is never sent, by anything: the API refuses it together with `skip`.
+    expect(reads.every(read => read.after === undefined)).toBe(true)
   })
 
   it('does not answer a new question with the answer already in flight', async () => {

@@ -250,7 +250,7 @@
   "audit": {
     "title": "Audit trail",
     "card": {
-      "description": "Served by MapAuditEndpoints() from DotNetBoost.Auditing.API — library endpoints, not ones this application wrote. Every filter below is a parameter on the query the API is asked, and the pages are walked with the cursor it hands back rather than with an offset."
+      "description": "Served by MapAuditEndpoints() from DotNetBoost.Auditing.API — library endpoints, not ones this application wrote. Every filter below is a parameter on the query the API is asked."
     },
     "reload": "Reload the trail",
     "loadError": "Could not load the trail",
@@ -317,9 +317,7 @@
       "description": "Every entry written under the same correlation id. An edit is not always one entry: creating a product with text in several languages writes the product's own entry and the creation trail's, in a scope of its own."
     },
     "pager": {
-      "page": "Page {n}",
-      "newer": "Newer",
-      "older": "Older"
+      "range": "{from}–{to} of {total}"
     },
     "rules": {
       "title": "What is recorded for {entity}",
