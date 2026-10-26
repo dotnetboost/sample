@@ -71,7 +71,8 @@ const logoAlt = computed(() => branding.value?.logo?.altText ?? name.value)
           >
 
           <span class="grid min-w-0 flex-1 text-start leading-tight">
-            <span class="truncate font-semibold">{{ name }}</span>
+            <!-- `text-base`, as the dashboard-01 block sets its own name, one size above the menu. -->
+            <span class="truncate text-base font-semibold">{{ name }}</span>
             <span class="truncate text-xs text-muted-foreground">{{ $t('brand.subtitle') }}</span>
           </span>
         </NuxtLink>
