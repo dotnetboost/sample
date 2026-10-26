@@ -34,13 +34,15 @@
     "github": "DotNetBoost على GitHub",
     "goTo": "الانتقال إلى",
     "documentTitle": "{page} — نموذج DotNetBoost",
-    "main": "لوحة التحكم",
     "resources": "الموارد",
     "search": "بحث…",
     "searchPlaceholder": "اكتب اسم صفحة…",
     "searchDescription": "انتقل إلى صفحة من لوحة التحكم.",
     "noResults": "لا توجد صفحة مطابقة.",
-    "toggleSidebar": "إظهار الشريط الجانبي أو إخفاؤه"
+    "toggleSidebar": "إظهار الشريط الجانبي أو إخفاؤه",
+    "content": "المحتوى",
+    "administration": "الإدارة",
+    "showSections": "إظهار أقسام {page}"
   },
   "brand": {
     "subtitle": "نموذج"

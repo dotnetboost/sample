@@ -34,13 +34,15 @@
     "github": "DotNetBoost on GitHub",
     "goTo": "Go to",
     "documentTitle": "{page} — DotNetBoost Sample",
-    "main": "Dashboard",
     "resources": "Resources",
     "search": "Search…",
     "searchPlaceholder": "Type a page name…",
     "searchDescription": "Jump to a page of the dashboard.",
     "noResults": "No page matches that.",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "content": "Content",
+    "administration": "Administration",
+    "showSections": "Show the sections of {page}"
   },
   "brand": {
     "subtitle": "Sample"

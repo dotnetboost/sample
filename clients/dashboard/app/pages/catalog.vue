@@ -9,7 +9,21 @@ const api = useApi()
 const { notifySuccess, notifyFailure } = useNotify()
 const language = useLanguage()
 
-const tab = ref('categories')
+/**
+ * Which tab is open, kept in the address as `?tab=products` — so the sidebar can link straight to
+ * either tab, and a reload or a shared link lands on the one that was open. Categories is the
+ * default and takes no parameter, so `/catalog` stays the plain address of the page.
+ *
+ * `replace` rather than `push`: switching tabs is looking at the other half of one page, and a
+ * back button that walked through every tab switch would be a back button that does not leave.
+ */
+const route = useRoute()
+const router = useRouter()
+
+const tab = computed<'categories' | 'products'>({
+  get: () => route.query.tab === 'products' ? 'products' : 'categories',
+  set: value => router.replace({ query: { ...route.query, tab: value === 'products' ? 'products' : undefined } })
+})
 
 // The one shared language list: a language added on the Languages page has to reach the
 // translation editors below without a reload.

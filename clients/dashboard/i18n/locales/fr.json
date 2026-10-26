@@ -34,13 +34,15 @@
     "github": "DotNetBoost sur GitHub",
     "goTo": "Aller à",
     "documentTitle": "{page} — Exemple DotNetBoost",
-    "main": "Tableau de bord",
     "resources": "Ressources",
     "search": "Rechercher…",
     "searchPlaceholder": "Saisissez le nom d’une page…",
     "searchDescription": "Accéder à une page du tableau de bord.",
     "noResults": "Aucune page ne correspond.",
-    "toggleSidebar": "Afficher ou masquer la barre latérale"
+    "toggleSidebar": "Afficher ou masquer la barre latérale",
+    "content": "Contenu",
+    "administration": "Administration",
+    "showSections": "Afficher les sections de {page}"
   },
   "brand": {
     "subtitle": "Exemple"
