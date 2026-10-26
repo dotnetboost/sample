@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { enableAutoUnmount } from '@vue/test-utils'
-import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
+import { createError, defineEventHandler, getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import type { AuditEntry } from '~/types'
@@ -8,7 +8,7 @@ import type { AuditEntry } from '~/types'
 /**
  * How the Audit page asks the trail its question, and what happens when the question changes.
  *
- * <b>Why this file exists.</b> Three of the four properties below were wrong in a first cut of
+ * <b>Why this file exists.</b> The three properties below were all wrong in a first cut of
  * `useAuditTrail`, and none of them is visible from inside one request:
  *
  * <ul>
@@ -28,10 +28,6 @@ import type { AuditEntry } from '~/types'
  *   once for the page bound — which is the bug `useLanguageList.spec.ts` documents at length,
  *   arriving a second time on a second endpoint.</li>
  * </ul>
- *
- * The fourth is the one this whole page hangs off: <b>the actor header has to actually be sent</b>.
- * The audit endpoints are the only ones in this application that refuse an anonymous caller, so a
- * header that never left the browser looks exactly like a server that is down.
  */
 
 /** The trail the fake endpoint serves, newest first — the order the API answers in. */
@@ -82,18 +78,13 @@ let entityReads: number
 let gate: Promise<void> | null
 
 /**
- * `GET api/audit`, close enough to the real one where it matters: it refuses an anonymous caller,
- * it filters by actor, it pages by cursor, and it refuses `skip` and `after` together the way the
+ * `GET api/audit`, close enough to the real one where it matters: it filters by actor, it pages by cursor, and it refuses `skip` and `after` together the way the
  * API does — which is what makes "never send `skip`" an assertion rather than a convention.
  *
  * The cursor is the last entry's id. The real tokens are opaque, and nothing in the composable may
  * read one, which is exactly why a stand-in can stand in.
  */
 registerEndpoint('/api/audit', defineEventHandler(async (event) => {
-  if (!getHeader(event, 'x-sample-actor')) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   const query = getQuery(event) as Record<string, string | undefined>
   reads.push(query)
 
@@ -127,11 +118,7 @@ registerEndpoint('/api/audit', defineEventHandler(async (event) => {
   }
 }))
 
-registerEndpoint('/api/audit/entities', defineEventHandler((event) => {
-  if (!getHeader(event, 'x-sample-actor')) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
+registerEndpoint('/api/audit/entities', defineEventHandler(() => {
   entityReads++
 
   return {
@@ -143,25 +130,19 @@ registerEndpoint('/api/audit/entities', defineEventHandler((event) => {
   }
 }))
 
-/**
- * Mounts something that reads the trail, acting as `actor` — set before the composable runs, so the
- * first request carries it, exactly as `plugins/acting-as.ts` arranges in the app.
- */
-async function mountTrail(actor: string) {
+/** Mounts something that reads the trail. */
+async function mountTrail() {
   let trail!: ReturnType<typeof useAuditTrail>
-  let acting!: Ref<string>
 
   await mountSuspended(defineComponent({
     setup() {
-      acting = useActor()
-      acting.value = actor
       trail = useAuditTrail()
 
       return () => h('div')
     }
   }))
 
-  return { trail, acting }
+  return { trail }
 }
 
 /** A second reader of the declared entities, the way the filter bar is one. */
@@ -209,28 +190,8 @@ beforeEach(async () => {
 })
 
 describe('useAuditTrail', () => {
-  it('refuses to read without a caller, and reads as soon as there is one', async () => {
-    const { trail, acting } = await mountTrail('')
-
-    // DotNetBoost.Auditing's own default, which this sample keeps: the one endpoint set in the
-    // application that an anonymous caller cannot read. Not a fault to report as one.
-    await vi.waitFor(() => expect(trail.unauthorized.value).toBe(true))
-    expect(trail.loadError.value).toBe('')
-    expect(trail.entries.value).toEqual([])
-
-    // Naming somebody in the sidebar is the whole of the fix, and the trail re-reads itself.
-    acting.value = 'carol@example.com'
-
-    await vi.waitFor(() => expect(trail.entries.value).toHaveLength(3))
-    expect(trail.unauthorized.value).toBe(false)
-
-    // The header travelled. It is attached by `useApi` and forwarded untouched by the Nitro
-    // proxy; nothing in between invents a name or drops one.
-    expect(reads).toHaveLength(1)
-  })
-
   it('reads the declared entities once for every reader, and takes the page bound from them', async () => {
-    const { trail } = await mountTrail('carol@example.com')
+    const { trail } = await mountTrail()
 
     await vi.waitFor(() => expect(trail.entries.value).toHaveLength(3))
 
@@ -248,7 +209,7 @@ describe('useAuditTrail', () => {
   })
 
   it('walks by cursor, and starts the walk again whenever the question changes', async () => {
-    const { trail } = await mountTrail('carol@example.com')
+    const { trail } = await mountTrail()
 
     await vi.waitFor(() => expect(trail.entries.value).toHaveLength(3))
 
@@ -308,7 +269,7 @@ describe('useAuditTrail', () => {
 
     // The first page is still out: nothing has resolved, and the entry is registered with
     // `dedupe: 'defer'`.
-    const { trail } = await mountTrail('carol@example.com')
+    const { trail } = await mountTrail()
 
     await vi.waitFor(() => expect(reads).toHaveLength(1))
 

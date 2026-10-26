@@ -37,19 +37,6 @@
   "readingLanguage": {
     "label": "Langue de lecture"
   },
-  "actingAs": {
-    "trigger": "Agir en tant que",
-    "nobody": "Aucun nom",
-    "label": "Nom",
-    "placeholder": "alice{'@'}example.com",
-    "help": "Envoyé dans l'en-tête X-Sample-Actor à chaque appel. Le journal d'audit l'enregistre avec chacune de vos modifications, et sa lecture l'exige.",
-    "apply": "Appliquer",
-    "clear": "N'agir sous aucun nom",
-    "notAuthentication": {
-      "title": "Ce n'est pas une authentification",
-      "description": "L'API fait confiance à cet en-tête tel quel — quiconque peut l'atteindre peut se prétendre n'importe qui. Il tient lieu de connexion pour que cet exemple puisse montrer un journal portant de vrais noms."
-    }
-  },
   "appearance": {
     "trigger": "Apparence",
     "theme": "Thème",
@@ -279,10 +266,6 @@
     "redactedTooltip": "Le modèle marque cette propriété comme sensible : les valeurs ont été retenues au lieu d'être enregistrées. Elles ne manquent pas — elles n'ont jamais été stockées.",
     "truncated": "tronquée",
     "truncatedTooltip": "Une valeur dépassait la limite configurée et a été coupée à l'enregistrement.",
-    "needsCaller": {
-      "title": "La lecture du journal exige un appelant",
-      "description": "Les points de terminaison de DotNetBoost.Auditing exigent un appelant authentifié, et cet exemple conserve ce comportement par défaut au lieu de le désactiver — un journal dit qui a fait quoi et quand. Définissez un nom sous « Agir en tant que », en bas de la barre latérale ; il est envoyé à chaque appel, et vos modifications sont dès lors enregistrées sous ce nom. D'ici là, les modifications faites ici sont enregistrées sans aucun acteur."
-    },
     "filters": {
       "entity": "Entité",
       "anyEntity": "Toute entité",

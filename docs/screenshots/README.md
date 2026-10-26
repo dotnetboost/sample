@@ -53,7 +53,7 @@ curl -s -o /dev/null -X POST "$API/api/products" -H 'Content-Type: application/j
       "fr": { "Name": "Bibliothèque en frêne", "Description": "Cinq étagères, dos ouvert." }
     }}'
 
-# 2. Somebody with no name corrects its SKU — no header, so no actor is recorded.
+# 2. The default sample user corrects its SKU — no header, so it is recorded as sample.user@example.com.
 repost "" 4 '{"sku": "SHELF-002"}'
 
 # 3. carol withdraws the lamp. Its history outlives the row.
@@ -84,10 +84,7 @@ repost alice@example.com 1 '{"price": 389.95}'
 The fifth is the one worth keeping if these are ever rewritten: it is a write that adds **no entry**,
 which is exactly what the rules card beside the entries explains.
 
-The page is then photographed with the entity filter on `Product`, the newest entry opened, and the
-dashboard acting as `alice@example.com` — that name lives in `localStorage` under
-`dotnetboost-sample:acting-as`, where the sidebar control keeps it, so it can be set before the
-first paint rather than clicked in.
+The page is then photographed with the entity filter on `Product` and the newest entry opened.
 
 It is **taller than the others**, because the rules card and an opened entry do not fit in their
 height. 1400px wide at 2× is the part that is fixed; the height is whatever the page needs with

@@ -10,9 +10,7 @@ import type {
  * The media library is NOT wrapped here: `useMediaLibrary` talks to `/api/media` directly, exactly
  * as the DotNetBoost.Media dashboard does, so searching, filtering, sorting, paging, uploading,
  * attaching and detaching are that library's own behaviour rather than a second implementation.
- * Those calls therefore carry neither header, which costs nothing: a media file is not an audited
- * entity here — `GET api/audit/entities` lists this application's two — so there is no entry for
- * an actor to be missing from.
+ * Those calls therefore carry no Accept-Language, which costs nothing here.
  */
 
 /**
@@ -41,30 +39,6 @@ const CAPTION = 'Caption'
 export const useLanguage = () => useState<string>('language', () => 'en')
 
 /**
- * Who the dashboard is acting as. Sent as `X-Sample-Actor` on every call that goes through here,
- * and empty for "nobody", which is a request with no such header at all.
- *
- * Two things in this sample depend on it, and they are the two halves of what DotNetBoost.Auditing
- * does:
- *
- *   • **the audit endpoints require an authenticated caller** — the library's own default, which
- *     this sample deliberately keeps — so with no name the Audit page gets a `401` and says why;
- *   • **a change records whoever made it**. `UseHttpContextActor()` reads `HttpContext.User`, so a
- *     catalogue write that carries this header is attributed to that name, and one that does not
- *     is recorded with no actor rather than with a guess.
- *
- * **This is not authentication and must not be read as any.** The API's scheme trusts the header
- * outright — anyone who can reach it can claim to be anyone — and
- * `Authentication/SampleActorAuthentication.cs` is where that is set out in full. The dashboard's
- * side of the bargain is to send only a name a person typed into `ActingAs.vue`: no default, no
- * `dashboard@localhost`, nothing invented here and presented to the trail as an identity.
- *
- * Seeded empty and overwritten by `plugins/acting-as.ts` with whatever was last used, before the
- * app mounts.
- */
-export const useActor = () => useState<string>('actor', () => '')
-
-/**
  * MultiLingual's translation route for a subject, from the two strings the API published for it.
  * Encoded, because an entity name is a value and not a path fragment this client chose.
  */
@@ -87,21 +61,16 @@ export interface Abortable {
 
 export function useApi() {
   const language = useLanguage()
-  const actor = useActor()
 
   /**
-   * The two headers every call below carries: the language to answer in, and who is asking.
+   * The header every call below carries: the language to answer in. It travels through the Nitro
+   * proxy untouched; `server/api/[...path].ts` says why.
    *
-   * The actor is omitted rather than sent empty when nobody is set. A `X-Sample-Actor:` with no
-   * value is not an anonymous request to a header-trusting scheme — it is a request to be
-   * authenticated as the empty string — and the API's handler is written to read it as anonymous
-   * either way, which is exactly the kind of agreement that should not need to hold.
-   *
-   * Both travel through the Nitro proxy untouched; `server/api/[...path].ts` says why.
+   * No actor: the API signs every request in as its one sample user — see
+   * `Authentication/SampleActorAuthentication.cs`.
    */
   const headers = (): Record<string, string> => ({
-    'Accept-Language': language.value,
-    ...(actor.value ? { 'X-Sample-Actor': actor.value } : {})
+    'Accept-Language': language.value
   })
 
   return {
@@ -143,7 +112,7 @@ export function useApi() {
     //
     // Read-only, because this application maps only the library's read endpoints: no erasure, no
     // prune. Every one of them requires an authenticated caller — the library's own default, kept —
-    // so all four go out with the actor header `headers()` adds, and answer `401` without it.
+    // which the API's sample scheme always provides.
     audit: {
       /**
        * One page of the trail, newest first.

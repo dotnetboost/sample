@@ -31,11 +31,10 @@ namespace DotNetBoostSample.Api.Authentication;
 /// changed it" demonstrates half a library. A header is a poor authenticator and a perfectly good
 /// <em>actor</em>, and the actor is the part this sample is showing.</para>
 ///
-/// <para>Everything else stays anonymous. Only the audit endpoints require a caller, because only
-/// they ask for one; the catalogue, the settings, the media and the languages are reachable as
-/// before. What this scheme adds to those is attribution: a write that arrives with the header
-/// gets recorded against that name, and one that does not is recorded with no name rather than
-/// with a guess.</para>
+/// <para><b>Every request is signed in.</b> A request without the header is signed in as
+/// <see cref="DefaultActor"/>, so the dashboard needs no "who are you" control: the trail is
+/// readable and every change is attributed to the one sample user. The header is still honoured
+/// when present, which is how the integration tests act as more than one person.</para>
 /// </summary>
 public sealed class SampleActorAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -54,14 +53,14 @@ public sealed class SampleActorAuthenticationHandler(
     /// </summary>
     public const string ActorHeader = "X-Sample-Actor";
 
+    /// <summary>Who a request is signed in as when it does not name anyone.</summary>
+    public const string DefaultActor = "sample.user@example.com";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var actor = Request.Headers[ActorHeader].ToString().Trim();
 
-        // NoResult rather than Fail: no header is an anonymous request, which is allowed
-        // everywhere except the audit endpoints. Fail would turn every unauthenticated read of
-        // the catalogue into a 401.
-        if (string.IsNullOrEmpty(actor)) return Task.FromResult(AuthenticateResult.NoResult());
+        if (string.IsNullOrEmpty(actor)) actor = DefaultActor;
 
         // ClaimTypes.Name, because that is what IIdentity.Name reads and what the library's
         // HttpContextAuditActorAccessor therefore records. The engine caps the stored actor at

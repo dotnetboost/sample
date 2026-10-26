@@ -10,9 +10,8 @@ import type { AuditAction, AuditEntry } from '~/types'
  *
  *   • **it needs a caller.** `MapAuditEndpoints()` requires an authenticated one by default — a
  *     trail says who did what and when, which is personal data about an organisation's staff — and
- *     the sample keeps that default instead of turning it off. With nobody set in the sidebar the
- *     API answers `401` and this page says so, which is a more honest first screen than an empty
- *     table;
+ *     the sample keeps that default instead of turning it off. The API's sample scheme signs every
+ *     request in as one sample user, so the page is always readable here;
  *   • **translated text is not in it.** Name and Description carry `[AuditIgnore]`, so a save that
  *     only changed Arabic text adds no entry. The rules card says that in the model's own words,
  *     next to the trail, because the alternative is someone concluding the recording is broken.
@@ -23,7 +22,7 @@ useHead({ title: () => t('nav.documentTitle', { page: t('nav.audit') }) })
 
 const {
   query, entries, entities, maxPageSize, schema,
-  pending, page, hasNewer, hasOlder, isFiltered, unauthorized, loadError,
+  pending, page, hasNewer, hasOlder, isFiltered, loadError,
   setFilters, setPageSize, older, newer, showEdit, reset, reload
 } = useAuditTrail()
 
@@ -117,22 +116,8 @@ async function go(move: () => unknown) {
         />
       </UPageCard>
 
-      <!--
-        The `401` this page gets with nobody set, explained rather than reported as a fault. It is
-        the library's own default and the only authorization check in this application, so the
-        thing to say is where the control is — not "something went wrong".
-      -->
       <UAlert
-        v-if="unauthorized"
-        color="warning"
-        variant="subtle"
-        icon="i-lucide-user-round-x"
-        :title="$t('audit.needsCaller.title')"
-        :description="$t('audit.needsCaller.description')"
-      />
-
-      <UAlert
-        v-else-if="loadError"
+        v-if="loadError"
         color="error"
         variant="subtle"
         icon="i-lucide-plug-zap"

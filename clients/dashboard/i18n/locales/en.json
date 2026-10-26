@@ -37,19 +37,6 @@
   "readingLanguage": {
     "label": "Reading language"
   },
-  "actingAs": {
-    "trigger": "Acting as",
-    "nobody": "Acting as nobody",
-    "label": "Name",
-    "placeholder": "alice{'@'}example.com",
-    "help": "Sent as X-Sample-Actor on every call. The audit trail records it against each change you make, and reading the trail needs it.",
-    "apply": "Apply",
-    "clear": "Act as nobody",
-    "notAuthentication": {
-      "title": "Not authentication",
-      "description": "The API trusts this header outright — anyone who can reach it can claim to be anyone. It stands in for a sign-in so the sample can show a trail with real names in it."
-    }
-  },
   "appearance": {
     "trigger": "Appearance",
     "theme": "Theme",
@@ -279,10 +266,6 @@
     "redactedTooltip": "The model marks this property sensitive, so the values were withheld rather than recorded. They are not missing — they were never stored.",
     "truncated": "truncated",
     "truncatedTooltip": "A value was longer than the configured limit and was cut short when it was recorded.",
-    "needsCaller": {
-      "title": "Reading the trail needs a caller",
-      "description": "DotNetBoost.Auditing's endpoints require an authenticated caller, and this sample keeps that default rather than turning it off — a trail says who did what and when. Set a name under \"Acting as\" at the bottom of the sidebar; it is sent on every call, and your own changes are recorded against it from then on. Until then, changes made here are recorded with no actor at all."
-    },
     "filters": {
       "entity": "Entity",
       "anyEntity": "Any entity",

@@ -42,8 +42,7 @@ because they are the point.
 meet](docs/screenshots/overview.png)
 
 A sidebar shell matching the four libraries' own dashboards — **Catalog**, **Media**,
-**Languages**, **Audit**, **Settings**, with the reading-language selector in every page header
-and, at the foot of the sidebar, who the dashboard is **acting as**.
+**Languages**, **Audit**, **Settings**, with the reading-language selector in every page header.
 
 That one selector moves **both** languages in the dashboard. The content language is a row in
 DotNetBoost.MultiLingual that the API resolves from `Accept-Language`; the dashboard's own labels,
@@ -183,19 +182,12 @@ with](#what-a-catalogue-write-answers-with) has the shapes.
 ![The audit trail: one entity's entries, and what the model says is recorded for
 it](docs/screenshots/audit.png)
 
-**Audit** is DotNetBoost.Auditing's trail, and the one page here that has to be signed in to.
-`MapAuditEndpoints()` requires an authenticated caller *by default* — a trail says who did what and
-when — and this sample keeps that default rather than switching it off, so with nobody set the page
-explains the `401` instead of showing an empty table.
-
-Who you are is the control at the foot of the sidebar: **acting as**. It is a name you type, sent as
-`X-Sample-Actor` on every call the dashboard makes — which is what makes your own catalogue writes
-attributable as well as the trail readable. The dashboard knows nobody, so nothing is invented
-there: acting as nobody is the starting state, changes made that way are recorded with no actor, and
-the trail renders that as `unknown` rather than naming a person who does not exist. The API trusts
-the header outright and [says so at
-length](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs); the dashboard's half
-of the bargain is to send only a name somebody typed.
+**Audit** is DotNetBoost.Auditing's trail. `MapAuditEndpoints()` requires an authenticated caller
+*by default* — a trail says who did what and when — and this sample keeps that default rather than
+switching it off. The API's [stand-in
+scheme](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs) signs every request
+that names nobody in as one sample user, `sample.user@example.com`, so the dashboard has no sign-in
+control: the trail is always readable and your catalogue writes are attributed to that user.
 
 The filters — entity, key, actor, action and a date range — are parameters on the query the API is
 asked, never a pass over the rows already on screen, which for an append-only trail would search the
@@ -275,9 +267,8 @@ curl -H 'X-Sample-Actor: alice@example.com' \
   'http://localhost:5180/api/audit?entityName=Product&take=10'
 ```
 
-The dashboard sends the same header, from the **acting as** control at the foot of its sidebar — so
-a product changed there is attributed to whatever name is set, and to no actor at all while none is.
-Either way the trail is read on the Audit page as well as with `curl`.
+Without the header the request is signed in as `sample.user@example.com` — which is how the
+dashboard calls the API, so a product changed there is attributed to that user.
 
 **The dashboard** needs **Node 22+**, its dependencies installed — `aspire run` does that for you
 and nothing else does — and the address of that API:
@@ -1039,9 +1030,7 @@ reads as "no entries match" for a filter that matches plenty. Two more propertie
 it: that `skip` is never sent at all, which the API refuses together with `after` anyway; and that
 a filter typed while the first page is still in flight is not answered with that page — the entry is
 registered `dedupe: 'defer'` for the readers that arrive in the same tick, so every deliberate move
-refreshes with `dedupe: 'cancel'` instead. The fourth test is the one the whole page hangs off:
-without the actor header the trail is a `401`, and naming somebody makes it readable — a header that
-never left the browser looks exactly like a server that is down.
+refreshes with `dedupe: 'cancel'` instead.
 
 The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
 `npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which

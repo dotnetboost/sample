@@ -1,3 +1,4 @@
+using DotNetBoostSample.Api.Authentication;
 using System.Net;
 using System.Text.Json;
 using Xunit;
@@ -214,30 +215,25 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
-    /// The trail is not readable without a caller — the one endpoint set in this application that
-    /// requires one.
+    /// A request that names nobody is signed in as the sample's one default user — so the trail is
+    /// readable without the header and a change made that way is attributed to that user.
     ///
-    /// <para>That is DotNetBoost.Auditing's own default and the reason this sample has an
-    /// authentication scheme at all. The three sibling libraries map their endpoints anonymously
-    /// and leave securing them to the application; this one does not, because a trail says who did
-    /// what and when. Pinned here so that "we turned it off to get the tests passing" would be a
-    /// failing test rather than a quiet edit.</para>
+    /// <para>The audit endpoints still require an authenticated caller — DotNetBoost.Auditing's own
+    /// default, kept — the sample scheme simply always provides one.</para>
     /// </summary>
     [RequiresDockerFact]
-    public async Task The_trail_is_the_one_thing_here_that_refuses_an_anonymous_caller()
+    public async Task A_caller_who_names_nobody_is_the_default_sample_user()
     {
         // No X-Sample-Actor header.
-        var anonymous = app.Client;
+        var client = app.Client;
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/audit")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/audit/entities")).StatusCode);
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Made by the default user");
 
-        // While everything else is reachable exactly as before.
-        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync("/api/products")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync("/api/settings")).StatusCode);
+        var entries = await Trail(client, "Product", id);
 
-        // And with a caller, the trail answers.
-        Assert.Equal(HttpStatusCode.OK, (await app.Client.AsActor().GetAsync("/api/audit")).StatusCode);
+        Assert.Equal(
+            SampleActorAuthenticationHandler.DefaultActor,
+            Assert.Single(entries).Str("actor"));
     }
 
     /// <summary>

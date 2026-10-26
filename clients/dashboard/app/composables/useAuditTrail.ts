@@ -75,8 +75,7 @@ export function useAuditEntities() {
  */
 export function useAuditTrail() {
   const api = useApi()
-  const actor = useActor()
-  const { entities, maxPageSize, error: entitiesError, refresh: refreshEntities } = useAuditEntities()
+  const { entities, maxPageSize } = useAuditEntities()
 
   const query = reactive<AuditQuery>({
     entityName: '',
@@ -175,19 +174,8 @@ export function useAuditTrail() {
     query.entityName || query.entityId || query.actor || query.action
     || query.from || query.to || query.correlationId))
 
-  /**
-   * Whether the API refused the read for want of a caller.
-   *
-   * The one endpoint set in this application that does — DotNetBoost.Auditing's own default, which
-   * the sample keeps — so a `401` here is not a fault to report as one. The page explains it and
-   * points at the control that fixes it.
-   */
-  const unauthorized = computed(() =>
-    statusOf(error.value) === 401 || statusOf(entitiesError.value) === 401)
-
-  /** Any other refusal, in the API's own words. Empty while the trail is merely unauthorized. */
-  const loadError = computed(() =>
-    !unauthorized.value && error.value ? problemMessage(error.value) : '')
+  /** A refusal, in the API's own words. */
+  const loadError = computed(() => error.value ? problemMessage(error.value) : '')
 
   /** Reloads the listing for a question that has just changed. Never deferred — see above. */
   const reload = () => refresh({ dedupe: 'cancel' })
@@ -279,25 +267,12 @@ export function useAuditTrail() {
     })
   }
 
-  /**
-   * Setting a name in the sidebar makes the trail readable; clearing it makes it a `401` again.
-   *
-   * One watcher, here, rather than one in `useActor` — which every call in `useApi` reads, so a
-   * watcher living there would be one per caller all refreshing the same keys. This is the only
-   * screen whose answers change with who is asking.
-   */
-  watch(actor, () => {
-    refreshEntities({ dedupe: 'cancel' })
-    schemaData.refresh({ dedupe: 'cancel' })
-    reload()
-  })
-
   /** The rules follow the entity filter, and nothing else re-reads them. */
   watch(() => query.entityName, () => schemaData.refresh({ dedupe: 'cancel' }))
 
   return {
     query, entries, entities, maxPageSize, schema: schemaData.data,
-    pending, page, hasNewer, hasOlder, isFiltered, unauthorized, loadError,
+    pending, page, hasNewer, hasOlder, isFiltered, loadError,
     setFilters, setPageSize, older, newer, showEdit, reset, reload
   }
 }
