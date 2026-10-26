@@ -23,20 +23,20 @@ namespace DotNetBoostSample.Infrastructure.Persistence;
 /// </para>
 /// <para>
 /// Auditing is the newest of the four and the one that says most about the arrangement. Its two
-/// tables are mapped here like any other library's — but its <em>capture</em> is not attached to
-/// this context, because <c>Translation</c> has a composite key that an audit entry cannot
-/// address, and neither the attribute that would exclude it nor the key that would fix it belongs
-/// to this application. So the catalogue's writes record themselves, one line per write slice.
-/// <c>DependencyInjection.cs</c> has the whole finding; it is the one place where two of these
-/// libraries, in one database, do not simply coexist.
+/// tables are mapped here like any other library's, and its capture is attached to this context in
+/// <c>DependencyInjection.cs</c> — beside MultiLingual's, on the same save. Two things had to be
+/// true for that: MultiLingual's <c>Translation</c>, keyed on four columns, is kept out of the
+/// trail with <c>IgnoreEntity&lt;Translation&gt;()</c>, and the two entities here take HiLo keys
+/// so that a creation's entry is written in the save that creates the row. That file has both.
 /// </para>
 /// <para>
-/// It is also the <b>one</b> of the eight composition files that is infrastructure. The other
-/// seven — <c>MediaText</c>, <c>MediaTextCleanup</c>, <c>MultiLingualSchemaContributor</c>,
-/// <c>BrandingProjector</c>, <c>CreationTrail</c> and the two entities' attributes — depend on
-/// <c>DotNetBoost.*.Core</c> and nothing else, so they live in the application and domain layers
-/// beside the code that uses them. Joining two libraries turns out not to be a persistence
-/// concern; joining them <em>in one database</em> is, and that is this file.
+/// It is also one of only <b>two</b> of the eight composition files that are infrastructure, and
+/// the other is that one line in <c>DependencyInjection.cs</c>. The remaining six —
+/// <c>MediaText</c>, <c>MediaTextCleanup</c>, <c>MultiLingualSchemaContributor</c>,
+/// <c>BrandingProjector</c> and the two entities' attributes — depend on <c>DotNetBoost.*.Core</c>
+/// and nothing else, so they live in the application and domain layers beside the code that uses
+/// them. Joining two libraries turns out not to be a persistence concern; joining them <em>in one
+/// database</em> is, and both infrastructure files are about exactly that.
 /// </para>
 /// <para>
 /// <see cref="IAppDbContext"/> is the application layer's view of it: the two <c>DbSet</c>s and
@@ -95,9 +95,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // side effect: the entry that records the deletion is the only copy of what the row said.
         //
         // Nothing is added to Category or Product by this call. That is the whole of the schema
-        // side, and it is deliberately separate from what makes a change get recorded — which
-        // here is the write slices calling IAuditManager, because the interceptor that would do
-        // it for them cannot be attached to this context. See DependencyInjection.cs.
+        // side, and it is deliberately separate from what makes a change get recorded — which is
+        // `UseAuditing(sp)` on the options, in DependencyInjection.cs.
         modelBuilder.ApplyAuditing();
     }
 }

@@ -1,6 +1,7 @@
 using DotNetBoost.Auditing.Core;
 using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.MultiLingual.Core;
+using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Composition;
@@ -102,9 +103,10 @@ public static class DependencyInjection
         // connection string is read from configuration by the host rather than through
         // AddNpgsqlDbContext.
         //
-        // There is NO `.UseAuditing(sp)` here, and that is the one thing on this branch that did
-        // not go the way the libraries' READMEs describe. See the Auditing block below: it is not
-        // a preference, and it is not an omission.
+        // `UseAuditing(sp)` adds DotNetBoost.Auditing's SaveChangesInterceptor, which reads the
+        // change tracker on every save and records what moved — so no handler mentions auditing.
+        // Two independent libraries' interceptors on one context, chained in a line and knowing
+        // nothing of each other. What it took to make that true is in the Auditing block below.
         //
         // `ReplaceService` is the one addition the base language asked for here: the model this
         // context builds depends on that option, and EF's own cache key does not. See
@@ -113,6 +115,7 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>((sp, options) =>
             options.UseNpgsql(connectionString)
                    .UseMultiLingual(sp)
+                   .UseAuditing(sp)
                    .ReplaceService<IModelCacheKeyFactory, MultiLingualModelCacheKeyFactory>());
 
         // The application layer's view of the same context — the two DbSets and SaveChangesAsync.
@@ -248,38 +251,42 @@ public static class DependencyInjection
         // in two tables of its own, so no column, no collection and no migration appears on an
         // entity because it is audited.
         //
-        // ── And one thing is missing that the library's README would have here ──
+        // ── What it took to attach the capture to THIS context ───────────────
         //
-        // `o.UseAuditing(sp)` on the context above — the SaveChangesInterceptor that reads the
-        // change tracker, which is how an application normally gets a trail without a line in a
-        // handler. It cannot be attached to THIS context, and the reason is the most useful thing
-        // this sample has learned from installing a fourth library:
+        // `o.UseAuditing(sp)` above records every change this context saves, and two things
+        // stood between this application and that line. Both are written down here because they
+        // are what happens when two libraries that share nothing meet in one DbContext.
         //
-        //   Translation has a composite primary key (EntityName, EntityId, PropertyName,
-        //   LanguageCode). An audit entry records a single key. Give the entity a surrogate key,
-        //   exclude it with [AuditIgnore], or record against it by hand with audit.For(name, id).
+        //   1. Translation. DotNetBoost.MultiLingual saves one of these beside every translated
+        //      entity, keyed on four columns (EntityName, EntityId, PropertyName, LanguageCode).
+        //      An audit entry records a single key, so the capture cannot address it — and nobody
+        //      here owns the type to put [AuditIgnore] on it. `IgnoreEntity<Translation>()` below
+        //      is that attribute, applied from the outside: the class-level [AuditIgnore] for a
+        //      type the application cannot annotate. Neither library learned the other exists.
+        //      Translated text is out of the trail anyway — see Product.Name — so ignoring its
+        //      rows loses nothing the trail was meant to carry.
         //
-        // That is the library's own exception, thrown on the first save that tracks a translation
-        // row — which is every catalogue write. All three of its suggestions are addressed to
-        // whoever owns the entity, and nobody here owns it: Translation is DotNetBoost.
-        // MultiLingual's, its lack of a surrogate key is documented as deliberate ("the natural
-        // key is unique by definition"), and an attribute cannot be applied to a type from the
-        // outside. RequireOptIn does not help either — the key is read before the engine asks
-        // whether the entity is audited at all.
+        //   2. Keys. A creation's entry is addressed by the new row's id, and a key the database
+        //      generates does not exist until the INSERT has run — so for such an entity the
+        //      interceptor writes the Created entry in a SECOND SaveChanges, nested inside the
+        //      first one's SavedChanges, under a transaction it opens itself. On this context that
+        //      nested save runs through MultiLingual's interceptor as well, while MultiLingual is
+        //      somewhere between capturing a [MultiLingual] entity's text and writing it — and a
+        //      second save of a just-created entity is exactly how this application once lost a
+        //      product's name, an empty one written over the stored one (git history has
+        //      CreationTrail.cs, the workaround it needed). Whether the nested save is safe depends
+        //      on the order the two interceptors run in and on internals neither library promises.
+        //      So Category and Product take their keys from HiLo sequences instead (see their
+        //      configurations): the id is assigned when the entity is ADDED, every creation's entry
+        //      goes into the caller's own save, and there is no second save to reason about. The
+        //      libraries' own entities already assign their keys in code.
         //
-        // So this application records explicitly instead, which is the third suggestion and a
-        // first-class path in the library rather than a workaround: the six catalogue write slices
-        // each report their own change through IAuditManager and AuditDiff. What that costs is in
-        // the README under "What this costs"; what it buys back is that an entry is appended to
-        // this DbContext and committed by the SAME SaveChanges as the change it describes, so an
-        // update and its trail still land together or neither does. A creation is the exception,
-        // and Application/Composition/CreationTrail.cs is the exception written down.
-        //
-        // The honest summary: two independent libraries, in one DbContext, incompatible at the
-        // capture level — and no shared kernel to arbitrate, which is exactly the trade this
-        // repository is about. An ignore-list on the builder (`o.Ignore<Translation>()`) would
-        // close it without either library knowing about the other, and that is what this sample
-        // would ask the library for next.
+        // What that buys is the guarantee the library is built around, now without exceptions:
+        // a change and its entry are in one SaveChanges, so they commit together or neither does.
+        // And every mapped entity is captured unless it is ignored — Setting, MediaFile,
+        // MediaAttachment and Language as well as the catalogue — because that is the library's
+        // default, and an edit to branding is as much a change somebody made as an edit to a
+        // product.
         var auditing = services
             .AddAuditing()
             // The trail goes in AppDbContext, not in a store of its own, and that is what the
@@ -288,15 +295,19 @@ public static class DependencyInjection
             // entry in one transaction. The library's Dapper and MongoDb stores write when they
             // are called instead, and atomicity is then the application's to arrange.
             .UseEntityFrameworkCore<AppDbContext>()
-            // The application's own two entities, by type — and on the explicit path this is
-            // load-bearing rather than decorative. It is what lets the engine apply a type's
-            // [AuditIgnore] and [AuditRedact] rules to a write addressed by name, what a prune
-            // would read a per-entity retention from, and what GET /api/audit/entities lists.
+            // The application's own two entities, by type. The interceptor reads a type's
+            // [AuditIgnore] and [AuditRedact] rules off the tracked entity itself, so this is not
+            // what applies them; it is what GET /api/audit/entities lists and describes, and what
+            // a prune would read a per-entity retention from.
             //
             // DeclareEntities rather than DeclareEntitiesFrom(assembly), because the scan declares
             // the types that CARRY one of the library's attributes and these two carry none —
             // which is the point above restated.
-            .DeclareEntities(typeof(Category), typeof(Product));
+            .DeclareEntities(typeof(Category), typeof(Product))
+            // DotNetBoost.MultiLingual's row, kept out of the trail — see above. Build() refuses a
+            // type that is both declared and ignored, and the declaration above names only this
+            // application's own two, so the two lines cannot disagree.
+            .IgnoreEntity<Translation>();
 
         // No retention is configured, deliberately. Retention does nothing until a prune runs,
         // this sample schedules none, and POST /api/audit/prune is not mapped — so a number here

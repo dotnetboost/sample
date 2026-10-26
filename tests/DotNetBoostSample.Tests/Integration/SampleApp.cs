@@ -60,9 +60,9 @@ public class SampleApp : IAsyncLifetime
     ///
     /// <para>Asked for rather than written down as <c>1</c>, which is what nine of these tests
     /// did. That literal is not wrong today — every fixture gets a fresh container and the seed
-    /// creates its categories first, so the first identity id is 1 and belongs to furniture. It is
-    /// an undeclared dependency on both of those facts, and it fails badly in either direction:
-    /// if no category has id 1 any more, a test about Arabic text answers 404 on its product
+    /// creates its categories first, so the first id the sequence hands out is 1 and belongs to
+    /// furniture. It is an undeclared dependency on both of those facts, and it fails badly in
+    /// either direction: if no category has id 1 any more, a test about Arabic text answers 404 on its product
     /// create and names the seed nowhere; and if id 1 is simply a DIFFERENT category — one added
     /// above furniture in <c>DatabaseInitialiser</c> — nothing fails at all, the products are
     /// just filed somewhere nobody meant, which is the worse of the two.</para>
@@ -170,6 +170,30 @@ public class SampleApp : IAsyncLifetime
 
         return value;
     }
+
+    /// <summary>
+    /// A connection string for another database in this run's PostgreSQL — for the one test that
+    /// needs a database of its own to change the schema of, without touching the one every other
+    /// test in the collection shares.
+    /// </summary>
+    public string ConnectionStringFor(string database) =>
+        new Npgsql.NpgsqlConnectionStringBuilder(_postgres.GetConnectionString()) { Database = database }
+            .ConnectionString;
+
+    /// <summary>
+    /// A second copy of the real application, on <paramref name="connectionString"/> and this run's
+    /// media root. Booted the same way as <see cref="InitializeAsync"/> boots the shared one, so the
+    /// initialiser it runs is the one <c>aspire run</c> runs. The caller disposes it.
+    /// </summary>
+    public WebApplicationFactory<Program> Boot(string connectionString) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ConnectionStrings:catalog", connectionString);
+            builder.UseSetting("Media:Root", _mediaRoot);
+
+            if (BaseLanguage is not null)
+                builder.UseSetting("MultiLingual:BaseLanguage", BaseLanguage);
+        });
 
     /// <summary>Resets the catalogue settings group, so one test's edit cannot reach another.</summary>
     public Task ResetCatalogSettingsAsync() =>

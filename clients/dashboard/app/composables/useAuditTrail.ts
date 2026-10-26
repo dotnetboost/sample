@@ -189,11 +189,11 @@ export function useAuditTrail() {
   /**
    * Narrows the trail to one edit — every entry written under the same correlation id.
    *
-   * Worth a control of its own because an edit in this application is not always one entry: a
-   * product created with text in three languages writes the product's entry and, in a scope of its
-   * own, the creation trail's — see `Composition/CreationTrail.cs`. The correlation id is what says
-   * those belong together, and reading them apart is how someone concludes the trail is recording
-   * twice.
+   * Worth a control of its own because an edit in this application is not always one entry: the
+   * API's capture records every entity a save touches, and one save can touch several — a settings
+   * group writes a row per value, and a product's images are rows of DotNetBoost.Media's own. The
+   * correlation id is one per save, which is what says those belong together, and reading them
+   * apart is how someone concludes the trail is recording twice.
    *
    * The other filters are cleared with it: the rest of an edit may well be another entity.
    */

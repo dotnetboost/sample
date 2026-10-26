@@ -3,7 +3,6 @@ using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Abstractions.Results;
 using DotNetBoostSample.Application.Catalog.Shared;
-using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Localization;
 using DotNetBoostSample.Domain.Catalog;
 using FluentValidation;
@@ -49,8 +48,7 @@ public static class CreateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        TranslatedText translatedText,
-        CreationTrail trail) : IRequestHandler<Command, Result<ProductCreated>>
+        TranslatedText translatedText) : IRequestHandler<Command, Result<ProductCreated>>
     {
         /// <inheritdoc/>
         public async Task<Result<ProductCreated>> HandleAsync(Command request, CancellationToken ct)
@@ -81,15 +79,14 @@ public static class CreateProduct
                 CategoryId = request.CategoryId
             };
 
-            db.Products.Add(product);
+            // AddAsync, because adding is what gives the product its id: a HiLo key, assigned
+            // before the save rather than by the INSERT. That is what lets DotNetBoost.Auditing's
+            // interceptor write the Created entry in the same SaveChanges as the row and its
+            // translations — see ProductConfiguration.
+            await db.Products.AddAsync(product, ct);
 
+            // One save for the row, every language's text, and the entry that says who created it.
             await translatedText.SaveAsync(db, product, request.Translations, ct);
-
-            // And who created it — after the save, because the id the entry is addressed by is the
-            // database's to assign, and in a unit of work of its own, because this one cannot be
-            // saved twice without MultiLingual rewriting the text just stored. CreationTrail has
-            // both reasons and what they cost.
-            await trail.RecordAsync(product, ct);
 
             return new ProductCreated(product.Id, product.Sku);
         }

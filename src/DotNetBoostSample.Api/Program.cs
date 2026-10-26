@@ -23,15 +23,16 @@ using Scalar.AspNetCore;
 //
 //  The fourth arrived without moving the other three. Auditing's whole presence in this file is
 //  one delegate and one Map call; in the rest of the solution it is one Apply* line in
-//  AppDbContext, one block in AddInfrastructure, two attributes in Domain and one line in each of
-//  the six catalogue write slices. Nothing in the other three moved. That is the strongest
+//  AppDbContext, one block and one UseAuditing(sp) in AddInfrastructure, and two attributes in
+//  Domain — no handler mentions it. Nothing in the other three moved. That is the strongest
 //  evidence here for what "no shared kernel" is worth, because it is the only one measured by
 //  ADDING a library rather than by reading the ones already in — and the last two items on that
 //  list are also where the cost showed up, which is the rest of this comment.
 //
 //  What ties them together is eight files, all of them application and domain code, none of them
 //  large, and each one a place where this application says two libraries are talking about the
-//  same thing — except the last two, which are where it says they cannot:
+//  same thing — except the last two, which are where it says one of them must leave the other's
+//  data alone:
 //
 //    • Infrastructure/Persistence/AppDbContext.cs     — all four. One database, four Apply*
 //                                        calls, nothing else.
@@ -52,14 +53,14 @@ using Scalar.AspNetCore;
 //  Auditing added two more, and they are the first on this list that exist because two libraries
 //  DISAGREE rather than because they are talking about the same thing:
 //
-//    • Application/Composition/CreationTrail.cs       — Auditing → MultiLingual. A creation's entry
-//                                        needs a second save, and a second save on this context
-//                                        would make MultiLingual rewrite the text the first one
-//                                        stored — so it is written in a scope of its own. It
-//                                        exists at all because the two libraries cannot both watch
-//                                        one DbContext: Infrastructure/DependencyInjection.cs has
-//                                        that finding, which is the most useful thing in this
-//                                        repository about what independence costs.
+//    • Infrastructure/DependencyInjection.cs          — Auditing → MultiLingual, one line of it:
+//                                        .IgnoreEntity<Translation>(). MultiLingual's row is keyed
+//                                        on four columns and an audit entry on one, and nobody
+//                                        here owns the type to put [AuditIgnore] on it — so the
+//                                        attribute is applied from the outside. Until
+//                                        DotNetBoost.Auditing 1.0.0-preview.2 there was no way to,
+//                                        the capture could not be attached to this context at all,
+//                                        and the catalogue's handlers recorded every change by hand.
 //    • Domain/Catalog/{Category,Product}.cs           — MultiLingual → Auditing. [AuditIgnore]
 //                                        beside [MultiLingual] on the two translated properties: a
 //                                        trail has no language, so a property whose value depends
@@ -67,17 +68,18 @@ using Scalar.AspNetCore;
 //                                        which is why eight files are seven entries.
 //
 //  Eight, counted the same way as five was. The README said then that a sixth would mean the claim
-//  had quietly stopped being true, and it has: this application now writes glue because two of its
-//  libraries cannot both watch one DbContext, which is a worse kind of glue than "these two tables
-//  are about one thing" and is worth saying out loud rather than absorbing into the count.
+//  had quietly stopped being true, and it has: two of these exist because the libraries disagree
+//  about what can be recorded, which is a worse kind of glue than "these two tables are about one
+//  thing" and is worth saying out loud rather than absorbing into the count.
 //
-//  Seven of the eight turn out to be abstraction-only — they name DotNetBoost.*.Core and nothing
+//  Six of the eight turn out to be abstraction-only — they name DotNetBoost.*.Core and nothing
 //  else — which is why they sit in the application and domain layers beside the code that uses
-//  them. Only AppDbContext is infrastructure. Joining two libraries is not a persistence concern;
+//  them. The other two — AppDbContext and that one line of AddInfrastructure — are infrastructure,
+//  and both are about sharing one DbContext. Joining two libraries is not a persistence concern;
 //  joining them in ONE DATABASE is.
 //
 //  The count is eight rather than a rounder number because every file joining two libraries is on
-//  the list, including the two that are there because a library could not be used as documented.
+//  the list, including the two that are there because two libraries disagree.
 //
 //  It was more. Writing alt text is not here any more — DotNetBoost.MultiLingual ships the
 //  translation endpoints now, and the dashboard's editor calls them directly — and branding was a

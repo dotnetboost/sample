@@ -19,7 +19,7 @@ import type { AuditAction, AuditEntityDescriptor, AuditQuery, AuditSort } from '
  */
 const props = defineProps<{
   query: AuditQuery
-  /** From `GET api/audit/entities` — what this installation actually records. */
+  /** From `GET api/audit/entities` — the entities this installation declares. */
   entities: AuditEntityDescriptor[]
   /** The API's own bound on a page, from the same response. 0 until it has answered. */
   maxPageSize: number
@@ -49,12 +49,13 @@ const { t } = useI18n()
 const ANY = 'any'
 
 /**
- * The entities the API says it records, and nothing else.
+ * The entities the API declares, and nothing else.
  *
- * Not a list written down here: which entities are audited is the engine's own answer — it accounts
- * for the attributes, for opt-in mode and for the kill switch — and this installation's two are
- * `Category` and `Product` while `Setting`, `MediaFile` and `Translation` are rows in the same
- * database that are deliberately not in the trail.
+ * Not a list written down here: which entities are declared, and whether each is audited, is the
+ * engine's own answer — it accounts for the attributes, for opt-in mode and for the kill switch.
+ * This installation declares `Category` and `Product`. The trail is wider than that — the API's
+ * capture also records `Setting`, `MediaFile` and the other libraries' rows, which "Any" shows —
+ * and `Translation` is the one entity it never records.
  */
 const entityItems = computed(() => [
   { label: t('audit.filters.anyEntity'), value: ANY, audited: true },

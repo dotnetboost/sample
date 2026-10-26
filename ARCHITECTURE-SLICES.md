@@ -5,7 +5,7 @@ the two disagreed the code won — §10 lists what changed on contact with the c
 written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
 whether to merge it; §11.3 says how that ended.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 139 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 148 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 
@@ -57,8 +57,10 @@ compile against DotNetBoost's own `net8.0` TFM.
 This repo was **1,788 lines of C# in 13 files** when this was written, and the README's thesis is
 that the integration between three independent libraries is *five files, none of them large*. A
 fourth library has since been installed, and that count is now eight files — see the README; the
-reasoning below is unaffected, and the one new file it would have changed its mind about
-(`Composition/CreationTrail.cs`) is discussed there.
+reasoning below is unaffected. The one new file it would have changed its mind about,
+`Composition/CreationTrail.cs` — a creation's audit entry, written by hand in a scope of its own —
+is gone again: DotNetBoost.Auditing 1.0.0-preview.2 added `IgnoreEntity<T>()`, its capture is now
+attached to the context, and its place on the list is one line of `Infrastructure/DependencyInjection.cs`.
 Clean architecture plus vertical slices turns one project into four and moves the composition
 behind a dispatcher. The behaviour does not change. For a monolith heading to a hundred endpoints
 that is the right trade; for a sample whose job is to make a composition claim visible in one

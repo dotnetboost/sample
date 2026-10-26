@@ -1,4 +1,5 @@
 using DotNetBoostSample.Api.Authentication;
+using DotNetBoostSample.Domain.Catalog;
 using System.Net;
 using System.Text.Json;
 using Xunit;
@@ -7,15 +8,18 @@ namespace DotNetBoostSample.Tests.Integration;
 
 /// <summary>
 /// What the fourth library actually does here, over HTTP: a row's whole life in the trail, the name
-/// of whoever changed it, the entry that outlives the row, and the two places this application's
-/// arrangement shows through — translated text that cannot be in a trail, and a trail that is only
-/// as wide as the slices that write it.
+/// of whoever changed it, the entry that outlives the row, and the places this application's
+/// arrangement shows through — translated text that cannot be in a trail, a sibling library's row
+/// that is kept out of it, and the text a creation must not lose on the way in.
 ///
 /// <para><b>Why these need the database.</b> Every claim below is a claim about a transaction.
 /// That an entry is committed with the change it describes, that a refused save takes its entry
-/// with it, that a deleted product leaves its history standing — none of it is visible to a test
-/// that reads attributes, and the last two are exactly where a hand-written recording path would
-/// go wrong without saying so.</para>
+/// with it, that a deleted product leaves its history standing, that a creation's entry is written
+/// without a second save — none of it is visible to a test that reads attributes.</para>
+///
+/// <para>Nothing in the catalogue's handlers records anything: every entry below is written by
+/// DotNetBoost.Auditing's SaveChanges interceptor, reading the change tracker. The second test
+/// makes that point without the handlers at all.</para>
 ///
 /// <para>Each test creates its own product. The tests in a collection share one database and the
 /// trail is append-only, so a test that read "the newest entry" of a shared row would be reading
@@ -66,6 +70,172 @@ public abstract class AuditTrailTests(SampleApp app)
         // And the key the entry is addressed by is the product's own, formatted the way both other
         // libraries format a key — see KeyFormatAgreementTests for why that is not a coincidence.
         Assert.All(entries, entry => Assert.Equal(id.ToString(), entry.Str("entityId")));
+    }
+
+    /// <summary>
+    /// The same three entries from a context nobody wrote a line of auditing for: a category added,
+    /// changed and removed straight through <c>AppDbContext</c>, with no slice in the way.
+    ///
+    /// <para>Which is the claim the interceptor makes — every change this context saves — and the
+    /// one the hand-written path this application used to have could not: a write that did not go
+    /// through one of the six slices recorded nothing. There is no request here, so there is no
+    /// actor either, and the entries say so rather than inventing one.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_change_saved_straight_through_the_context_is_recorded_by_the_interceptor()
+    {
+        var category = new Category { Slug = $"direct-{Guid.NewGuid():N}"[..20] };
+
+        await app.WithDbAsync(async db =>
+        {
+            // AddAsync assigns the HiLo id, so it is known before the save — see CategoryConfiguration.
+            await db.Categories.AddAsync(category);
+            Assert.True(category.Id > 0);
+            await db.SaveChangesAsync();
+
+            category.Slug += "-renamed";
+            await db.SaveChangesAsync();
+
+            db.Categories.Remove(category);
+            await db.SaveChangesAsync();
+        });
+
+        var entries = await Trail(app.Client.AsActor(), "Category", category.Id);
+
+        Assert.Equal(["Deleted", "Updated", "Created"], entries.Select(e => e.Str("action")));
+        Assert.Equal(["Slug"], Changes(entries[1]).Keys);
+        Assert.Equal(category.Slug, Changes(entries[1])["Slug"].Str("newValue"));
+        Assert.All(entries, entry => Assert.True(
+            !entry.TryGetProperty("actor", out var actor) || actor.ValueKind == JsonValueKind.Null));
+    }
+
+    /// <summary>
+    /// A product saved with text in three languages: one save, one <c>Created</c> entry — and none
+    /// for the translation rows saved beside it.
+    ///
+    /// <para><c>Translation</c> is DotNetBoost.MultiLingual's entity, keyed on four columns, and an
+    /// audit entry records one. Before <c>IgnoreEntity&lt;Translation&gt;()</c> the interceptor
+    /// threw on exactly this save, which is every catalogue write; now the rows are skipped as
+    /// ignored. Asked of the table rather than of one product's trail, so a translation recorded
+    /// under any address at all — the seed's included — fails it.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Translation_rows_saved_with_a_product_are_not_in_the_trail()
+    {
+        var client = app.Client.AsActor();
+
+        var created = await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"TRL-{Guid.NewGuid():N}"[..12],
+            price = 5.0m,
+            categoryId = app.SeededCategoryId,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["en"] = new() { ["Name"] = "Three languages", ["Description"] = "In English." },
+                ["ar"] = new() { ["Name"] = "ثلاث لغات", ["Description"] = "بالعربية." },
+                ["fr"] = new() { ["Name"] = "Trois langues", ["Description"] = "En français." }
+            }
+        });
+
+        var id = created.Int("id");
+
+        // The translations were saved — this is not a test that passes because nothing was written.
+        Assert.NotEqual("0", await app.ScalarAsync(
+            $"SELECT COUNT(*) FROM \"Translations\" WHERE \"EntityName\" = 'Product' AND \"EntityId\" = '{id}'"));
+
+        Assert.Equal("0", await app.ScalarAsync(
+            "SELECT COUNT(*) FROM \"AuditEntries\" WHERE \"EntityName\" = 'Translation'"));
+
+        Assert.Empty((await client.GetJsonAsync("/api/audit?entityName=Translation"))
+            .GetProperty("entries").EnumerateArray());
+
+        Assert.Equal("Created", Assert.Single(await Trail(client, "Product", id)).Str("action"));
+    }
+
+    /// <summary>
+    /// A creation keeps the text it was created with, in every language — read back after the
+    /// save that wrote its <c>Created</c> entry.
+    ///
+    /// <para>What it guards is the one place the two libraries' interceptors could step on each
+    /// other. A product created through the API never has its text assigned to the instance — it
+    /// goes to translation rows — so any later save that re-reads the instance as the request's
+    /// language's text writes <c>""</c> over them. That is how this application once lost a name,
+    /// to a second save of its own; a key generated by the INSERT would give the audit interceptor
+    /// a reason to make one. HiLo keys keep a creation to one save, and this reads every language
+    /// back after it.</para>
+    ///
+    /// <para>Posted in a language, as the dashboard does: with no language resolved, MultiLingual
+    /// has no request language to file an instance's text under, and the case cannot arise.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_creation_keeps_its_text_in_every_language()
+    {
+        var client = app.Client.AsActor();
+
+        var created = await client.SendJsonCheckedAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"KEEP-{Guid.NewGuid():N}"[..12],
+            price = 3.0m,
+            categoryId = app.SeededCategoryId,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["en"] = new() { ["Name"] = "Kept in English", ["Description"] = "Still here." },
+                ["ar"] = new() { ["Name"] = "محفوظ بالعربية", ["Description"] = "ما زال هنا." }
+            }
+        }, language: "en");
+
+        var id = created.Int("id");
+
+        // Every language at once, from the detail response's per-language map — the stored rows,
+        // not a fallback.
+        var text = (await client.GetJsonAsync($"/api/products/{id}")).GetProperty("translations");
+
+        Assert.Equal("Kept in English", text.GetProperty("en").Str("Name"));
+        Assert.Equal("Still here.", text.GetProperty("en").Str("Description"));
+        Assert.Equal("محفوظ بالعربية", text.GetProperty("ar").Str("Name"));
+
+        // And as a plain read in the request's language, which is the path the interceptors serve.
+        Assert.Equal(
+            "محفوظ بالعربية",
+            (await client.GetJsonAsync("/api/products?pageSize=200", "ar"))
+                .GetProperty("items").EnumerateArray().Single(p => p.Int("id") == id).Str("name"));
+
+        // And the entry the creation was recorded with is there too — the text survived the save
+        // that wrote it, not a save that skipped it.
+        Assert.Equal("Created", Assert.Single(await Trail(client, "Product", id)).Str("action"));
+    }
+
+    /// <summary>
+    /// A sibling library's own row is in the trail as well: a settings write, recorded as an
+    /// update to DotNetBoost.Settings' <c>Setting</c>, by whoever made it.
+    ///
+    /// <para>Because the capture records every entity the context saves unless it is ignored, and
+    /// only <c>Translation</c> is. Asserted rather than left as a sentence in the README, because
+    /// "one DbContext, so everything is audited" is exactly what a reader will assume — and here,
+    /// unlike before, it is true.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_settings_change_is_in_the_trail_too()
+    {
+        var client = app.Client.AsActor("settings.editor@example.com");
+
+        try
+        {
+            // Twice, because the first write of a group may be the one that CREATES its rows; the
+            // second can only be an update, and of the one value that moved.
+            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 17, currencySymbol = "$" });
+            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 18, currencySymbol = "$" });
+
+            var newest = (await client.GetJsonAsync("/api/audit?entityName=Setting"))
+                .GetProperty("entries").EnumerateArray().First();
+
+            Assert.Equal("Updated", newest.Str("action"));
+            Assert.Equal("settings.editor@example.com", newest.Str("actor"));
+        }
+        finally
+        {
+            await app.ResetCatalogSettingsAsync();
+        }
     }
 
     /// <summary>
@@ -172,17 +342,13 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
-    /// A refused save takes its entry with it — the atomicity the explicit recording path was
-    /// arranged to keep.
+    /// A refused save takes its entry with it — the atomicity the interceptor exists to give.
     ///
-    /// <para>The update is recorded <em>before</em> the save, and the EF Core store tracks the
-    /// entry rather than writing it, so both are in one <c>SaveChanges</c>. Here that save is
-    /// refused by the unique index on the SKU: the product keeps its old SKU, the caller gets a
-    /// <c>409</c>, and the trail must not have gained an entry claiming a change that never
-    /// happened.</para>
-    ///
-    /// <para>This is the test that would fail if someone "simplified" the slices by recording after
-    /// the save instead of before it, and nothing else in the suite would notice.</para>
+    /// <para>The interceptor records the update while the save is being prepared, and the EF Core
+    /// store tracks the entry rather than writing it, so both are in one <c>SaveChanges</c>. Here
+    /// that save is refused by the unique index on the SKU: the product keeps its old SKU, the
+    /// caller gets a <c>409</c>, and the trail must not have gained an entry claiming a change that
+    /// never happened.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_refused_write_records_nothing()
@@ -240,12 +406,11 @@ public abstract class AuditTrailTests(SampleApp app)
     /// <c>GET /api/audit/entities</c> — the two entities this application declares, and no library's
     /// own.
     ///
-    /// <para>Which is the honest shape of this installation, and worth asserting rather than
-    /// explaining: <c>Setting</c>, <c>MediaFile</c> and <c>Translation</c> are rows in the same
-    /// database, and they are <em>not</em> in the trail, because the change-tracker capture that
-    /// would have recorded them cannot be attached to a context that holds a composite-key entity.
-    /// A reader who assumes "one DbContext, so everything is audited" has it wrong, and this is
-    /// where they find out.</para>
+    /// <para>Declared is not the same as recorded, and this is where the difference shows. The
+    /// list is what <c>DeclareEntities</c> named, so it is the application's own two; the trail is
+    /// wider — <c>Setting</c>, <c>MediaFile</c> and the rest are recorded too, by the interceptor,
+    /// as <see cref="A_settings_change_is_in_the_trail_too"/> shows. And <c>Translation</c> is
+    /// neither: ignored, so it cannot be declared, which <c>Build()</c> enforces.</para>
     ///
     /// <para>It also publishes <c>maxPageSize</c>, so a client can stop asking for more than it
     /// will ever be given rather than discovering the clamp by comparing <c>take</c> with what it

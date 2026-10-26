@@ -11,8 +11,9 @@
        integration package pairing two of them. Each library is installed on its own
        and knows nothing about the others. tests/ asserts that stays true.
 
-       Auditing is on 1.0.0-preview.1 while the other three are on preview.2. Nothing
-       aligns those numbers — four independently versioned libraries are four release
+       All four happen to be on 1.0.0-preview.2 today, and nothing aligns those numbers:
+       Auditing reached preview.2 a release after the other three, for a fix of its own
+       (IgnoreEntity<T>(), below). Four independently versioned libraries are four release
        cadences, which is the other half of what "no shared kernel" means.
        ────────────────────────────────────────────────────────────────────────── -->
   <ItemGroup Label="DotNetBoost — Settings">
@@ -44,16 +45,16 @@
   <ItemGroup Label="DotNetBoost — Auditing">
     <!-- Who changed what, when, and from what to what. The engine plus the attributes; nothing
          here is referenced by the other three, and nothing here references them. -->
-    <PackageVersion Include="DotNetBoost.Auditing.Core" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.Auditing.Core" Version="1.0.0-preview.2" />
     <!-- The SaveChangesInterceptor that reads the change tracker, the EF Core store, and the two
          tables. It asks for the same EF Core versions pinned below — 8.0.30 and 10.0.11 — so
          adding it moved nothing in the persistence block. -->
-    <PackageVersion Include="DotNetBoost.Auditing.EntityFrameworkCore" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.Auditing.EntityFrameworkCore" Version="1.0.0-preview.2" />
     <!-- The /api/audit endpoints, and the HttpContext-backed actor accessor that records who made
          each change. Not here: DotNetBoost.Auditing.Dapper and .MongoDb, which are the other two
          stores the library ships — this application keeps the trail in the PostgreSQL it already
          has, in the DbContext it already has, which is what buys the transaction guarantee. -->
-    <PackageVersion Include="DotNetBoost.Auditing.API" Version="1.0.0-preview.1" />
+    <PackageVersion Include="DotNetBoost.Auditing.API" Version="1.0.0-preview.2" />
   </ItemGroup>
 
   <!-- ──────────────────────────────────────────────────────────────────────────

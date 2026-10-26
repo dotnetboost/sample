@@ -116,9 +116,9 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
         </dd>
       </div>
 
-      <!-- One edit in this application is not always one entry: creating a product with text in
-           three languages writes the product's entry and, in a scope of its own, the creation
-           trail's. The correlation id is what says they belong together. -->
+      <!-- One edit in this application is not always one entry: the API records every entity a
+           save touches, and one save can touch several. The correlation id is one per save, which
+           is what says they belong together. -->
       <div v-if="entry.correlationId" class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.correlationId') }}</dt>
         <dd dir="ltr" class="font-mono text-default">

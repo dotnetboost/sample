@@ -1,5 +1,3 @@
-using DotNetBoost.Auditing.Core.Interfaces;
-using DotNetBoost.Auditing.Core.Services;
 using DotNetBoostSample.Application.Abstractions.Endpoints;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
 using DotNetBoostSample.Application.Abstractions.Persistence;
@@ -37,8 +35,7 @@ public static class UpdateProduct
 
     public sealed class Handler(
         IAppDbContext db,
-        TranslatedText translatedText,
-        IAuditManager audit) : IRequestHandler<Command, Result<string>>
+        TranslatedText translatedText) : IRequestHandler<Command, Result<string>>
     {
         /// <summary>Answers with the SKU, which is what the message is named after.</summary>
         public async Task<Result<string>> HandleAsync(Command request, CancellationToken ct)
@@ -53,25 +50,14 @@ public static class UpdateProduct
             if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct))
                 return Error.NotFound("Catalog.CategoryNotFound", request.CategoryId);
 
-            // The before-image. UpdateCategory's handler explains the read and the AsNoTracking.
-            var before = await db.Products.AsNoTracking().FirstAsync(p => p.Id == request.Id, ct);
-
             product.Sku        = request.Sku;
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
 
-            // What moved, read off the type rather than written out here — so a column added to
-            // Product tomorrow is in the trail without this line changing, which is the one thing
-            // an if-chain per property reliably fails to do. Name and Description are compared and
-            // then dropped by the engine, because they carry [AuditIgnore]: see Product.Name.
-            //
-            // Recorded BEFORE the save, which is what keeps the change and its trail in one
-            // transaction — the EF Core store tracks the entry rather than writing it, so SaveAsync
-            // below commits the row and the entry together or neither.
-            var changes = AuditDiff.Between(before, product);
-
-            if (changes.Count > 0) await audit.For(product).UpdatedAsync(changes, ct: ct);
-
+            // The audit entry is the save's, not this handler's: DotNetBoost.Auditing's interceptor
+            // reads what moved off the change tracker, old value → new, and records it in the same
+            // SaveChanges. Name and Description are dropped because they carry [AuditIgnore] — see
+            // Product.Name — and a save that moved nothing else records nothing.
             await translatedText.SaveAsync(db, product, request.Translations, ct);
 
             return product.Sku;

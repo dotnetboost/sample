@@ -18,10 +18,9 @@
     <PackageReference Include="DotNetBoost.Settings.Core" />
     <PackageReference Include="DotNetBoost.Media.Core" />
     <PackageReference Include="DotNetBoost.MultiLingual.Core" />
-    <!-- IAuditManager and AuditDiff: the six write slices record their own changes through them,
-         because the change-tracker capture that would have done it for them cannot be attached to
-         this application's context. Composition/CreationTrail.cs says why. -->
-    <PackageReference Include="DotNetBoost.Auditing.Core" />
+    <!-- No DotNetBoost.Auditing here: the write slices do not record their own changes, because
+         the change-tracker capture attached to the DbContext in Infrastructure does it for them.
+         The [AuditIgnore] attributes on the two entities come with Domain. -->
   </ItemGroup>
 
   <ItemGroup Label="Querying">
