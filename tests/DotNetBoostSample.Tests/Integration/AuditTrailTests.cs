@@ -1,5 +1,7 @@
 using DotNetBoostSample.Api.Authentication;
+using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Domain.Catalog;
+using DotNetBoostSample.Infrastructure.Persistence;
 using System.Net;
 using System.Text.Json;
 using Xunit;
@@ -9,8 +11,8 @@ namespace DotNetBoostSample.Tests.Integration;
 /// <summary>
 /// What the fourth library actually does here, over HTTP: a row's whole life in the trail, the name
 /// of whoever changed it, the entry that outlives the row, and the places this application's
-/// arrangement shows through — translated text that cannot be in a trail, a sibling library's row
-/// that is kept out of it, and the text a creation must not lose on the way in.
+/// arrangement shows through — translated text that cannot be in a trail, two sibling libraries'
+/// rows that are kept out of it, and the text a creation must not lose on the way in.
 ///
 /// <para><b>Why these need the database.</b> Every claim below is a claim about a transaction.
 /// That an entry is committed with the change it describes, that a refused save takes its entry
@@ -18,7 +20,8 @@ namespace DotNetBoostSample.Tests.Integration;
 /// without a second save — none of it is visible to a test that reads attributes.</para>
 ///
 /// <para>Nothing in the catalogue's handlers records anything: every entry below is written by
-/// DotNetBoost.Auditing's SaveChanges interceptor, reading the change tracker. The second test
+/// DotNetBoost.Auditing's SaveChanges interceptor, reading the change tracker — except a settings
+/// group's, which DotNetBoost.Settings reports a save of as a whole. The second test
 /// makes that point without the handlers at all.</para>
 ///
 /// <para>Each test creates its own product. The tests in a collection share one database and the
@@ -206,31 +209,44 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
-    /// A sibling library's own row is in the trail as well: a settings write, recorded as an
-    /// update to DotNetBoost.Settings' <c>Setting</c>, by whoever made it.
+    /// A settings save is in the trail as ONE entry for the group, with every value that moved,
+    /// by whoever made it — and none of DotNetBoost.Settings' own <c>Setting</c> rows are.
     ///
-    /// <para>Because the capture records every entity the context saves unless it is ignored, and
-    /// only <c>Translation</c> is. Asserted rather than left as a sentence in the README, because
-    /// "one DbContext, so everything is audited" is exactly what a reader will assume — and here,
-    /// unlike before, it is true.</para>
+    /// <para>The group is stored one row per property, so the interceptor alone would record a
+    /// save as an entry per row. <c>IgnoreEntity&lt;Setting&gt;()</c> keeps the rows out and
+    /// <see cref="SettingGroupAuditObserver"/> records the save, addressed as
+    /// <c>("SettingGroup", &lt;group name&gt;)</c>. Two values are changed at once here, because
+    /// one entry holding both is the whole point.</para>
     /// </summary>
     [RequiresDockerFact]
-    public async Task A_settings_change_is_in_the_trail_too()
+    public async Task A_settings_save_is_one_entry_for_the_group()
     {
         var client = app.Client.AsActor("settings.editor@example.com");
+        var settingRows = "SELECT COUNT(*) FROM \"AuditEntries\" WHERE \"EntityName\" = 'Setting'";
 
         try
         {
             // Twice, because the first write of a group may be the one that CREATES its rows; the
-            // second can only be an update, and of the one value that moved.
-            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 17, currencySymbol = "$" });
-            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 18, currencySymbol = "$" });
+            // second can only be an update, and of the two values that moved.
+            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 17, currencySymbol = "€" });
+            var before = await GroupTrail(client);
 
-            var newest = (await client.GetJsonAsync("/api/audit?entityName=Setting"))
-                .GetProperty("entries").EnumerateArray().First();
+            await client.PostAsJsonChecked("/api/settings/catalog", new { pageSize = 18, currencySymbol = "£" });
+            var after = await GroupTrail(client);
+
+            Assert.Equal(before.Count + 1, after.Count);
+
+            var newest = after[0];
 
             Assert.Equal("Updated", newest.Str("action"));
             Assert.Equal("settings.editor@example.com", newest.Str("actor"));
+            Assert.Equal(["CurrencySymbol", "PageSize"], Changes(newest).Keys.Order());
+            Assert.Equal(("17", "18"), (Changes(newest)["PageSize"].Str("oldValue"), Changes(newest)["PageSize"].Str("newValue")));
+            Assert.Equal(("€", "£"), (Changes(newest)["CurrencySymbol"].Str("oldValue"), Changes(newest)["CurrencySymbol"].Str("newValue")));
+
+            // And the rows behind it are not in the trail at all — not from these saves, and not
+            // from the seed's.
+            Assert.Equal("0", await app.ScalarAsync(settingRows));
         }
         finally
         {
@@ -408,8 +424,8 @@ public abstract class AuditTrailTests(SampleApp app)
     ///
     /// <para>Declared is not the same as recorded, and this is where the difference shows. The
     /// list is what <c>DeclareEntities</c> named, so it is the application's own two; the trail is
-    /// wider — <c>Setting</c>, <c>MediaFile</c> and the rest are recorded too, by the interceptor,
-    /// as <see cref="A_settings_change_is_in_the_trail_too"/> shows. And <c>Translation</c> is
+    /// wider — <c>MediaFile</c> and the rest are recorded too, by the interceptor, and a settings
+    /// group by its observer, as <see cref="A_settings_save_is_one_entry_for_the_group"/> shows. And <c>Translation</c> is
     /// neither: ignored, so it cannot be declared, which <c>Build()</c> enforces.</para>
     ///
     /// <para>It also publishes <c>maxPageSize</c>, so a client can stop asking for more than it
@@ -433,6 +449,12 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     // ── Reading the trail ────────────────────────────────────────────────────
+
+    /// <summary>The catalog settings group's entries, newest first.</summary>
+    private static async Task<List<JsonElement>> GroupTrail(HttpClient client) =>
+        [.. (await client.GetJsonAsync(
+                $"/api/audit?entityName={SettingGroupAuditObserver.EntityName}&entityId={nameof(CatalogSettings)}"))
+            .GetProperty("entries").EnumerateArray()];
 
     /// <summary>One entity's entries, newest first.</summary>
     private static async Task<List<JsonElement>> Trail(HttpClient client, string entityName, int entityId) =>

@@ -56,7 +56,7 @@ compile against DotNetBoost's own `net8.0` TFM.
 
 This repo was **1,788 lines of C# in 13 files** when this was written, and the README's thesis is
 that the integration between three independent libraries is *five files, none of them large*. A
-fourth library has since been installed, and that count is now eight files — see the README; the
+fourth library has since been installed, and that count is now nine files — see the README; the
 reasoning below is unaffected. The one new file it would have changed its mind about,
 `Composition/CreationTrail.cs` — a creation's audit entry, written by hand in a scope of its own —
 is gone again: DotNetBoost.Auditing 1.0.0-preview.2 added `IgnoreEntity<T>()`, its capture is now

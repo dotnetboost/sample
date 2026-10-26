@@ -23,16 +23,16 @@ using Scalar.AspNetCore;
 //
 //  The fourth arrived without moving the other three. Auditing's whole presence in this file is
 //  one delegate and one Map call; in the rest of the solution it is one Apply* line in
-//  AppDbContext, one block and one UseAuditing(sp) in AddInfrastructure, and two attributes in
-//  Domain — no handler mentions it. Nothing in the other three moved. That is the strongest
+//  AppDbContext, one block and one UseAuditing(sp) in AddInfrastructure, one settings observer
+//  beside them, and two attributes in Domain — no handler mentions it. Nothing in the other three moved. That is the strongest
 //  evidence here for what "no shared kernel" is worth, because it is the only one measured by
 //  ADDING a library rather than by reading the ones already in — and the last two items on that
 //  list are also where the cost showed up, which is the rest of this comment.
 //
-//  What ties them together is eight files, all of them application and domain code, none of them
+//  What ties them together is nine files, all of them application and domain code, none of them
 //  large, and each one a place where this application says two libraries are talking about the
-//  same thing — except the last two, which are where it says one of them must leave the other's
-//  data alone:
+//  same thing — except the last three, which are where it says one of them must leave the other's
+//  data alone, or take it in another shape:
 //
 //    • Infrastructure/Persistence/AppDbContext.cs     — all four. One database, four Apply*
 //                                        calls, nothing else.
@@ -50,7 +50,7 @@ using Scalar.AspNetCore;
 //                                        Answers one settings group with its text in the request's
 //                                        language and its logo.
 //
-//  Auditing added two more, and they are the first on this list that exist because two libraries
+//  Auditing added three more, and they are the first on this list that exist because two libraries
 //  DISAGREE rather than because they are talking about the same thing:
 //
 //    • Infrastructure/DependencyInjection.cs          — Auditing → MultiLingual, one line of it:
@@ -65,17 +65,23 @@ using Scalar.AspNetCore;
 //                                        beside [MultiLingual] on the two translated properties: a
 //                                        trail has no language, so a property whose value depends
 //                                        on one cannot be stated in it. One sentence, said twice,
-//                                        which is why eight files are seven entries.
+//                                        which is why nine files are eight entries.
+//    • Infrastructure/Persistence/SettingGroupAuditObserver.cs — Settings → Auditing. Settings
+//                                        stores a group one row per property and the trail wants
+//                                        the save, so the rows are ignored (.IgnoreEntity<Setting>())
+//                                        and this ISettingWriteObserver records each save as one
+//                                        entry for the group — after the save commits, not with it.
 //
-//  Eight, counted the same way as five was. The README said then that a sixth would mean the claim
-//  had quietly stopped being true, and it has: two of these exist because the libraries disagree
+//  Nine, counted the same way as five was. The README said then that a sixth would mean the claim
+//  had quietly stopped being true, and it has: three of these exist because the libraries disagree
 //  about what can be recorded, which is a worse kind of glue than "these two tables are about one
 //  thing" and is worth saying out loud rather than absorbing into the count.
 //
-//  Six of the eight turn out to be abstraction-only — they name DotNetBoost.*.Core and nothing
+//  Six of the nine turn out to be abstraction-only — they name DotNetBoost.*.Core and nothing
 //  else — which is why they sit in the application and domain layers beside the code that uses
-//  them. The other two — AppDbContext and that one line of AddInfrastructure — are infrastructure,
-//  and both are about sharing one DbContext. Joining two libraries is not a persistence concern;
+//  them. The other three — AppDbContext, that one line of AddInfrastructure and the settings
+//  observer, which saves its entry through AppDbContext — are infrastructure, and all three are
+//  about sharing one DbContext. Joining two libraries is not a persistence concern;
 //  joining them in ONE DATABASE is.
 //
 //  The count is eight rather than a rounder number because every file joining two libraries is on

@@ -17,7 +17,7 @@ What it is built to demonstrate is as much what is *absent* as what is present:
 - no integration package pairing any two libraries
 
 Each library is installed on its own and configured on its own terms. Everything that joins them
-is this application's code, in eight files — counted honestly below. `tests/` asserts that none of
+is this application's code, in nine files — counted honestly below. `tests/` asserts that none of
 them references another, so the claim cannot quietly stop being true.
 
 **Auditing was added last, to a solution the other three were already in**, which is the one measure
@@ -196,7 +196,7 @@ The filters — entity, key, actor, action and a date range — are parameters o
 asked, never a pass over the rows already on screen, which for an append-only trail would search the
 wrong set. The entity list comes from `GET /api/audit/entities`, so it is this installation's own
 two declared entities and not a list written into the client — the trail itself is wider, and the
-other libraries' rows (`Setting`, `MediaFile`, …) are under *Any* — and the page size is bounded by
+other libraries' entries (`SettingGroup`, `MediaFile`, …) are under *Any* — and the page size is bounded by
 the `maxPageSize` the same response publishes rather than by a number the dashboard would have to
 keep in step by hand.
 Paging is **newer and older** rather than a page count: the walk follows the `nextCursor` the API
@@ -294,10 +294,10 @@ are `npm run lint`, `npm run typecheck` and `npm test`, and they are not part of
 
 ## Where the composition happens
 
-Eight files, all of them this application's own code, none of them large. Each is a place where it
+Nine files, all of them this application's own code, none of them large. Each is a place where it
 says two libraries are talking about the same thing — which is the only way they ever
-find out, since none of them references another — except the last two, which are where it says one
-library's data has no place in another's:
+find out, since none of them references another — except the last three, which are where it says one
+library's data has no place in another's, or not in the shape it is stored in:
 
 | | File | Joins | What it says |
 |---|---|---|---|
@@ -308,16 +308,17 @@ library's data has no place in another's:
 | 5 | `Application/Settings/BrandingSettings.cs` | Settings × Media × MultiLingual | branding's name, its other languages and its logo are one thing |
 | 6 | `Infrastructure/DependencyInjection.cs` — one line | Auditing → MultiLingual | MultiLingual's translation row is not in the trail: `.IgnoreEntity<Translation>()` |
 | 7 | `Domain/Catalog/Category.cs` and `Product.cs` | MultiLingual → Auditing | a translated property is not in the trail: `[AuditIgnore]` beside `[MultiLingual]` |
+| 8 | `Infrastructure/Persistence/SettingGroupAuditObserver.cs` | Settings → Auditing | a settings save is one entry for the group, not one per row: an `ISettingWriteObserver`, beside `.IgnoreEntity<Setting>()` |
 
-Eight files and seven entries, because the seventh is one sentence said twice, once per entity.
+Nine files and eight entries, because the seventh is one sentence said twice, once per entity.
 Counted this way because every file that joins two libraries is on the list — it was five before
 Auditing arrived, and the README said then that a sixth would mean the claim had quietly stopped
-being true. It has: two of these exist because two libraries **disagree**, which is a worse kind of
+being true. It has: three of these exist because two libraries **disagree**, which is a worse kind of
 glue than "these two tables are about one thing" and is the reason the count is worth keeping
 honest rather than tidy.
 
-**And grep cannot check it, in either direction.** Eight files under `src/` carry `using`
-directives for two or more `DotNetBoost.*` libraries, and six of them are above. `Program.cs` names
+**And grep cannot check it, in either direction.** Nine files under `src/` carry `using`
+directives for two or more `DotNetBoost.*` libraries, and seven of them are above. `Program.cs` names
 three and `Infrastructure/DependencyInjection.cs` all four while registering them in independent
 calls, which is the thing this sample is arguing for rather than a join — the second is on the list
 for one line of its three hundred, not for the four blocks around it; `ListProducts.cs` consumes two
@@ -330,13 +331,14 @@ library's own deleted-files handler. A join is the identity assertion — this f
 not** an audit subject — and the assertion is usually a string, an attribute or a type both sides
 agree on, which is why `BrandingOwnerTests`, `KeyFormatAgreementTests` and `AuditRuleTests` exist.
 
-**And note where six of the eight sit.** `MediaText`, `MediaTextCleanup`,
+**And note where six of the nine sit.** `MediaText`, `MediaTextCleanup`,
 `MultiLingualSchemaContributor`, `BrandingProjector` and the two entities name `DotNetBoost.*.Core`
 and nothing else — no EF Core, no ASP.NET, no provider — so they live in the application and domain
-layers, beside the code that uses them. Only `AppDbContext` and the `IgnoreEntity` line are
-infrastructure, and both are there because four libraries share **one `DbContext`**. That split is
-not a filing convention; it is the finding. Joining two libraries is not a persistence concern.
-Joining them **in one database** is, and that is two files.
+layers, beside the code that uses them. Only `AppDbContext`, the `IgnoreEntity` line and
+`SettingGroupAuditObserver` are infrastructure, and all three are there because four libraries share
+**one `DbContext`** — the observer saves its entry through it, because that is where the trail is
+stored. That split is not a filing convention; it is the finding. Joining two libraries is not a
+persistence concern. Joining them **in one database** is, and that is three files.
 
 ### 1. One database, four libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
 
@@ -675,10 +677,15 @@ on an identity column, so this is the avoidance of an ordering dependency rather
 failure it can reproduce.
 
 **And what the trail is now, which is the half a reader will assume.** Everything this `DbContext`
-saves, except `Translation`. `Category` and `Product`, and `Setting`, `MediaFile`,
-`MediaAttachment` and `Language` too — a branding change is recorded, with who made it, like a price
-change; and the seed's first run is in the trail, with no actor, because there is no request to
-take one from. `GET /api/audit/entities` lists what is **declared**, which is still the application's
+saves, except `Translation` and `Setting`. `Category` and `Product`, and `MediaFile`,
+`MediaAttachment` and `Language` too; and the seed's first run is in the trail, with no actor,
+because there is no request to take one from. A settings group is recorded too, but not by the
+interceptor: DotNetBoost.Settings stores a group one row per property, so its rows are ignored and
+`SettingGroupAuditObserver` records each save as **one** `SettingGroup` entry, named by the group,
+holding every value that moved — a branding change is recorded, with who made it, like a price
+change. That entry is the one exception to "a change and its entry commit together": the observer
+runs after the settings save has committed, and DotNetBoost.Settings logs and swallows its
+failures, so a failed record leaves the change without an entry. `GET /api/audit/entities` lists what is **declared**, which is still the application's
 own two: declaring a type is what lets the discovery endpoint describe its rules, not what gets it
 recorded. The dashboard's entity filter is drawn from that list, so the libraries' entries appear
 under *Any*.
@@ -686,8 +693,8 @@ under *Any*.
 `AuditTrailTests` asserts each piece rather than leaving it as a sentence here: a category added,
 changed and removed straight through `AppDbContext` with no slice in the way, recorded all the same;
 no `Translation` entry anywhere after a product is saved in three languages; a creation's text read
-back in every language after the save that recorded it; and a settings change in the trail under
-the name of whoever made it.
+back in every language after the save that recorded it; and a settings save in the trail as one
+entry for its group, under the name of whoever made it, with no `Setting` row anywhere.
 
 ### 7. A translated property is not in the trail
 
@@ -725,6 +732,39 @@ worth catching, because its only symptom is a trail that confidently says the wr
 
 Translated text has its own history to be given one day — in the `Translations` table, with a
 language on each row. This is the honest shape of that gap until it does.
+
+### 8. A settings save is one entry, not one per row — `src/.../Infrastructure/Persistence/SettingGroupAuditObserver.cs`
+
+DotNetBoost.Settings stores a group one row per property, so the interceptor on its own recorded a
+branding save as a `Setting` entry per value that moved, each addressed by a row id nobody reading
+the trail knows. The settings library already knows where an edit begins and ends, and says so
+through `ISettingWriteObserver`, once per save, with the whole group's diff:
+
+```csharp
+// Settings block
+.UseWriteObserver<SettingGroupAuditObserver>()
+
+// Auditing block
+.IgnoreEntity<Translation>()
+.IgnoreEntity<Setting>();
+```
+
+The observer hands that diff to `IAuditManager.RecordAsync` as one `SettingGroup` entry addressed by
+the group's name, with the settings library's correlation id, and saves it. Two things it has to do
+itself. The EF Core store tracks an entry rather than saving it, and the save it would normally ride
+along with has already committed, so the observer calls `SaveChangesAsync` for the entry alone. And
+an entry addressed by name has no type for Auditing to read `[AuditRedact]` from, so a `[Sensitive]`
+property — whose values DotNetBoost.Settings has already withheld — is marked redacted on the entry
+by the observer.
+
+**What it costs.** This is the one entry in the trail that does not commit with its change. The
+observer runs after the settings write, and DotNetBoost.Settings logs and swallows anything it
+throws, so a failure to record leaves the change standing without an entry. For configuration
+edited from a dashboard, a trail that says "catalog: page size 17 → 18, currency € → £" in one line
+is worth that; anything that must not lose an entry should not be recorded this way.
+
+`AuditTrailTests` asserts the shape: two values saved at once are one entry holding both, under the
+caller's name, and no `Setting` row is in the trail at all.
 
 ---
 
@@ -1164,7 +1204,7 @@ That last row is the one place a dependency rule earns its keep. Reading
 line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
 matches index names that the EF configurations declare as constants a few files away.
 
-### Why four projects for 44 files
+### Why four projects for 45 files
 
 It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
 is that the dependency rules above are enforced by the build rather than by a comment; what it costs
@@ -1234,6 +1274,8 @@ src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
                                          the tables and sequences an older volume lacks
   Persistence/MultiLingualModelCacheKeyFactory.cs  the model depends on BaseLanguage, so
                                          EF's cache key has to as well
+  Persistence/SettingGroupAuditObserver.cs  one audit entry per settings save, for the
+                                         group rather than its rows
   DependencyInjection.cs                 AddInfrastructure() — four independent
                                          registrations, in four blocks, in any order; the
                                          two interceptors on one context; and the one line,

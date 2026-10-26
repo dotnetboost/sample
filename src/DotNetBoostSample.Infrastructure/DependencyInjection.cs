@@ -3,6 +3,7 @@ using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.MultiLingual.Core;
 using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoost.Settings.Core.Interfaces;
+using DotNetBoost.Settings.Core.Models;
 using DotNetBoostSample.Application.Abstractions.Persistence;
 using DotNetBoostSample.Application.Composition;
 using DotNetBoostSample.Application.Settings;
@@ -172,6 +173,13 @@ public static class DependencyInjection
             // libraries joined in one class, on the group's own endpoint, so there is one URL for
             // branding rather than two.
             .UseProjector<BrandingSettings, BrandingProjector>()
+            // And the audit trail of a settings edit: one entry per group saved, with every value
+            // that moved, rather than one per row of the Settings table. The interceptor would
+            // record the rows — see the Auditing block, which ignores them for this — but a row is
+            // one property of one group under an id nobody reading the trail knows, and this
+            // library already knows where an edit begins and ends. SettingGroupAuditObserver has
+            // what that costs.
+            .UseWriteObserver<SettingGroupAuditObserver>()
             .Build();
 
         // ── DotNetBoost.Media ────────────────────────────────────────────────
@@ -281,12 +289,17 @@ public static class DependencyInjection
         //      goes into the caller's own save, and there is no second save to reason about. The
         //      libraries' own entities already assign their keys in code.
         //
-        // What that buys is the guarantee the library is built around, now without exceptions:
-        // a change and its entry are in one SaveChanges, so they commit together or neither does.
-        // And every mapped entity is captured unless it is ignored — Setting, MediaFile,
-        // MediaAttachment and Language as well as the catalogue — because that is the library's
-        // default, and an edit to branding is as much a change somebody made as an edit to a
-        // product.
+        //   3. Settings. DotNetBoost.Settings stores a group as one row per property, so the
+        //      capture recorded a settings save as a `Setting` entry per value that moved, each
+        //      addressed by a row id. `IgnoreEntity<Setting>()` below keeps those rows out, and
+        //      SettingGroupAuditObserver — registered on the Settings block above — records the
+        //      save instead, as one `SettingGroup` entry addressed by the group's name.
+        //
+        // What that buys is the guarantee the library is built around: a change and its entry are
+        // in one SaveChanges, so they commit together or neither does. The one exception is the
+        // settings entry, written after the settings save has committed — see the observer. And
+        // every other mapped entity is captured unless it is ignored — MediaFile, MediaAttachment
+        // and Language as well as the catalogue — because that is the library's default.
         var auditing = services
             .AddAuditing()
             // The trail goes in AppDbContext, not in a store of its own, and that is what the
@@ -307,7 +320,11 @@ public static class DependencyInjection
             // DotNetBoost.MultiLingual's row, kept out of the trail — see above. Build() refuses a
             // type that is both declared and ignored, and the declaration above names only this
             // application's own two, so the two lines cannot disagree.
-            .IgnoreEntity<Translation>();
+            .IgnoreEntity<Translation>()
+            // DotNetBoost.Settings' row, kept out for the same reason from the other direction:
+            // the observer above records a settings save as a whole group, and leaving the rows in
+            // would record it twice.
+            .IgnoreEntity<Setting>();
 
         // No retention is configured, deliberately. Retention does nothing until a prune runs,
         // this sample schedules none, and POST /api/audit/prune is not mapped — so a number here
