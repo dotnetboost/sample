@@ -293,7 +293,9 @@ public static class DependencyInjection
         //      capture recorded a settings save as a `Setting` entry per value that moved, each
         //      addressed by a row id. `IgnoreEntity<Setting>()` below keeps those rows out, and
         //      SettingGroupAuditObserver — registered on the Settings block above — records the
-        //      save instead, as one `SettingGroup` entry addressed by the group's name.
+        //      save instead, as one `Setting` entry addressed by the group's name. It is still
+        //      recorded under the ignored name because the write carries the group's class as its
+        //      type, and an ignore is checked by type when there is one.
         //
         // What that buys is the guarantee the library is built around: a change and its entry are
         // in one SaveChanges, so they commit together or neither does. The one exception is the

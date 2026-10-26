@@ -209,20 +209,24 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
-    /// A settings save is in the trail as ONE entry for the group, with every value that moved,
-    /// by whoever made it — and none of DotNetBoost.Settings' own <c>Setting</c> rows are.
+    /// A settings save is in the trail as ONE <c>Setting</c> entry for the group, with every value
+    /// that moved, by whoever made it — and none of DotNetBoost.Settings' own rows are.
     ///
     /// <para>The group is stored one row per property, so the interceptor alone would record a
     /// save as an entry per row. <c>IgnoreEntity&lt;Setting&gt;()</c> keeps the rows out and
     /// <see cref="SettingGroupAuditObserver"/> records the save, addressed as
-    /// <c>("SettingGroup", &lt;group name&gt;)</c>. Two values are changed at once here, because
-    /// one entry holding both is the whole point.</para>
+    /// <c>("Setting", &lt;group name&gt;)</c> — under the ignored name, which is why the observer
+    /// gives the write the group's type. Two values are changed at once here, because one entry
+    /// holding both is the whole point.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_settings_save_is_one_entry_for_the_group()
     {
         var client = app.Client.AsActor("settings.editor@example.com");
-        var settingRows = "SELECT COUNT(*) FROM \"AuditEntries\" WHERE \"EntityName\" = 'Setting'";
+        // A row's entry would be addressed by the row's id; a group's is addressed by its name.
+        var settingRows =
+            "SELECT COUNT(*) FROM \"AuditEntries\" WHERE \"EntityName\" = 'Setting' "
+            + $"AND \"EntityId\" NOT IN ('{nameof(CatalogSettings)}', '{nameof(BrandingSettings)}')";
 
         try
         {
@@ -245,7 +249,7 @@ public abstract class AuditTrailTests(SampleApp app)
             Assert.Equal(("€", "£"), (Changes(newest)["CurrencySymbol"].Str("oldValue"), Changes(newest)["CurrencySymbol"].Str("newValue")));
 
             // And the rows behind it are not in the trail at all — not from these saves, and not
-            // from the seed's.
+            // from the seed's: every Setting entry there is is a group's.
             Assert.Equal("0", await app.ScalarAsync(settingRows));
         }
         finally

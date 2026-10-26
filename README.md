@@ -196,7 +196,7 @@ The filters — entity, key, actor, action and a date range — are parameters o
 asked, never a pass over the rows already on screen, which for an append-only trail would search the
 wrong set. The entity list comes from `GET /api/audit/entities`, so it is this installation's own
 two declared entities and not a list written into the client — the trail itself is wider, and the
-other libraries' entries (`SettingGroup`, `MediaFile`, …) are under *Any* — and the page size is bounded by
+other libraries' entries (`Setting`, `MediaFile`, …) are under *Any* — and the page size is bounded by
 the `maxPageSize` the same response publishes rather than by a number the dashboard would have to
 keep in step by hand.
 Paging is **newer and older** rather than a page count: the walk follows the `nextCursor` the API
@@ -681,7 +681,7 @@ saves, except `Translation` and `Setting`. `Category` and `Product`, and `MediaF
 `MediaAttachment` and `Language` too; and the seed's first run is in the trail, with no actor,
 because there is no request to take one from. A settings group is recorded too, but not by the
 interceptor: DotNetBoost.Settings stores a group one row per property, so its rows are ignored and
-`SettingGroupAuditObserver` records each save as **one** `SettingGroup` entry, named by the group,
+`SettingGroupAuditObserver` records each save as **one** `Setting` entry, named by the group,
 holding every value that moved — a branding change is recorded, with who made it, like a price
 change. That entry is the one exception to "a change and its entry commit together": the observer
 runs after the settings save has committed, and DotNetBoost.Settings logs and swallows its
@@ -694,7 +694,7 @@ under *Any*.
 changed and removed straight through `AppDbContext` with no slice in the way, recorded all the same;
 no `Translation` entry anywhere after a product is saved in three languages; a creation's text read
 back in every language after the save that recorded it; and a settings save in the trail as one
-entry for its group, under the name of whoever made it, with no `Setting` row anywhere.
+entry for its group, under the name of whoever made it, with no entry for a row anywhere.
 
 ### 7. A translated property is not in the trail
 
@@ -749,13 +749,16 @@ through `ISettingWriteObserver`, once per save, with the whole group's diff:
 .IgnoreEntity<Setting>();
 ```
 
-The observer hands that diff to `IAuditManager.RecordAsync` as one `SettingGroup` entry addressed by
-the group's name, with the settings library's correlation id, and saves it. Two things it has to do
-itself. The EF Core store tracks an entry rather than saving it, and the save it would normally ride
-along with has already committed, so the observer calls `SaveChangesAsync` for the entry alone. And
-an entry addressed by name has no type for Auditing to read `[AuditRedact]` from, so a `[Sensitive]`
-property — whose values DotNetBoost.Settings has already withheld — is marked redacted on the entry
-by the observer.
+The observer hands that diff to `IAuditManager.RecordAsync` as one `Setting` entry addressed by the
+group's name, with the settings library's correlation id, and saves it. It is the name the ignore
+names, and Auditing would drop a write addressed by that name alone — so the write also carries the
+group's class, `CatalogSettings` say, as its type. An ignore is checked by type when there is one,
+and that type is not ignored; it is also where `[AuditIgnore]` and `[AuditRedact]` on a group's
+properties are read from. Two more things the observer has to do itself. The EF Core store tracks an
+entry rather than saving it, and the save it would normally ride along with has already committed,
+so the observer calls `SaveChangesAsync` for the entry alone. And a `[Sensitive]` property, whose values DotNetBoost.Settings has already withheld, is marked
+redacted on the entry by the observer, so the trail does not read as "changed from nothing to
+nothing".
 
 **What it costs.** This is the one entry in the trail that does not commit with its change. The
 observer runs after the settings write, and DotNetBoost.Settings logs and swallows anything it
@@ -764,7 +767,7 @@ edited from a dashboard, a trail that says "catalog: page size 17 → 18, curren
 is worth that; anything that must not lose an entry should not be recorded this way.
 
 `AuditTrailTests` asserts the shape: two values saved at once are one entry holding both, under the
-caller's name, and no `Setting` row is in the trail at all.
+caller's name, and no `Setting` entry in the trail is addressed by a row rather than a group.
 
 ---
 
