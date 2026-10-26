@@ -13,9 +13,9 @@ namespace DotNetBoostSample.Tests.Integration;
 /// they are the difference between "the suite is green" and "every published route has been
 /// called".</para>
 ///
-/// <para><b>And the forty-five is pinned rather than remembered.</b> A cross-check done by hand
-/// holds only until the next route is mapped — by this application or by the next version of a
-/// library whose endpoints it publishes. <c>OpenApiShapeTests</c> asserts the inventory by name, so
+/// <para><b>And the inventory is pinned rather than remembered</b> — forty-eight routes now. A
+/// cross-check done by hand holds only until the next route is mapped — by this application or by
+/// the next version of a library whose endpoints it publishes. <c>OpenApiShapeTests</c> asserts the inventory by name, so
 /// a new route arrives as a failing test with that route in the message, which is the prompt to
 /// call it here.</para>
 ///

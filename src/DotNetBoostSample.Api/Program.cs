@@ -1,6 +1,7 @@
 using DotNetBoost.Auditing.API;
 using DotNetBoost.Media.API;
 using DotNetBoost.MultiLingual.API;
+using DotNetBoostSample.Api.Auditing;
 using DotNetBoostSample.Api.Authentication;
 using DotNetBoostSample.Application;
 using DotNetBoostSample.Application.Abstractions.Cqrs;
@@ -11,6 +12,7 @@ using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Infrastructure;
 using DotNetBoostSample.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Scalar.AspNetCore;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,8 +24,8 @@ using Scalar.AspNetCore;
 //  what is installed, and tests/ for the assertion that none of them references another.
 //
 //  The fourth arrived without moving the other three. Auditing's whole presence in this file is
-//  one delegate and one Map call; in the rest of the solution it is one Apply* line in
-//  AppDbContext, one block and one UseAuditing(sp) in AddInfrastructure, one settings observer
+//  one delegate, one Map call and — added later, for retention — one hosted service; in the rest
+//  of the solution it is one Apply* line in AppDbContext, one block and one UseAuditing(sp) in AddInfrastructure, one settings observer
 //  beside them, and two attributes in Domain — no handler mentions it. Nothing in the other three moved. That is the strongest
 //  evidence here for what "no shared kernel" is worth, because it is the only one measured by
 //  ADDING a library rather than by reading the ones already in — and the last two items on that
@@ -221,6 +223,15 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// ── Retention ───────────────────────────────────────────────────────────────
+// Deletes audit entries past the age the `auditing` settings group states, while that group says
+// to — off until someone turns it on. A timer is a fact about the process, so it is registered by
+// the host rather than in AddInfrastructure. See Auditing/AuditRetentionService.cs for why it
+// reads the group every minute, and why it prunes in-process rather than through POST
+// /api/audit/prune, which stays unmapped below.
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddHostedService<AuditRetentionService>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
@@ -261,7 +272,9 @@ app.MapTranslationEndpoints();                  // /api/translations/{entityName
 //   • The erasure and prune endpoints are NOT MAPPED — o.MapErasure and o.MapPrune are off by
 //     default, so DELETE /api/audit/entity/… and POST /api/audit/prune do not exist here. They
 //     destroy history. Nothing in a sample needs to, and an endpoint that does should be asked for
-//     deliberately rather than inherited.
+//     deliberately rather than inherited. Retention is not a reason to map prune: the policy is
+//     the `auditing` settings group, and AuditRetentionService carries it out in-process, so no
+//     HTTP caller can delete history on demand.
 app.MapAuditEndpoints();
 
 // ── The application's own endpoints ──────────────────────────────────────────

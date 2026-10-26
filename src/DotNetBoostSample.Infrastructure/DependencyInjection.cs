@@ -328,11 +328,12 @@ public static class DependencyInjection
             // would record it twice.
             .IgnoreEntity<Setting>();
 
-        // No retention is configured, deliberately. Retention does nothing until a prune runs,
-        // this sample schedules none, and POST /api/audit/prune is not mapped — so a number here
-        // would state a policy that nothing in the solution carries out. The trail grows forever,
-        // which for a sample seeded on first run is the honest answer; `o.Retention` plus a hosted
-        // service that calls PruneAsync is the real one.
+        // No `o.Retention` here, deliberately — not because nothing prunes, but because what does
+        // is runtime-editable. The policy is the `auditing` settings group (AuditingSettings), and
+        // the host's AuditRetentionService reads it every minute and calls PruneOlderThanAsync
+        // with the age it states. An option set here is read once, at Build(), so it could not
+        // follow an edit to that group, and a second number beside it would be a second answer.
+        // Pruning is off until someone turns it on in that group: until then the trail is kept.
 
         // And whose name goes on an entry, which only the host can answer. See the parameter.
         configureAuditing?.Invoke(auditing);

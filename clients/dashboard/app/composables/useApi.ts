@@ -111,7 +111,8 @@ export function useApi() {
     // ── DotNetBoost.Auditing ──────────────────────────────────────────────
     //
     // Read-only, because this application maps only the library's read endpoints: no erasure, no
-    // prune. Every one of them requires an authenticated caller — the library's own default, kept —
+    // prune. Retention is the `auditing` settings group, carried out inside the API — a client can
+    // set the policy but never delete history on demand. Every one of them requires an authenticated caller — the library's own default, kept —
     // which the API's sample scheme always provides.
     audit: {
       /**

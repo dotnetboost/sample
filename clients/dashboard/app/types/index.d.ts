@@ -502,9 +502,10 @@ export interface AuditEntityDescriptor {
   optedIn: boolean
   ignored: boolean
   /**
-   * Effective retention once a prune runs. `null` means nothing is configured either way, so a
-   * prune leaves its entries alone — never that they expire immediately. This sample maps no
-   * prune endpoint, so nothing here ever runs one.
+   * The library's own retention — `o.Retention` or the entity's `[AuditRetention]`. `null` means
+   * neither is set, so the library's `PruneAsync` would leave these entries alone — never that they
+   * expire immediately. This application leaves both unset and prunes by the `auditing` settings
+   * group instead; see `useAuditingSettings` for the retention that actually applies.
    */
   retentionDays: number | null
   hasOwnRetention: boolean

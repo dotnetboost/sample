@@ -24,7 +24,7 @@ public abstract class SettingsSchemaTests(SampleApp app)
 
         var routes = groups.EnumerateArray().Select(g => g.Str("route")).Order().ToList();
 
-        Assert.Equal(["branding", "catalog"], routes);
+        Assert.Equal(["auditing", "branding", "catalog"], routes);
 
         // Routes and names, never values: this endpoint is meant to be safe to expose more widely
         // than the groups themselves.

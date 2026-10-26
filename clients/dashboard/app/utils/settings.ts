@@ -21,6 +21,7 @@
  * schema, which is what makes discovery real rather than decorative.
  */
 const icons: Record<string, string> = {
+  auditing: 'i-lucide-history',
   branding: 'i-lucide-palette',
   catalog: 'i-lucide-package'
 }

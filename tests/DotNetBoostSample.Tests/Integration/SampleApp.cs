@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -193,6 +194,26 @@ public class SampleApp : IAsyncLifetime
 
             if (BaseLanguage is not null)
                 builder.UseSetting("MultiLingual:BaseLanguage", BaseLanguage);
+        });
+
+    /// <summary>
+    /// The running instance of a hosted service, for a test that drives one step of it rather than
+    /// waiting for its timer — <c>AuditRetentionService.PruneIfDueAsync</c>, which is what the
+    /// timer calls.
+    /// </summary>
+    public T HostedService<T>() where T : IHostedService =>
+        _factory!.Services.GetServices<IHostedService>().OfType<T>().Single();
+
+    /// <summary>
+    /// Puts the auditing settings group back to its defaults — pruning off — so a test that turned
+    /// it on cannot leave the shared database pruning under the tests after it.
+    /// </summary>
+    public Task ResetAuditingSettingsAsync() =>
+        Client.PostAsJsonChecked("/api/settings/auditing", new
+        {
+            pruneEnabled = false,
+            retentionDays = 365,
+            pruneIntervalHours = 24
         });
 
     /// <summary>Resets the catalogue settings group, so one test's edit cannot reach another.</summary>

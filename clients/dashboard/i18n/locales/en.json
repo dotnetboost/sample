@@ -328,6 +328,7 @@
       "ignore": "never recorded — a translated value depends on the language, and an entry has no language",
       "retentionOwn": "kept {n} day — its own | kept {n} days — its own",
       "retentionDefault": "kept {n} day — the configured default | kept {n} days — the configured default",
+      "retentionPruned": "deleted after {n} day — the Audit trail setting | deleted after {n} days — the Audit trail setting",
       "retentionNone": "kept indefinitely"
     }
   },
@@ -553,6 +554,24 @@
           "currencySymbol": {
             "label": "Currency symbol",
             "description": "Shown next to prices."
+          }
+        }
+      },
+      "auditing": {
+        "label": "Audit trail",
+        "description": "How long the audit trail is kept. Pruning runs in the API, which reads this group every minute, so a change applies without a restart. Deleted entries cannot be recovered.",
+        "fields": {
+          "pruneEnabled": {
+            "label": "Delete old entries",
+            "description": "Off by default, so the trail is kept indefinitely. When on, entries older than the retention below are deleted at each prune."
+          },
+          "retentionDays": {
+            "label": "Retention (days)",
+            "description": "How old an entry must be before a prune deletes it. Applies to every entity, this group's own saves included."
+          },
+          "pruneIntervalHours": {
+            "label": "Prune every (hours)",
+            "description": "How often a prune runs while deletion is on. Turning deletion on prunes within a minute; this sets the gap after that."
           }
         }
       }

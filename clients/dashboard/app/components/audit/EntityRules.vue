@@ -21,6 +21,18 @@ const props = defineProps<{
 const { t } = useI18n()
 
 /**
+ * The retention the API's prune applies, when the `auditing` settings group has it on.
+ *
+ * Read only when the model has no retention of its own to report — which, in this application, is
+ * always: see `useAuditingSettings` for why the library's option stays unset. A failed read falls
+ * back to the model's answer rather than guessing.
+ */
+const { data: auditing } = await useAuditingSettings()
+
+const prunedAfterDays = computed(() =>
+  auditing.value?.pruneEnabled ? auditing.value.retentionDays : null)
+
+/**
  * The properties by rule, in the order the three are worth reading: recorded, withheld, absent.
  *
  * A rule with no properties under it is dropped rather than drawn empty — `Redact` is empty in this
@@ -63,9 +75,10 @@ const groups = computed(() => ([
           :label="$t('audit.rules.notAudited')"
         />
 
-        <!-- `null` retention means nothing is configured either way, so a prune would leave these
-             entries alone — never that they expire immediately. This sample maps no prune
-             endpoint, so nothing here ever runs one. -->
+        <!-- `null` retention means the library has nothing configured either way, so ITS prune
+             would leave these entries alone — never that they expire immediately. What prunes in
+             this application is the API's retention service, reading the `auditing` settings
+             group, so that is the second answer below and the one that applies here. -->
         <UBadge
           v-if="schema.retentionDays !== null"
           color="info"
@@ -74,6 +87,13 @@ const groups = computed(() => ([
           :label="schema.hasOwnRetention
             ? $t('audit.rules.retentionOwn', schema.retentionDays)
             : $t('audit.rules.retentionDefault', schema.retentionDays)"
+        />
+        <UBadge
+          v-else-if="prunedAfterDays !== null"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-clock"
+          :label="$t('audit.rules.retentionPruned', prunedAfterDays)"
         />
         <UBadge
           v-else

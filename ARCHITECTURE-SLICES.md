@@ -5,7 +5,7 @@ the two disagreed the code won — §10 lists what changed on contact with the c
 written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
 whether to merge it; §11.3 says how that ended.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 148 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 154 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 

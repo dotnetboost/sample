@@ -105,7 +105,7 @@ public abstract class OpenApiShapeTests(SampleApp app)
     /// where they are now called. Nothing else in the repository had to change for them to appear.
     /// </para>
     ///
-    /// <para><b>Why the list rather than the count.</b> 45 on its own survives one route being
+    /// <para><b>Why the list rather than the count.</b> 48 on its own survives one route being
     /// swapped for another, which is precisely the change that leaves a route uncalled while the
     /// number still reads true. Listed, the failure names the route — call it in a test and add it
     /// here, or delete the line and correct the README.</para>
@@ -132,7 +132,7 @@ public abstract class OpenApiShapeTests(SampleApp app)
     }
 
     /// <summary>
-    /// The 45, in the order <see cref="StringComparer.Ordinal"/> puts them — which groups them by
+    /// The 48, in the order <see cref="StringComparer.Ordinal"/> puts them — which groups them by
     /// method, so a new route lands where it can be read against its neighbours.
     /// </summary>
     private static readonly string[] Published =
@@ -165,6 +165,8 @@ public abstract class OpenApiShapeTests(SampleApp app)
         "GET /api/products",
         "GET /api/products/{id}",
         "GET /api/settings",
+        "GET /api/settings/auditing",
+        "GET /api/settings/auditing/schema",
         "GET /api/settings/branding",
         "GET /api/settings/branding/schema",
         "GET /api/settings/catalog",
@@ -181,6 +183,7 @@ public abstract class OpenApiShapeTests(SampleApp app)
         "POST /api/media/{id}/attachments",
         "POST /api/products",
         "POST /api/products/{id}/images",
+        "POST /api/settings/auditing",
         "POST /api/settings/branding",
         "POST /api/settings/catalog",
         "POST /api/translations/{entityName}/resolve",

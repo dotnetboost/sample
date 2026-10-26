@@ -328,6 +328,7 @@
       "ignore": "jamais enregistrées — une valeur traduite dépend de la langue, et une entrée n'a pas de langue",
       "retentionOwn": "conservées {n} jour — sa propre règle | conservées {n} jours — sa propre règle",
       "retentionDefault": "conservées {n} jour — la valeur par défaut configurée | conservées {n} jours — la valeur par défaut configurée",
+      "retentionPruned": "supprimées après {n} jour — réglage Journal d'audit | supprimées après {n} jours — réglage Journal d'audit",
       "retentionNone": "conservées sans limite"
     }
   },
@@ -553,6 +554,24 @@
           "currencySymbol": {
             "label": "Symbole monétaire",
             "description": "Affiché à côté des prix."
+          }
+        }
+      },
+      "auditing": {
+        "label": "Journal d'audit",
+        "description": "Durée de conservation du journal d'audit. La purge s'exécute dans l'API, qui relit ce groupe chaque minute : un changement s'applique sans redémarrage. Les entrées supprimées ne peuvent pas être récupérées.",
+        "fields": {
+          "pruneEnabled": {
+            "label": "Supprimer les anciennes entrées",
+            "description": "Désactivé par défaut : le journal est conservé sans limite. Activé, les entrées plus anciennes que la durée ci-dessous sont supprimées à chaque purge."
+          },
+          "retentionDays": {
+            "label": "Conservation (jours)",
+            "description": "L'âge à partir duquel une purge supprime une entrée. S'applique à toutes les entités, y compris aux enregistrements de ce groupe."
+          },
+          "pruneIntervalHours": {
+            "label": "Purger toutes les (heures)",
+            "description": "La fréquence des purges tant que la suppression est activée. L'activer déclenche une purge dans la minute ; ce réglage fixe l'intervalle ensuite."
           }
         }
       }

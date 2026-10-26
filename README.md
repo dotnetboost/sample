@@ -317,13 +317,14 @@ being true. It has: three of these exist because two libraries **disagree**, whi
 glue than "these two tables are about one thing" and is the reason the count is worth keeping
 honest rather than tidy.
 
-**And grep cannot check it, in either direction.** Nine files under `src/` carry `using`
+**And grep cannot check it, in either direction.** Ten files under `src/` carry `using`
 directives for two or more `DotNetBoost.*` libraries, and seven of them are above. `Program.cs` names
 three and `Infrastructure/DependencyInjection.cs` all four while registering them in independent
 calls, which is the thing this sample is arguing for rather than a join — the second is on the list
 for one line of its three hundred, not for the four blocks around it; `ListProducts.cs` consumes two
-side by side — a page size from Settings and the files from Media — without ever saying that one
-library's subject is the other's. Meanwhile two files that *are* above name one library each:
+side by side — a page size from Settings and the files from Media — and
+`Api/Auditing/AuditRetentionService.cs` does the same with a retention from Settings and a prune
+from Auditing, neither ever saying that one library's subject is the other's. Meanwhile two files that *are* above name one library each:
 `MediaText` references only MultiLingual, because what joins it to Media is the subject name
 `"MediaFile"` and not a type; and `MediaTextCleanup` references only Media, because it is that
 library's own deleted-files handler. A join is the identity assertion — this file's alt text **is** that translation subject, this settings property
@@ -867,11 +868,11 @@ do.
 `dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
 `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-**The whole integration suite runs in both modes**: fifty-one tests against each, the same
-assertions, nothing adapted — and between them they call **every one of the API's 45 published
+**The whole integration suite runs in both modes**: fifty-four tests against each, the same
+assertions, nothing adapted — and between them they call **every one of the API's 48 published
 routes**, found by listing the generated document and crossing it against what the tests request.
-That inventory is now one of the fifty-one rather than a cross-check someone did once:
-`OpenApiShapeTests` asserts the forty-five by name, so a route mapped by this application or by the
+That inventory is now one of the fifty-four rather than a cross-check someone did once:
+`OpenApiShapeTests` asserts the forty-eight by name, so a route mapped by this application or by the
 next version of a library fails the suite instead of quietly going uncalled — which is exactly how
 the four `/api/audit` routes announced themselves. The rest were not written for this mode and were not
 changed for it, which is what makes them worth re-running — branding, media shapes, settings,
@@ -1013,13 +1014,13 @@ can tell.
 - **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
   answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
   refusable ones declare `.Produces<T>()` and the two listings return their value directly. It also
-  holds the route inventory — all forty-five, by method and path — which is what keeps the claim
+  holds the route inventory — all forty-eight, by method and path — which is what keeps the claim
   above from going stale when a library adds an endpoint.
 - **`BaseLanguageTests`** — what only base-language mode can be asked, which is everything the
   classes above cannot express because they have to pass in both: that the `Name` column exists and
   holds English (read with raw SQL — in the default mode that statement would not even parse), that
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the fifty-one the
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the fifty-four the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
   document against what the suite requests: promoting a language to default (allowed with a base
@@ -1039,6 +1040,11 @@ can tell.
   `Ignore`; and the two declared entities being this application's own. One of them earns its keep
   on its own: **a refused write records nothing** — a `409` from the unique index on the SKU takes
   the entry with it, because the interceptor tracked the entry inside the save that was refused.
+- **`AuditRetentionTests`** — the `auditing` settings group starts switched off and publishes the
+  bounds its validator enforces; an entry three days old survives while it is off; and once it is
+  on with a retention of one day, `AuditRetentionService` deletes that entry and keeps one written
+  now — with the save that turned it on in the trail, under the caller who made it. The prune is
+  the service's own method on the instance the host runs, not a copy of its logic.
 - **`SchemaUpgradeTests`** — a database from before the HiLo keys, identity columns and rows
   included, booted on: the initialiser adds the two sequences past the ids already there, and the
   first product and category created on it get ids nobody holds.
@@ -1047,7 +1053,7 @@ Both regression tests were checked the only way that means anything: the fix was
 failed, the fix was put back.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 118 as skipped, with the reason. The README already asks for Docker,
+tests and reports the other 124 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
 ### And the dashboard's own
@@ -1207,7 +1213,7 @@ That last row is the one place a dependency rule earns its keep. Reading
 line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
 matches index names that the EF configurations declare as constants a few files away.
 
-### Why four projects for 45 files
+### Why four projects for 47 files
 
 It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
 is that the dependency rules above are enforced by the build rather than by a comment; what it costs
@@ -1554,10 +1560,20 @@ DotNetBoost.Auditing maps them that way. It verifies nothing — replacing
 the engine only ever asks `HttpContext.User` who is acting. A request without it is recorded with no
 actor rather than with a guess.
 
-**No retention is configured and no prune is scheduled**, deliberately: retention does nothing
-until a prune runs, and a number in `AddAuditing` would state a policy nothing in the solution
-carries out. The trail grows forever, which for a sample seeded on first run is the honest answer.
-`o.Retention` plus a hosted service calling `PruneAsync` is the real one.
+**Retention is a settings group, and it is off until you turn it on.** The **Audit trail** tab
+under Settings (`GET`/`POST /api/settings/auditing`) holds three values: whether old entries are
+deleted, how old is old (1–3650 days, 365 by default), and how often to prune (1–168 hours, 24
+by default). `Api/Auditing/AuditRetentionService.cs` reads the group every minute and calls
+`PruneOlderThanAsync` when a prune is due, so an edit applies without a restart, and the edit is in
+the trail like any other group's save.
+
+It is only retention because only retention can follow an edit. Every other `AuditingOptions`
+value is read once, at `Build()`, and the library says plainly that changing one takes a restart.
+A form offering `Enabled` or `RecordDeletedValues` would save values that do nothing until the
+process is replaced. For the same reason `o.Retention` stays unset: the prune takes the age as an
+argument instead, which also means it ignores a per-entity `[AuditRetention]`. Nothing here
+declares one. `POST /api/audit/prune` stays unmapped, so a client can set the policy but cannot
+delete history on demand.
 
 ## License
 
