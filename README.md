@@ -1063,7 +1063,7 @@ depending on all three because it composes them.
 
 The three class libraries multi-target `net8.0;net10.0`, matching the TFMs the DotNetBoost packages
 themselves ship, so the application code is proved against both. The host cannot follow: Aspire
-13.5 and the Npgsql EF Core 10 provider require `net10.0`. EF Core is therefore pinned per
+13.6 and the Npgsql EF Core 10 provider require `net10.0`. EF Core is therefore pinned per
 framework in `Directory.Packages.props` — 8.0.30 and 10.0.11, the versions the DotNetBoost EF
 packages ask for on each, because naming a lower one is a package downgrade and an error.
 
