@@ -27,7 +27,7 @@ public static class DatabaseInitialiser
         var sp = scope.ServiceProvider;
 
         var db = sp.GetRequiredService<AppDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        if (!await db.Database.EnsureCreatedAsync()) await db.CreateMissingTablesAsync();
 
         var multiLingual = sp.GetRequiredService<IMultiLingualManager>();
 
@@ -164,5 +164,51 @@ public static class DatabaseInitialiser
             ("fr", "Lampe de bureau en laiton", "Bras réglable, lumière chaude."));
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Adds the tables the model has and an existing database does not — and nothing else.
+    ///
+    /// <para><c>EnsureCreated</c> does nothing to a database that already exists, and Aspire keeps
+    /// this one on a data volume across runs. So a database created before a library joined the
+    /// model — DotNetBoost.Auditing's <c>AuditEntries</c> and <c>AuditPropertyChanges</c>, the
+    /// first time this branch runs against an older volume — never gets that library's tables, and
+    /// every read of them is a 500. This creates them from EF's own create script, keeping its
+    /// order, so the volume survives the upgrade with its data intact.</para>
+    ///
+    /// <para>Only missing tables and their indexes. A column added to an existing table is a
+    /// migration, which this sample does not have; for that, drop the volume.</para>
+    /// </summary>
+    private static async Task CreateMissingTablesAsync(this AppDbContext db)
+    {
+        var existing = (await db.Database
+                .SqlQueryRaw<string>(
+                    "SELECT table_name AS \"Value\" FROM information_schema.tables WHERE table_schema = current_schema()")
+                .ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var missing = db.Model.GetEntityTypes()
+            .Select(type => type.GetTableName())
+            .OfType<string>()
+            .Where(table => !existing.Contains(table))
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (missing.Count == 0) return;
+
+        var statements = db.Database.GenerateCreateScript()
+            .Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(statement => CreatedTable(statement) is { } table && missing.Contains(table));
+
+        foreach (var statement in statements)
+            await db.Database.ExecuteSqlRawAsync(statement);
+    }
+
+    /// <summary>The table a <c>CREATE TABLE</c> or <c>CREATE INDEX … ON</c> statement is about.</summary>
+    private static string? CreatedTable(string statement)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            statement, "^CREATE (?:UNIQUE )?(?:TABLE|INDEX \\S+ ON) (?:\"[^\"]+\"\\.)?\"([^\"]+)\"");
+
+        return match.Success ? match.Groups[1].Value : null;
     }
 }
