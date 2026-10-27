@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
-import { Columns3, EllipsisVertical, FilterX, FolderTree, ImageOff, Images, Package, Pencil, Plus, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { EllipsisVertical, FilterX, FolderTree, ImageOff, Images, Package, Pencil, Plus, Search, SearchX, Trash2, X } from '@lucide/vue'
 import { watchDebounced } from '@vueuse/core'
 import {
   columnVisibilityFeature,
@@ -274,9 +274,6 @@ const productTable = useTable({
 const categoryRowsSorted = computed(() => categoryTable.getRowModel().rows)
 const productRowsSorted = computed(() => productTable.getRowModel().rows)
 
-/** The table whose tab is open — what the toolbar's Columns menu works on. */
-const activeTable = computed(() => tab.value === 'categories' ? categoryTable : productTable)
-
 const columnLabels = computed<Record<string, string>>(() => ({
   slug: t('catalog.columns.slug'),
   products: t('catalog.columns.products'),
@@ -286,8 +283,11 @@ const columnLabels = computed<Record<string, string>>(() => ({
   price: t('catalog.columns.price')
 }))
 
-const hideable = computed(() =>
-  activeTable.value.getAllLeafColumns().filter(column => column.getCanHide()))
+/** What each table's Columns menu offers: the name and the menu column always stay. */
+const hideableCategoryColumns = computed(() =>
+  categoryTable.getAllLeafColumns().filter(column => column.getCanHide()))
+const hideableProductColumns = computed(() =>
+  productTable.getAllLeafColumns().filter(column => column.getCanHide()))
 
 /** Whether a column of the open table is on. The cells are drawn by hand, so they ask. */
 const shownCategory = (id: string) => categoryTable.getColumn(id)?.getIsVisible() ?? true
@@ -314,30 +314,10 @@ const productColumn = (id: string) => productTable.getColumn(id)!
         </TabsList>
       </Tabs>
 
-      <!-- The block's "Customize columns", for whichever table the open tab shows. -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="outline" size="sm" class="ms-auto">
-            <Columns3 />
-            <span class="max-sm:sr-only">{{ $t('common.columns') }}</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-48">
-          <DropdownMenuCheckboxItem
-            v-for="item in hideable"
-            :key="`${tab}-${item.id}`"
-            :model-value="item.getIsVisible()"
-            @update:model-value="item.toggleVisibility(!!$event)"
-            @select.prevent
-          >
-            {{ columnLabels[item.id] }}
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
       <Button
         v-if="tab === 'categories'"
         size="sm"
+        class="ms-auto"
         @click="editCategory(null)"
       >
         <Plus />
@@ -346,6 +326,7 @@ const productColumn = (id: string) => productTable.getColumn(id)!
       <Button
         v-else
         size="sm"
+        class="ms-auto"
         @click="editProduct(null)"
       >
         <Plus />
@@ -370,6 +351,11 @@ const productColumn = (id: string) => productTable.getColumn(id)!
         `dir="auto"` on the name and description: a row with no Arabic translation comes back in
         the default language's English, and read right-to-left it truncates from the wrong end.
       -->
+      <!-- Over the table's end corner, as on Products and Audit, where it ends the filter bar. -->
+      <div v-if="categories?.length" class="flex justify-end">
+        <ColumnsMenu :columns="hideableCategoryColumns" :labels="columnLabels" />
+      </div>
+
       <TableFrame v-if="categories?.length">
         <Table>
           <TableHeader class="sticky-head">
@@ -549,6 +535,10 @@ const productColumn = (id: string) => productTable.getColumn(id)!
           <FilterX />
           {{ $t('common.clear') }}
         </Button>
+
+        <div class="flex justify-end sm:ms-auto">
+          <ColumnsMenu :columns="hideableProductColumns" :labels="columnLabels" />
+        </div>
       </div>
 
       <TableFrame v-if="products.length">

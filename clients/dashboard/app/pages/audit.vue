@@ -2,7 +2,7 @@
 import type { Component } from 'vue'
 import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
 import {
-  ChevronRight, Columns3, GitCompareArrows, Pencil, PlugZap, Plus, RefreshCw, ScrollText, Trash2
+  ChevronRight, GitCompareArrows, Pencil, PlugZap, Plus, RefreshCw, ScrollText, Trash2
 } from '@lucide/vue'
 import {
   columnVisibilityFeature,
@@ -247,26 +247,10 @@ const range = computed(() => {
         @update="setFilters($event)"
         @reset="reset()"
       >
-        <!-- The block's "Customize columns": which columns this reader wants, kept per browser. -->
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" class="sm:ms-auto">
-              <Columns3 />
-              {{ $t('common.columns') }}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-48">
-            <DropdownMenuCheckboxItem
-              v-for="item in hideable"
-              :key="item.id"
-              :model-value="item.getIsVisible()"
-              @update:model-value="item.toggleVisibility(!!$event)"
-              @select.prevent
-            >
-              {{ columnLabels[item.id] }}
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <!-- Over the table's end corner: which columns this reader wants, kept per browser. -->
+        <div class="flex justify-end sm:ms-auto">
+          <ColumnsMenu :columns="hideable" :labels="columnLabels" />
+        </div>
       </AuditFilters>
 
       <!-- Only with an entity filtered on: "what is recorded for Product" has no answer across
