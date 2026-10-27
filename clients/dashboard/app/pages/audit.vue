@@ -154,6 +154,15 @@ const actionStyles: Record<AuditAction, string> = {
   Deleted: 'text-destructive'
 }
 
+/** The tabs over the table, in the order a record's life runs. */
+const auditActions: AuditAction[] = ['Created', 'Updated', 'Deleted']
+
+/**
+ * "All" is a sentinel rather than an empty value: reka-ui's tabs need a value for every trigger,
+ * and the query keeps "no action filter" as the empty string the API is never sent.
+ */
+const ALL_ACTIONS = 'all'
+
 const actionIcons: Record<AuditAction, Component> = {
   Created: Plus,
   Updated: Pencil,
@@ -246,12 +255,7 @@ const range = computed(() => {
         :pending="pending"
         @update="setFilters($event)"
         @reset="reset()"
-      >
-        <!-- Over the table's end corner: which columns this reader wants, kept per browser. -->
-        <div class="flex justify-end sm:ms-auto">
-          <ColumnsMenu :columns="hideable" :labels="columnLabels" />
-        </div>
-      </AuditFilters>
+      />
 
       <!-- Only with an entity filtered on: "what is recorded for Product" has no answer across
            entities, and one averaged over two would be a statement the model never made. -->
@@ -267,6 +271,35 @@ const range = computed(() => {
           </Button>
         </AlertAction>
       </Alert>
+
+      <!--
+        The bar over the table, as the `dashboard-01` block draws one: what kind of change to show,
+        as tabs on the start side, and which columns on the end. Tabs rather than the select this
+        replaces, because there are four answers and the question is asked often — every one of
+        them is a click away, and the one in force is visible without opening anything.
+
+        Like every other filter here, the tab is a parameter on the query the API is asked, not a
+        filter over the rows on screen; changing it goes back to page 1.
+      -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <Tabs
+          :model-value="query.action || ALL_ACTIONS"
+          @update:model-value="setFilters({ action: $event === ALL_ACTIONS ? '' : $event as AuditAction })"
+        >
+          <TabsList :aria-label="$t('audit.filters.action')">
+            <TabsTrigger :value="ALL_ACTIONS">
+              {{ $t('audit.filters.allActions') }}
+            </TabsTrigger>
+            <TabsTrigger v-for="action in auditActions" :key="action" :value="action">
+              <component :is="actionIcons[action]" :class="actionStyles[action]" />
+              {{ actionLabels[action] }}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <!-- Which columns this reader wants, kept per browser. -->
+        <ColumnsMenu :columns="hideable" :labels="columnLabels" />
+      </div>
 
       <!-- A row opens and closes wherever it is clicked; the chevron is the same toggle as a real
            button, for the keyboard, and the entity link stops the click so following it does not

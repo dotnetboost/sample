@@ -313,25 +313,6 @@ const productColumn = (id: string) => productTable.getColumn(id)!
           </TabsTrigger>
         </TabsList>
       </Tabs>
-
-      <Button
-        v-if="tab === 'categories'"
-        size="sm"
-        class="ms-auto"
-        @click="editCategory(null)"
-      >
-        <Plus />
-        {{ $t('catalog.newCategory') }}
-      </Button>
-      <Button
-        v-else
-        size="sm"
-        class="ms-auto"
-        @click="editProduct(null)"
-      >
-        <Plus />
-        {{ $t('catalog.newProduct') }}
-      </Button>
     </template>
 
     <SectionIntro
@@ -351,9 +332,15 @@ const productColumn = (id: string) => productTable.getColumn(id)!
         `dir="auto"` on the name and description: a row with no Arabic translation comes back in
         the default language's English, and read right-to-left it truncates from the wrong end.
       -->
-      <!-- Over the table's end corner, as on Products and Audit, where it ends the filter bar. -->
-      <div v-if="categories?.length" class="flex justify-end">
-        <ColumnsMenu :columns="hideableCategoryColumns" :labels="columnLabels" />
+      <!-- Over the table's end corner: which columns to show, then the one action that adds a
+           row to it — the same pair that ends the Products filter bar. The Columns menu only
+           with a table to act on; the New button always, as the empty state's own way in. -->
+      <div class="flex items-center justify-end gap-2">
+        <ColumnsMenu v-if="categories?.length" :columns="hideableCategoryColumns" :labels="columnLabels" />
+        <Button @click="editCategory(null)">
+          <Plus />
+          {{ $t('catalog.newCategory') }}
+        </Button>
       </div>
 
       <TableFrame v-if="categories?.length">
@@ -536,8 +523,12 @@ const productColumn = (id: string) => productTable.getColumn(id)!
           {{ $t('common.clear') }}
         </Button>
 
-        <div class="flex justify-end sm:ms-auto">
+        <div class="flex items-center justify-end gap-2 sm:ms-auto">
           <ColumnsMenu :columns="hideableProductColumns" :labels="columnLabels" />
+          <Button @click="editProduct(null)">
+            <Plus />
+            {{ $t('catalog.newProduct') }}
+          </Button>
         </div>
       </div>
 

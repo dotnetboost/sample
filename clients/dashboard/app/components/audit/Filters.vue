@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { parseDate } from '@internationalized/date'
 import type { CalendarDate } from '@internationalized/date'
-import { Box, CalendarRange, CircleSlash, Filter, FilterX, KeyRound, UserRound, X } from '@lucide/vue'
+import { Box, CalendarRange, CircleSlash, FilterX, KeyRound, UserRound, X } from '@lucide/vue'
 import { watchDebounced } from '@vueuse/core'
 import type { DateRange } from 'reka-ui'
-import type { AuditAction, AuditEntityDescriptor, AuditQuery } from '~/types'
+import type { AuditEntityDescriptor, AuditQuery } from '~/types'
 
 /**
- * The filter bar: the entity, its key, the actor, the action and a date range. The sort is the
- * table's column headers and the page size is in its footer — see `audit.vue` — and the default
- * slot is the end of the second row, where the page puts its Columns menu.
+ * The filter bar: the entity, its key, the actor and a date range. The action is the tabs over the
+ * table, the sort is the table's column headers and the page size is in its footer — all in
+ * `audit.vue`, beside the table they act on.
  *
  * Every one of them is a parameter on `GET api/audit`. Nothing here filters the rows already on
  * screen — a trail only grows, so the page you are looking at is never the set you meant to
@@ -63,15 +63,6 @@ const entityItems = computed(() => [
 ])
 
 const entity = computed(() => props.query.entityName || ANY)
-
-const actions = computed<{ label: string, value: AuditAction | typeof ANY }[]>(() => [
-  { label: t('audit.filters.anyAction'), value: ANY },
-  { label: t('audit.actions.created'), value: 'Created' },
-  { label: t('audit.actions.updated'), value: 'Updated' },
-  { label: t('audit.actions.deleted'), value: 'Deleted' }
-])
-
-const action = computed(() => props.query.action || ANY)
 
 /**
  * `from` and `to` as the range the calendar draws. The query keeps them as `yyyy-mm-dd`, which is
@@ -172,7 +163,6 @@ watch(() => props.query.entityId, (value) => {
           v-model="entityId"
           dir="ltr"
           autocomplete="off"
-
           :placeholder="$t('audit.filters.entityId')"
           :aria-label="$t('audit.filters.entityId')"
         />
@@ -191,21 +181,6 @@ watch(() => props.query.entityId, (value) => {
           :aria-label="$t('audit.filters.actor')"
         />
       </InputGroup>
-
-      <Select
-        :model-value="action"
-        @update:model-value="emit('update', { action: $event === ANY ? '' : $event as AuditAction })"
-      >
-        <SelectTrigger class="w-full sm:w-40" :aria-label="$t('audit.filters.action')">
-          <Filter class="text-muted-foreground" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="item in actions" :key="item.value" :value="item.value">
-            {{ item.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
     </div>
 
     <!-- One aligned row of controls, each named for assistive technology and by its icon on
@@ -250,8 +225,6 @@ watch(() => props.query.entityId, (value) => {
         <FilterX />
         {{ $t('common.clear') }}
       </Button>
-
-      <slot />
     </div>
 
     <p class="text-xs text-muted-foreground">

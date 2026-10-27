@@ -331,11 +331,11 @@
       "entityId": "Clé",
       "actor": "Acteur",
       "action": "Action",
-      "anyAction": "Toute action",
       "dates": "Dates",
       "anyDate": "Toutes les dates",
       "clearDates": "Effacer les dates",
-      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres."
+      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres.",
+      "allActions": "Toutes"
     },
     "actions": {
       "created": "Créé",

@@ -331,11 +331,11 @@
       "entityId": "Key",
       "actor": "Actor",
       "action": "Action",
-      "anyAction": "Any action",
       "dates": "Dates",
       "anyDate": "Any date",
       "clearDates": "Clear dates",
-      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own."
+      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own.",
+      "allActions": "All"
     },
     "actions": {
       "created": "Created",
