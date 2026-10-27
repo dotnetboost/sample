@@ -5,7 +5,7 @@ the two disagreed the code won — §10 lists what changed on contact with the c
 written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
 whether to merge it; §11.3 says how that ended.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 154 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 158 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 
@@ -441,11 +441,12 @@ public static class ListProducts
         public void Map(IEndpointRouteBuilder app) =>
             app.MapGet("/api/products", async (
                     int? categoryId,
+                    string? search,
                     int? page,
                     int? pageSize,
                     IDispatcher dispatcher,
                     CancellationToken ct) =>
-                await dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+                await dispatcher.SendAsync(new Query(categoryId, search, page, pageSize), ct))
                .WithTags("Products")
                .WithSummary("One page of products, translated, with per-language image alt text");
     }

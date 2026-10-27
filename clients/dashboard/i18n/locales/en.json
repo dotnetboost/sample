@@ -154,6 +154,15 @@
       "sortedThisPage": "Sorted within this page — the catalogue itself lists products in the order they were added.",
       "resetSort": "Order added",
       "pageSize": "{n} per page, set in"
+    },
+    "filters": {
+      "search": "Search by name, description or SKU…",
+      "clearSearch": "Clear the search",
+      "category": "Category",
+      "allCategories": "All categories",
+      "emptyTitle": "No products match",
+      "emptyDescription": "Names and descriptions are searched in the language in the header, SKUs in any.",
+      "clear": "Clear filters"
     }
   },
   "categoryEditor": {

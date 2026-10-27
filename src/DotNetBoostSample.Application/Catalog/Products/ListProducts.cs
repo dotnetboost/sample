@@ -22,7 +22,9 @@ namespace DotNetBoostSample.Application.Catalog.Products;
 /// </summary>
 public static class ListProducts
 {
-    public sealed record Query(int? CategoryId, int? Page, int? PageSize)
+    /// <param name="Search">Text to look for in the name, the description or the SKU, case aside.
+    /// The name and description are matched in the request's language — see the handler.</param>
+    public sealed record Query(int? CategoryId, string? Search, int? Page, int? PageSize)
         : IQuery<PagedResult<ProductListItem>>;
 
     /// <param name="Primary">The file in the <c>primary</c> role, or null.</param>
@@ -81,6 +83,26 @@ public static class ListProducts
 
             if (request.CategoryId is not null)
                 query = query.Where(p => p.CategoryId == request.CategoryId);
+
+            // Name and Description have no column in this sample's mode — they are translation
+            // rows — and the query is written as if they did anyway. DotNetBoost.MultiLingual's
+            // query interceptor rewrites every read of a translatable property, in a Where as much
+            // as in a Select, into the value for the request's language with its fallbacks. So
+            // this matches what the caller reads: "مكتب" finds the writing desk under
+            // Accept-Language: ar, and "desk" finds it in English, from the same line.
+            //
+            // ToLower on both sides rather than ILike, which is Npgsql's and would put the provider
+            // into a layer that does not reference it. Contains is a substring match and not a
+            // pattern, so a % or an _ typed into the box is just a character.
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var term = request.Search.Trim().ToLower();
+
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(term)
+                    || p.Description.ToLower().Contains(term)
+                    || p.Sku.ToLower().Contains(term));
+            }
 
             // Counted before paging, so the pager cannot offer a page that holds nothing.
             var total = await query.CountAsync(ct);
@@ -142,11 +164,12 @@ public static class ListProducts
             // Returns the page rather than Results.Ok(page) — see ListCategories for why.
             app.MapGet("/api/products", (
                     int? categoryId,
+                    string? search,
                     int? page,
                     int? pageSize,
                     IDispatcher dispatcher,
                     CancellationToken ct) =>
-                dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+                dispatcher.SendAsync(new Query(categoryId, search, page, pageSize), ct))
                .WithTags("Products")
                .WithSummary("One page of products, translated, with per-language image alt text");
     }

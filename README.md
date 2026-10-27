@@ -132,7 +132,7 @@ that writes it — three values, each landing in a different place:
 
 | | |
 |---|---|
-| `PageSize` | How many products `GET /api/products` answers with. The catalogue list asks for no page size, so this is the one that decides; the pager under the list follows it. |
+| `PageSize` | How many products `GET /api/products` answers with. The catalogue list asks for no page size, so this is the one that decides; the table's footer says so and links here. |
 | `CurrencySymbol` | The glyph beside a price. Only the glyph — `Intl` places it, so the same `€` reads `€349.00` in English and `349.00 €` in Arabic. |
 
 Change `PageSize` from 12 to 2, reload the Catalog page, and it pages by two — no restart, no
@@ -868,10 +868,10 @@ do.
 `dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
 `MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
 
-**The whole integration suite runs in both modes**: fifty-four tests against each, the same
+**The whole integration suite runs in both modes**: fifty-six tests against each, the same
 assertions, nothing adapted — and between them they call **every one of the API's 48 published
 routes**, found by listing the generated document and crossing it against what the tests request.
-That inventory is now one of the fifty-four rather than a cross-check someone did once:
+That inventory is now one of the fifty-six rather than a cross-check someone did once:
 `OpenApiShapeTests` asserts the forty-eight by name, so a route mapped by this application or by the
 next version of a library fails the suite instead of quietly going uncalled — which is exactly how
 the four `/api/audit` routes announced themselves. The rest were not written for this mode and were not
@@ -1020,7 +1020,7 @@ can tell.
   classes above cannot express because they have to pass in both: that the `Name` column exists and
   holds English (read with raw SQL — in the default mode that statement would not even parse), that
   a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the fifty-four the
+  text alone, that the base language cannot be deleted. Fifteen tests, beside the fifty-six the
   suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
 - **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
   document against what the suite requests: promoting a language to default (allowed with a base
@@ -1053,7 +1053,7 @@ Both regression tests were checked the only way that means anything: the fix was
 failed, the fix was put back.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 124 as skipped, with the reason. The README already asks for Docker,
+tests and reports the other 128 as skipped, with the reason. The README already asks for Docker,
 OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 
 ### And the dashboard's own
@@ -1151,9 +1151,9 @@ public static class ListProducts
     public sealed class Endpoint : IEndpoint
     {
         public void Map(IEndpointRouteBuilder app) =>
-            app.MapGet("/api/products", (int? categoryId, int? page, int? pageSize,
+            app.MapGet("/api/products", (int? categoryId, string? search, int? page, int? pageSize,
                                          IDispatcher dispatcher, CancellationToken ct) =>
-                   dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+                   dispatcher.SendAsync(new Query(categoryId, search, page, pageSize), ct))
                .WithTags("Products");
     }
 }
@@ -1406,11 +1406,17 @@ asked for deliberately rather than inherited.
 
 `GET /api/products` takes `page` and `pageSize` and answers `{ items, total, skip, take }` — the
 shape DotNetBoost.Media answers its own listings with, so the dashboard pages a catalogue the way
-it already pages the media library. Both parameters are optional: with no `pageSize` the API uses
+it already pages the media library. Both are optional: with no `pageSize` the API uses
 `CatalogSettings.PageSize`, which is how that setting reaches a screen at all, and `take` in the
 response says what it settled on. `MaxPageSize` caps whatever is asked for, because a page size is
 a caller's suggestion and an unbounded one is how a listing endpoint becomes a way to exhaust
 memory.
+
+`categoryId` and `search` narrow the listing, and `total` counts what is left. `search` matches the
+name and the description **in the request's language**, and the SKU in any: the handler filters on
+`p.Name` as if it were a column, and MultiLingual's query interceptor rewrites that read into the
+translated value with its fallbacks, so "مكتب" finds the writing desk under `Accept-Language: ar`
+and "desk" finds it in English. `CatalogCompositionTests` holds both to it, in both modes.
 
 **A file and a file-in-a-role are different shapes, and the API sends different ones.** A listing
 or a thumbnail — `images` and `primary` on `/api/products`, `banner` on `/api/categories`, `logo`

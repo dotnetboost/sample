@@ -196,12 +196,23 @@ export function useApi() {
       /**
        * One page, newest page size first.
        *
-       * Both parameters are omitted by the catalogue list on purpose: with no `pageSize` the API
-       * uses `CatalogSettings.PageSize`, which is the only way that setting reaches a screen.
-       * The overview passes one because it counts across pages rather than showing them.
+       * The catalogue list never sends `pageSize`, on purpose: without one the API uses
+       * `CatalogSettings.PageSize`, which is the only way that setting reaches a screen. The
+       * overview passes one because it counts across pages rather than showing them.
+       *
+       * `search` is matched against the name and description in the reading language — this
+       * client's `Accept-Language`, sent below — and against the SKU. A blank one is left out
+       * rather than sent: to this API a blank parameter is an absent filter, and relying on that
+       * would mean relying on it staying true.
        */
-      list: (query: { page?: number, pageSize?: number } = {}, { signal }: Abortable = {}) =>
-        $fetch<ProductPage>('/api/products', { query, headers: headers(), signal }),
+      list: (
+        query: { page?: number, pageSize?: number, search?: string, categoryId?: number } = {},
+        { signal }: Abortable = {}
+      ) => $fetch<ProductPage>('/api/products', {
+        query: { ...query, search: query.search?.trim() || undefined },
+        headers: headers(),
+        signal
+      }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
         $fetch<CreateResult>('/api/products', { method: 'POST', body, headers: headers() }),

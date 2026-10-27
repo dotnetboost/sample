@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
-import { Columns3, EllipsisVertical, FolderTree, ImageOff, Images, Package, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Columns3, EllipsisVertical, FilterX, FolderTree, ImageOff, Images, Package, Pencil, Plus, Search, SearchX, Trash2, X } from '@lucide/vue'
+import { watchDebounced } from '@vueuse/core'
 import {
   columnVisibilityFeature,
   createColumnHelper,
@@ -54,10 +55,46 @@ const { data: categories, refresh: refreshCategories } = await useAsyncData(
  */
 const page = ref(1)
 
-const { data: productPage, refresh: refreshProducts } = await useAsyncData(
+/**
+ * The products filter bar: a search box and a category. Both are parameters on
+ * `GET /api/products`, never a filter over the rows already on screen — that would only ever
+ * search the page you are looking at, and say nothing about the rest.
+ *
+ * The search is matched by the API in the reading language (see `ListProducts`), so typing the
+ * Arabic name of a product finds it while the dashboard is in Arabic. The box is bound to its own
+ * ref and debounced into the question: bound straight through, every keystroke would be a request.
+ *
+ * A change to either goes back to page 1, because the old page number belongs to the old
+ * question — page 3 of everything can be past the end of one category.
+ */
+const searchBox = ref('')
+const search = ref('')
+const categoryFilter = ref<number | undefined>()
+
+watchDebounced(searchBox, (value) => {
+  search.value = value.trim()
+}, { debounce: 300 })
+
+watch([search, categoryFilter], () => {
+  page.value = 1
+})
+
+const isFiltered = computed(() => !!search.value || categoryFilter.value !== undefined)
+
+function clearFilters() {
+  searchBox.value = ''
+  search.value = ''
+  categoryFilter.value = undefined
+}
+
+const { data: productPage, refresh: refreshProducts, pending: productsPending } = await useAsyncData(
   'catalog-products',
-  (_nuxtApp, { signal }) => api.products.list({ page: page.value }, { signal }),
-  { watch: [page] })
+  (_nuxtApp, { signal }) => api.products.list({
+    page: page.value,
+    search: search.value,
+    categoryId: categoryFilter.value
+  }, { signal }),
+  { watch: [page, search, categoryFilter] })
 
 // `currencySymbol` for the price: the only catalogue setting a listing does not already carry.
 const { data: catalogSettings } = await useCatalogSettings()
@@ -71,8 +108,10 @@ const products = computed(() => productPage.value?.items ?? noProducts)
 const categoryRows = computed(() => categories.value ?? noCategories)
 const productTotal = computed(() => productPage.value?.total ?? 0)
 const pageSize = computed(() => productPage.value?.take ?? 0)
+// Never below 1: a filter that matches nothing is one empty page, not none, and a count of zero
+// would have the clamp below send the pager to page 0.
 const pageCount = computed(() =>
-  pageSize.value ? Math.ceil(productTotal.value / pageSize.value) : 1)
+  pageSize.value ? Math.max(1, Math.ceil(productTotal.value / pageSize.value)) : 1)
 
 const currencySymbol = computed(() => catalogSettings.value?.currencySymbol ?? '')
 
@@ -448,6 +487,70 @@ const productColumn = (id: string) => productTable.getColumn(id)!
 
     <!-- ── Products ─────────────────────────────────────────────────── -->
     <template v-else>
+      <!-- `dir="auto"` on the box: what is typed may be Arabic or a Latin SKU, either way round. -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <InputGroup class="w-full sm:max-w-sm">
+          <InputGroupAddon>
+            <Spinner v-if="productsPending && searchBox" />
+            <Search v-else />
+          </InputGroupAddon>
+          <InputGroupInput
+            v-model="searchBox"
+            dir="auto"
+            :placeholder="$t('catalog.filters.search')"
+            :aria-label="$t('catalog.filters.search')"
+          />
+          <InputGroupAddon v-if="searchBox" align="inline-end">
+            <InputGroupButton size="icon-xs" :aria-label="$t('catalog.filters.clearSearch')" @click="searchBox = ''">
+              <X />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+
+        <!-- "All categories" is a sentinel rather than an empty value, which reka-ui's select
+             refuses because it reserves that for clearing the selection. -->
+        <Select
+          :model-value="categoryFilter ?? 'all'"
+          @update:model-value="categoryFilter = $event === 'all' ? undefined : Number($event)"
+        >
+          <SelectTrigger class="w-full sm:w-52" :aria-label="$t('catalog.filters.category')">
+            <FolderTree class="text-muted-foreground" />
+            <!-- The name by itself: left to reka-ui, the trigger repeats the whole option, the
+                 product count beside the name included. -->
+            <SelectValue>
+              <span dir="auto">{{ categoryFilter === undefined
+                ? $t('catalog.filters.allCategories')
+                : categoryName(categoryFilter) }}</span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {{ $t('catalog.filters.allCategories') }}
+            </SelectItem>
+            <SelectSeparator />
+            <SelectItem
+              v-for="category in categories ?? []"
+              :key="category.id"
+              :value="category.id"
+              :text-value="category.name"
+            >
+              <span dir="auto">{{ category.name }}</span>
+              <span class="ms-auto ps-3 text-xs tabular-nums text-muted-foreground">{{ category.products }}</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          v-if="isFiltered"
+          variant="ghost"
+          class="self-start sm:self-auto"
+          @click="clearFilters"
+        >
+          <FilterX />
+          {{ $t('common.clear') }}
+        </Button>
+      </div>
+
       <TableFrame v-if="products.length">
         <Table>
           <TableHeader class="sticky-head">
@@ -575,6 +678,7 @@ const productColumn = (id: string) => productTable.getColumn(id)!
         -->
         <TablePager v-model:page="page" :page-count="pageCount">
           <span class="tabular-nums">{{ range }}</span>
+          <span v-if="isFiltered" class="text-muted-foreground/70">· {{ $t('common.filtered') }}</span>
           <!-- Only with more than one page: on a single page a sort covers every product, and
                "within this page" would be a caveat about nothing. -->
           <span v-if="productSorting.length && pageCount > 1" class="flex items-center gap-1.5 text-xs">
@@ -603,6 +707,24 @@ const productColumn = (id: string) => productTable.getColumn(id)!
           </template>
         </TablePager>
       </TableFrame>
+
+      <!-- Nothing matched: a different empty from "no products yet", and the way out is the
+           filters rather than the New button. -->
+      <Empty v-else-if="isFiltered" class="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <SearchX />
+          </EmptyMedia>
+          <EmptyTitle>{{ $t('catalog.filters.emptyTitle') }}</EmptyTitle>
+          <EmptyDescription>{{ $t('catalog.filters.emptyDescription') }}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" size="sm" @click="clearFilters">
+            <FilterX />
+            {{ $t('catalog.filters.clear') }}
+          </Button>
+        </EmptyContent>
+      </Empty>
 
       <Empty v-else class="border border-dashed">
         <EmptyHeader>

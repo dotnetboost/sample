@@ -154,6 +154,15 @@
       "sortedThisPage": "Trié au sein de cette page — le catalogue lui-même liste les produits dans l’ordre de leur ajout.",
       "resetSort": "Ordre d’ajout",
       "pageSize": "{n} par page, défini dans"
+    },
+    "filters": {
+      "search": "Rechercher par nom, description ou SKU…",
+      "clearSearch": "Effacer la recherche",
+      "category": "Catégorie",
+      "allCategories": "Toutes les catégories",
+      "emptyTitle": "Aucun produit ne correspond",
+      "emptyDescription": "Les noms et descriptions sont recherchés dans la langue de l’en-tête, les SKU dans toutes.",
+      "clear": "Effacer les filtres"
     }
   },
   "categoryEditor": {
