@@ -413,7 +413,7 @@ const productColumn = (id: string) => productTable.getColumn(id)!
               </TableCell>
               <TableCell v-if="shownCategory('slug')" class="hidden md:table-cell">
                 <!-- `dir="ltr"`: a slug is a URL segment, declared [NotMultiLingual] for that reason. -->
-                <Badge variant="outline" class="font-mono text-muted-foreground" dir="ltr">
+                <Badge variant="outline" class="text-muted-foreground" dir="ltr">
                   {{ row.original.slug }}
                 </Badge>
               </TableCell>
@@ -610,7 +610,7 @@ const productColumn = (id: string) => productTable.getColumn(id)!
                 </div>
               </TableCell>
               <TableCell v-if="shownProduct('sku')" class="hidden lg:table-cell">
-                <Badge variant="outline" class="font-mono text-muted-foreground" dir="ltr">
+                <Badge variant="outline" class="text-muted-foreground" dir="ltr">
                   {{ row.original.sku }}
                 </Badge>
               </TableCell>

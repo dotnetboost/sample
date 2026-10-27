@@ -79,7 +79,7 @@ export default defineNuxtConfig({
     }
   },
 
-  // Geist and Geist Mono, the faces shadcn-vue's blocks use, and Tajawal, which sets the Arabic —
+  // Geist, the face shadcn-vue's blocks use, and Tajawal, which sets the Arabic —
   // see `--font-sans` in app/assets/css/main.css for how it and Geist divide the scripts between
   // them.
   //
@@ -123,23 +123,13 @@ export default defineNuxtConfig({
   // Geist is listed for that one setting. Everything else about it stays default: it is first in
   // the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering the
   // 400–700 the dashboard draws.
-  //
-  // Geist Mono is `global` for a reason of its own: `--font-mono` is inlined into Tailwind's
-  // utilities rather than declared where @nuxt/fonts looks, so it is not guaranteed to be found.
-  // It carries Latin only, and only Latin is ever set in it.
+
   fonts: {
     families: [
       {
         name: 'Geist',
         provider: 'google',
         fallbacks: []
-      },
-      {
-        name: 'Geist Mono',
-        provider: 'google',
-        global: true,
-        weights: [400, 500],
-        subsets: ['latin']
       },
       {
         name: 'Tajawal',

@@ -172,7 +172,7 @@ watch(() => props.query.entityId, (value) => {
           v-model="entityId"
           dir="ltr"
           autocomplete="off"
-          class="font-mono"
+
           :placeholder="$t('audit.filters.entityId')"
           :aria-label="$t('audit.filters.entityId')"
         />

@@ -55,7 +55,7 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
           <!-- The property name is the C# one, which is how the model's own description spells it
                too — so it is quoted rather than translated, like every other identifier here. -->
           <th scope="row" class="py-1 pe-3 text-start font-normal">
-            <span dir="ltr" class="font-mono font-medium">{{ change.propertyName }}</span>
+            <span dir="ltr" class="font-medium">{{ change.propertyName }}</span>
 
             <Tooltip v-if="change.isTruncated">
               <TooltipTrigger as-child>
@@ -101,7 +101,7 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
     <dl class="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground">
       <div class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.id') }}</dt>
-        <dd dir="ltr" class="font-mono text-foreground">
+        <dd dir="ltr" class="text-foreground">
           {{ entry.id }}
         </dd>
       </div>
@@ -117,7 +117,7 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
            and neither does this. -->
       <div v-if="entry.metadata" class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.metadata') }}</dt>
-        <dd dir="auto" class="font-mono text-foreground">
+        <dd dir="auto" class="text-foreground">
           {{ entry.metadata }}
         </dd>
       </div>
@@ -127,7 +127,7 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
            is what says they belong together. -->
       <div v-if="entry.correlationId" class="flex items-center gap-2">
         <dt>{{ $t('audit.entry.correlationId') }}</dt>
-        <dd dir="ltr" class="font-mono text-foreground">
+        <dd dir="ltr" class="text-foreground">
           {{ entry.correlationId }}
         </dd>
         <Button size="xs" variant="secondary" @click="emit('showEdit', entry.correlationId)">

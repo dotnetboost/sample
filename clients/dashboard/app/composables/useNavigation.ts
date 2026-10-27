@@ -37,9 +37,9 @@ export interface ExternalLink {
  *   • the Overview on its own, at the top;
  *   • **Content** — what the store sells and the files it shows: the catalogue first, because it
  *     is the daily work, and the media library that serves it;
- *   • **Administration** — how the store is set up, then the record of what changed: languages
- *     first, because they shape the content above, and the audit trail last, because it is
- *     read-only review.
+ *   • **Administration** — languages first, because they shape the content above; then the audit
+ *     trail, the record of what changed; and settings last, the store's configuration, which is
+ *     reached least often of the three.
  *
  * Catalog and Settings carry their sections as children, in the `sidebar-07` block's nested menu.
  * Settings' come from `GET /api/settings` through `useSettingGroups`, so a `[SettingGroup]` added
@@ -93,6 +93,8 @@ export function useNavigation() {
       links: [{
         id: 'languages', label: t('nav.languages'), icon: Languages, to: '/languages', active: at('/languages')
       }, {
+        id: 'audit', label: t('nav.audit'), icon: History, to: '/audit', active: at('/audit')
+      }, {
         id: 'settings',
         label: t('nav.settings'),
         icon: Settings,
@@ -103,8 +105,6 @@ export function useNavigation() {
           to: groupPath(group.route),
           active: at(groupPath(group.route))
         }))
-      }, {
-        id: 'audit', label: t('nav.audit'), icon: History, to: '/audit', active: at('/audit')
       }]
     }]
   })

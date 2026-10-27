@@ -86,7 +86,7 @@ async function onConfirm() {
     </template>
 
     <SectionIntro :title="$t('languages.title')" :description="$t('languages.card.description')">
-      <Badge variant="outline" dir="ltr" class="font-mono">
+      <Badge variant="outline" dir="ltr">
         api/languages
       </Badge>
     </SectionIntro>
@@ -155,7 +155,7 @@ async function onConfirm() {
           >
             <TableCell class="ps-4">
               <!-- `dir="ltr"`: a language tag is an identifier, even on a right-to-left page. -->
-              <span dir="ltr" class="font-mono font-medium">{{ language.code }}</span>
+              <span dir="ltr" class="font-medium">{{ language.code }}</span>
             </TableCell>
 
             <TableCell>
@@ -170,7 +170,7 @@ async function onConfirm() {
             </TableCell>
 
             <TableCell class="hidden md:table-cell">
-              <Badge variant="outline" dir="ltr" class="font-mono text-muted-foreground">
+              <Badge variant="outline" dir="ltr" class="text-muted-foreground">
                 <PilcrowLeft v-if="language.direction === 'rtl'" />
                 <PilcrowRight v-else />
                 {{ language.direction }}

@@ -131,7 +131,7 @@ const stats = computed(() => [{
         -->
         <CardContent class="space-y-4 text-sm">
           <div class="space-y-1">
-            <p class="font-mono text-xs font-medium" dir="ltr">
+            <p class="text-xs font-medium" dir="ltr">
               Infrastructure/Persistence/AppDbContext.cs
             </p>
             <i18n-t
@@ -141,7 +141,7 @@ const stats = computed(() => [{
               class="text-muted-foreground"
             >
               <template #apply>
-                <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">Apply*</code>
+                <code class="rounded bg-muted px-1 py-0.5 text-xs text-foreground">Apply*</code>
               </template>
             </i18n-t>
           </div>
@@ -149,7 +149,7 @@ const stats = computed(() => [{
           <Separator />
 
           <div class="space-y-1">
-            <p class="font-mono text-xs font-medium" dir="ltr">
+            <p class="text-xs font-medium" dir="ltr">
               Application/Composition/MediaText.cs
             </p>
             <i18n-t
@@ -159,7 +159,7 @@ const stats = computed(() => [{
               class="text-muted-foreground"
             >
               <template #pair>
-                <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">(entityName, entityId)</code>
+                <code class="rounded bg-muted px-1 py-0.5 text-xs text-foreground">(entityName, entityId)</code>
               </template>
               <template #withAltText>
                 {{ withAltText }}
@@ -173,7 +173,7 @@ const stats = computed(() => [{
           <Separator />
 
           <div class="space-y-1">
-            <p class="font-mono text-xs font-medium" dir="ltr">
+            <p class="text-xs font-medium" dir="ltr">
               Application/Settings/BrandingSettings.cs
             </p>
             <p class="text-muted-foreground">

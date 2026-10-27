@@ -44,7 +44,7 @@ const current = computed(() => items.value.find(item => item.value === language.
         :text-value="item.label"
       >
         <span :dir="item.direction">{{ item.label }}</span>
-        <span class="ms-auto ps-3 font-mono text-xs text-muted-foreground">{{ item.value }}</span>
+        <span class="ms-auto ps-3 text-xs text-muted-foreground">{{ item.value }}</span>
       </SelectItem>
     </SelectContent>
   </Select>

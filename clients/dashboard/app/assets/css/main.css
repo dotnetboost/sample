@@ -20,8 +20,8 @@
 
 @theme inline {
   /*
-   * Geist for Latin, Tajawal for Arabic. Geist is the face shadcn-vue's own blocks are drawn in,
-   * with Geist Mono for identifiers below; it has no Arabic, which is exactly why the stack works.
+   * Geist for Latin, Tajawal for Arabic. Geist is the face shadcn-vue's own blocks are drawn in;
+   * it has no Arabic, which is exactly why the stack works.
    *
    * This is a stack rather than a pair of `:lang()` rules because CSS falls back per CHARACTER,
    * not per element: the browser tries Geist for every glyph, finds no Arabic in it, and
@@ -40,8 +40,14 @@
    */
   --font-sans: 'Geist', 'Tajawal', sans-serif;
   --font-heading: var(--font-sans);
-  /* SKUs, slugs, language codes, GUIDs: always Latin, so no Arabic face behind this one. */
-  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /*
+   * One face for everything, identifiers included: an SKU, a slug or a GUID is set in the same
+   * Geist as the label beside it. This points Tailwind's mono stack at the sans one rather than
+   * leaving it to a monospace fallback, so a `<code>` — which Tailwind's base styles give the mono
+   * stack whatever its classes — and any `font-mono` that comes back in with a shadcn-vue
+   * component read the same as the rest of the page.
+   */
+  --font-mono: var(--font-sans);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

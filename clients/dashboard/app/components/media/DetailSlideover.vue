@@ -245,7 +245,7 @@ const facts = computed(() => [
               <!-- A checksum, a GUID and a media type are identifiers: always left-to-right. -->
               <dd
                 :dir="fact.mono ? 'ltr' : undefined"
-                :class="[fact.mono && 'font-mono text-xs', fact.truncate && 'truncate']"
+                :class="[fact.mono && 'text-xs', fact.truncate && 'truncate']"
                 :title="fact.truncate ? fact.value : undefined"
               >
                 {{ fact.value }}

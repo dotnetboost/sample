@@ -36,7 +36,7 @@ const active = defineModel<string>({ required: true })
     >
       {{ language.name }}
       <CircleCheck v-if="filled?.(language.code)" class="size-3.5" />
-      <span class="font-mono text-[10px] opacity-60">{{ language.code }}</span>
+      <span class="text-[10px] opacity-60">{{ language.code }}</span>
     </ToggleGroupItem>
   </ToggleGroup>
 </template>

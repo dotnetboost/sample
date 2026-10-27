@@ -187,7 +187,7 @@ function description(key: string) {
   >
     <SectionIntro :title="groupLabel(group.route, group.name)" :description="groupDescription(group.route)">
       <div class="flex items-center gap-2">
-        <Badge variant="outline" dir="ltr" class="font-mono">
+        <Badge variant="outline" dir="ltr">
           api/settings/{{ group.route }}
         </Badge>
       </div>

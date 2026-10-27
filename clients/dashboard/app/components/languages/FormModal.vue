@@ -125,7 +125,6 @@ async function submit() {
               :disabled="editing"
               :aria-invalid="!!errors.code || undefined"
               autocomplete="off"
-              class="font-mono"
             />
             <FieldDescription>{{ $t('languages.form.code.description') }}</FieldDescription>
             <FieldError v-if="errors.code">

@@ -28,6 +28,8 @@ header, ⌘K command palette.
 - Colours only through theme tokens (`bg-background`, `text-muted-foreground`, `border`,
   `bg-primary/10`, `text-success`, `text-warning`) — never raw palette classes like `bg-zinc-100`.
   Tokens and the accent presets are in `app/assets/css/main.css`.
+- One font everywhere: Geist, with Tajawal taking the Arabic glyphs. Identifiers (SKUs, codes,
+  GUIDs) are set in it too — no `font-mono`; `--font-mono` points at the same stack.
 - Icons are `@lucide/vue` components. GitHub's mark is `GithubIcon.vue` (lucide has no brands).
 - Every visible string goes through `$t(...)`, with the key added to all three of
   `i18n/locales/{en,ar,fr}.json`. Identifiers (codes, roles, SKUs, routes) are not translated and

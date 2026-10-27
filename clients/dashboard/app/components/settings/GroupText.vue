@@ -175,7 +175,7 @@ async function save() {
           >
             <template #subject>
               <!-- Named from the schema, so it stays true as properties are added or removed. -->
-              <code class="rounded bg-muted px-1 py-0.5 font-mono">Branding · branding · {{ fields.map(f => f.name).join(', ') }}</code>
+              <code class="rounded bg-muted px-1 py-0.5">Branding · branding · {{ fields.map(f => f.name).join(', ') }}</code>
             </template>
           </i18n-t>
           <Button type="button" :disabled="!dirty || saving" @click="save">

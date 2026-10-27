@@ -60,7 +60,7 @@ const groups = computed(() => ([
 
     <CardContent class="flex flex-col gap-3">
       <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" dir="ltr" class="font-mono">
+        <Badge variant="outline" dir="ltr">
           {{ schema.clrType }}
         </Badge>
 
@@ -94,7 +94,7 @@ const groups = computed(() => ([
         :key="group.rule"
         class="flex flex-wrap items-baseline gap-2"
       >
-        <Badge :class="[group.badge, 'font-mono']" dir="ltr">
+        <Badge :class="group.badge" dir="ltr">
           {{ group.rule }}
         </Badge>
 
@@ -107,7 +107,7 @@ const groups = computed(() => ([
             v-for="property in group.properties"
             :key="property.name"
             dir="ltr"
-            class="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+            class="rounded bg-muted px-1.5 py-0.5 text-xs"
           >{{ property.name }}</span>
         </div>
       </div>

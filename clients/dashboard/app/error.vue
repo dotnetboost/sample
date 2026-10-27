@@ -31,7 +31,7 @@ useHead({
         <EmptyMedia variant="icon">
           <SearchX />
         </EmptyMedia>
-        <p class="font-mono text-sm text-muted-foreground">
+        <p class="text-sm text-muted-foreground">
           {{ error.statusCode }}
         </p>
         <EmptyTitle>{{ $t('errorPage.title') }}</EmptyTitle>

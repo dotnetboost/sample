@@ -270,7 +270,7 @@ onMounted(load)
 
     <template v-else>
       <div class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Badge variant="outline" dir="ltr" class="font-mono">
+        <Badge variant="outline" dir="ltr">
           GET api/media
         </Badge>
         <span v-if="range">{{ range }}</span>

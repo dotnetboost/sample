@@ -222,7 +222,7 @@ const range = computed(() => {
     </template>
 
     <SectionIntro :title="$t('audit.title')" :description="$t('audit.card.description')">
-      <Badge variant="outline" dir="ltr" class="font-mono">
+      <Badge variant="outline" dir="ltr">
         api/audit
       </Badge>
     </SectionIntro>
@@ -362,7 +362,7 @@ const range = computed(() => {
                        one of those at full width would push every other column off the table. -->
                   <Button
                     variant="link"
-                    class="h-auto max-w-32 p-0 font-mono sm:max-w-56 lg:max-w-80"
+                    class="h-auto max-w-32 p-0 sm:max-w-56 lg:max-w-80"
                     :title="`${row.original.entityName} ${row.original.entityId}`"
                     :aria-label="$t('audit.filterToEntity', {
                       entity: row.original.entityName, id: row.original.entityId
