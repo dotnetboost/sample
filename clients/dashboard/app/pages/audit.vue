@@ -290,8 +290,10 @@ const range = computed(() => {
             <TabsTrigger :value="ALL_ACTIONS">
               {{ $t('audit.filters.allActions') }}
             </TabsTrigger>
+            <!-- Gray icons, as in the filter inputs above: the colour of an action is the table's
+                 to show, in its badges, not the control's. -->
             <TabsTrigger v-for="action in auditActions" :key="action" :value="action">
-              <component :is="actionIcons[action]" :class="actionStyles[action]" />
+              <component :is="actionIcons[action]" class="text-muted-foreground" />
               {{ actionLabels[action] }}
             </TabsTrigger>
           </TabsList>

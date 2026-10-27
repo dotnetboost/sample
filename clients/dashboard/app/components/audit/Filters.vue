@@ -126,12 +126,24 @@ watch(() => props.query.entityId, (value) => {
 
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <!--
+      One row from `md` up, the full width of the page. The four controls share it equally rather
+      than the actor box taking whatever the others leave, which keeps them on one line at `md` —
+      where the open sidebar leaves the panel some 480px — and lines the row up with the table
+      under it on a wide screen. Clear keeps its own width. Below `md` each control takes the full
+      width, one under another.
+    -->
+    <div class="flex flex-col gap-2 md:flex-row md:items-center">
       <Select
         :model-value="entity"
         @update:model-value="emit('update', { entityName: $event === ANY ? '' : String($event) })"
       >
-        <SelectTrigger class="w-full sm:w-44" :aria-label="$t('audit.filters.entity')">
+        <!-- The value takes the room between the icon and the chevron, so it starts where the
+             placeholders of the inputs beside it do instead of floating in the middle. -->
+        <SelectTrigger
+          class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1"
+          :aria-label="$t('audit.filters.entity')"
+        >
           <Box class="text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
@@ -155,7 +167,7 @@ watch(() => props.query.entityId, (value) => {
       </Select>
 
       <!-- `dir="ltr"` on both: a key and an actor are identifiers the API stores verbatim. -->
-      <InputGroup class="w-full sm:w-36">
+      <InputGroup class="w-full md:min-w-0 md:flex-1">
         <InputGroupAddon>
           <KeyRound />
         </InputGroupAddon>
@@ -168,7 +180,7 @@ watch(() => props.query.entityId, (value) => {
         />
       </InputGroup>
 
-      <InputGroup class="w-full sm:min-w-44 sm:flex-1">
+      <InputGroup class="w-full md:min-w-0 md:flex-1">
         <InputGroupAddon>
           <Spinner v-if="pending" />
           <UserRound v-else />
@@ -181,19 +193,15 @@ watch(() => props.query.entityId, (value) => {
           :aria-label="$t('audit.filters.actor')"
         />
       </InputGroup>
-    </div>
 
-    <!-- One aligned row of controls, each named for assistive technology and by its icon on
-         screen, with the one thing that needs saying about dates written out under it. -->
-    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <!-- One control for both ends: a range is one question, and two boxes let it be asked
            backwards. The value is still the `yyyy-mm-dd` pair the query has always held. -->
-      <div class="flex items-center gap-1">
+      <div class="flex w-full items-center gap-1 md:min-w-0 md:flex-1">
         <Popover>
           <PopoverTrigger as-child>
             <Button
               variant="outline"
-              class="w-full justify-start font-normal sm:w-64"
+              class="min-w-0 flex-1 justify-start font-normal"
               :class="{ 'text-muted-foreground': !query.from && !query.to }"
               :aria-label="$t('audit.filters.dates')"
             >
@@ -221,12 +229,18 @@ watch(() => props.query.entityId, (value) => {
         </Button>
       </div>
 
-      <Button v-if="isFiltered" variant="ghost" @click="emit('reset')">
+      <Button
+        v-if="isFiltered"
+        variant="ghost"
+        class="shrink-0 self-start md:self-auto"
+        @click="emit('reset')"
+      >
         <FilterX />
         {{ $t('common.clear') }}
       </Button>
     </div>
 
+    <!-- The one thing about the filters that needs saying, under the row it is about. -->
     <p class="text-xs text-muted-foreground">
       {{ $t('audit.filters.datesHelp') }}
     </p>
