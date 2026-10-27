@@ -88,9 +88,14 @@ function onSort(value: SortValue) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+  <!--
+    One row from `md` up, the full width of the page, every control sharing it equally — as the
+    Audit filters do, so the two pages read alike and nothing is left on a line of its own when a
+    button appears beside the row. Below `md` each control takes the full width.
+  -->
+  <div class="flex flex-col gap-2 md:flex-row md:items-center">
     <!-- `dir="auto"` on the value boxes: see SettingsGroupForm for why. -->
-    <InputGroup class="w-full sm:min-w-48 sm:flex-1">
+    <InputGroup class="w-full md:min-w-0 md:flex-1">
       <InputGroupAddon>
         <Spinner v-if="pending" />
         <Search v-else />
@@ -114,7 +119,7 @@ function onSort(value: SortValue) {
       :options="categoryOptions"
       :icon="Folder"
       :placeholder="$t('media.filters.anyCategory')"
-      class="w-full sm:w-44"
+      class="w-full md:min-w-0 md:flex-1"
       @update:model-value="emit('update', { category: $event })"
     />
 
@@ -123,12 +128,12 @@ function onSort(value: SortValue) {
       :options="tagOptions"
       :icon="Tag"
       :placeholder="$t('media.filters.anyTag')"
-      class="w-full sm:w-40"
+      class="w-full md:min-w-0 md:flex-1"
       @update:model-value="emit('update', { tag: $event })"
     />
 
     <Select v-if="!compact" :model-value="kind" @update:model-value="onKind(String($event))">
-      <SelectTrigger class="w-full sm:w-36">
+      <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
         <Filter class="text-muted-foreground" />
         <SelectValue />
       </SelectTrigger>
@@ -140,7 +145,7 @@ function onSort(value: SortValue) {
     </Select>
 
     <Select :model-value="sort" @update:model-value="onSort($event as SortValue)">
-      <SelectTrigger class="w-full sm:w-44">
+      <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
         <ArrowUpDown class="text-muted-foreground" />
         <SelectValue />
       </SelectTrigger>
@@ -154,7 +159,7 @@ function onSort(value: SortValue) {
     <Button
       v-if="isFiltered"
       variant="ghost"
-      class="self-start"
+      class="shrink-0 self-start md:self-auto"
       @click="emit('reset')"
     >
       <FilterX />

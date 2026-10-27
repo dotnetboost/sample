@@ -409,7 +409,8 @@
         "usedByNone": "لا شيء يستخدمه.",
         "usedByOne": "إنه مرفق بـ{entity}، الذي سيفقده.",
         "usedByMany": "إنه مرفق بـ{count} كيانات، وكلها ستفقده: {entities}."
-      }
+      },
+      "perPage": "ملفات في الصفحة"
     },
     "filters": {
       "search": "ابحث في أسماء الملفات…",
@@ -545,6 +546,21 @@
       "detachFailed": "تعذّر فصل الملف",
       "deleted": "تم حذف {fileName}",
       "deleteFailed": "تعذّر حذف الملف"
+    },
+    "view": {
+      "label": "طريقة العرض",
+      "grid": "شبكة",
+      "list": "قائمة"
+    },
+    "list": {
+      "columns": {
+        "file": "الملف",
+        "kind": "النوع",
+        "category": "التصنيف",
+        "size": "الحجم",
+        "uploaded": "تاريخ الرفع"
+      },
+      "details": "التفاصيل"
     }
   },
   "entity": {

@@ -409,7 +409,8 @@
         "usedByNone": "Rien ne l'utilise.",
         "usedByOne": "Il est attaché à {entity}, qui le perdra.",
         "usedByMany": "Il est attaché à {count} entités, et toutes le perdront : {entities}."
-      }
+      },
+      "perPage": "Fichiers par page"
     },
     "filters": {
       "search": "Rechercher dans les noms de fichiers…",
@@ -545,6 +546,21 @@
       "detachFailed": "Impossible de détacher le fichier",
       "deleted": "{fileName} supprimé",
       "deleteFailed": "Impossible de supprimer le fichier"
+    },
+    "view": {
+      "label": "Affichage",
+      "grid": "Grille",
+      "list": "Liste"
+    },
+    "list": {
+      "columns": {
+        "file": "Fichier",
+        "kind": "Type",
+        "category": "Catégorie",
+        "size": "Taille",
+        "uploaded": "Téléversé"
+      },
+      "details": "Détails"
     }
   },
   "entity": {
