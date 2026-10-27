@@ -303,6 +303,14 @@
         "required": "Obligatoire.",
         "nameTooLong": "128 caractères au maximum."
       }
+    },
+    "filters": {
+      "label": "Quelles langues",
+      "all": "Toutes",
+      "active": "Actives",
+      "inactive": "Inactives",
+      "noneActive": "Aucune langue n’est active.",
+      "noneInactive": "Toutes les langues sont actives."
     }
   },
   "audit": {

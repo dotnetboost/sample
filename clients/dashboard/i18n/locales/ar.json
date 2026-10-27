@@ -303,6 +303,14 @@
         "required": "مطلوب.",
         "nameTooLong": "‏128 حرفًا كحدٍّ أقصى."
       }
+    },
+    "filters": {
+      "label": "أي اللغات",
+      "all": "الكل",
+      "active": "مفعّلة",
+      "inactive": "معطّلة",
+      "noneActive": "لا توجد لغة مفعّلة.",
+      "noneInactive": "كل اللغات مفعّلة."
     }
   },
   "audit": {
