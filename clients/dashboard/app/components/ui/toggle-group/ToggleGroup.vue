@@ -16,7 +16,12 @@ const props = withDefaults(defineProps<ToggleGroupRootProps & {
   size?: ToggleGroupVariants['size']
   spacing?: number
 }>(), {
-  spacing: 0
+  spacing: 0,
+  // Local to this project: horizontal unless told otherwise. reka-ui writes `data-orientation`
+  // only when `orientation` is given, and the items' joined-group corners and borders
+  // (`group-data-horizontal/toggle-group:…`) never applied without it — every button in a joined
+  // group came out square at both ends. It also makes the arrow keys move along the row.
+  orientation: 'horizontal'
 })
 
 const emits = defineEmits<ToggleGroupRootEmits>()
