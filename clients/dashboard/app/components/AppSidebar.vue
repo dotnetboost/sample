@@ -55,22 +55,41 @@ function followed() {
     </SidebarHeader>
 
     <SidebarContent>
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                :tooltip="$t('nav.search')"
-                class="text-muted-foreground"
-                @click="searchOpen = true"
-              >
-                <Search />
-                <span>{{ $t('nav.search') }}</span>
-                <Kbd class="ms-auto group-data-[collapsible=icon]:hidden">⌘K</Kbd>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+      <!--
+        The search field from shadcn-vue's sidebar blocks (`SearchForm`): an input-shaped box with
+        the magnifier inside it. It opens the command palette rather than taking text itself — the
+        palette is where pages are searched — so it is a button wearing `SidebarInput`'s classes,
+        not an input that would throw away what was typed into it.
+
+        `start-2` / `ps-8` where the block has `left-2` / `pl-8`, so the magnifier sits on the
+        reading side in Arabic. Collapsed to icons there is no room for a field, so it gives way to
+        the magnifier alone, as a menu button with a tooltip like the rest of the rail.
+      -->
+      <SidebarGroup class="py-0">
+        <SidebarGroupContent class="relative group-data-[collapsible=icon]:hidden">
+          <button
+            type="button"
+            data-sidebar="input"
+            class="flex h-8 w-full min-w-0 items-center rounded-md border border-input bg-background ps-8 pe-2 text-start text-sm text-muted-foreground shadow-none outline-none transition-[color,box-shadow] hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            @click="searchOpen = true"
+          >
+            <span class="truncate">{{ $t('nav.search') }}</span>
+            <Kbd class="ms-auto">⌘K</Kbd>
+          </button>
+          <Search
+            class="pointer-events-none absolute start-2 top-1/2 size-4 -translate-y-1/2 opacity-50 select-none"
+            aria-hidden="true"
+          />
         </SidebarGroupContent>
+
+        <SidebarMenu class="hidden group-data-[collapsible=icon]:flex">
+          <SidebarMenuItem>
+            <SidebarMenuButton :tooltip="$t('nav.search')" @click="searchOpen = true">
+              <Search />
+              <span class="sr-only">{{ $t('nav.search') }}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarGroup>
 
       <SidebarGroup v-for="group in groups" :key="group.label">
