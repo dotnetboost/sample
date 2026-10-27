@@ -1,5 +1,18 @@
 <script setup lang="ts">
-import { EllipsisVertical, FolderTree, ImageOff, Images, Package, Pencil, Plus, Trash2 } from '@lucide/vue'
+import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
+import { Columns3, EllipsisVertical, FolderTree, ImageOff, Images, Package, Pencil, Plus, Trash2 } from '@lucide/vue'
+import {
+  columnVisibilityFeature,
+  createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  sortFn_text,
+  tableFeatures,
+  useTable
+} from '@tanstack/vue-table'
+import type { Category, Product } from '~/types'
 
 const { t } = useI18n()
 
@@ -49,7 +62,13 @@ const { data: productPage, refresh: refreshProducts } = await useAsyncData(
 // `currencySymbol` for the price: the only catalogue setting a listing does not already carry.
 const { data: catalogSettings } = await useCatalogSettings()
 
-const products = computed(() => productPage.value?.items ?? [])
+// One empty array for "nothing yet", not a fresh `[]` per read: the products table below takes
+// this as its data, and a new array each time is a new dataset each time.
+const noProducts: Product[] = []
+const noCategories: Category[] = []
+
+const products = computed(() => productPage.value?.items ?? noProducts)
+const categoryRows = computed(() => categories.value ?? noCategories)
 const productTotal = computed(() => productPage.value?.total ?? 0)
 const pageSize = computed(() => productPage.value?.take ?? 0)
 const pageCount = computed(() =>
@@ -141,6 +160,103 @@ async function confirmDelete() {
 }
 
 const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.name ?? '—'
+
+/**
+ * Both tables, on TanStack Table — as the Audit table is, for the same two things only: the order
+ * of the rows on screen, and which columns are shown. The markup stays this file's.
+ *
+ * **What a sort covers differs between the two, and says so.** The categories list is the whole
+ * list — the API does not page it — so sorting it sorts every category. Products come a page at a
+ * time, ordered by when they were added, and the API takes no other order; sorting them reorders
+ * the page on screen, and the footer says "within this page" while it does.
+ *
+ * Unsorted is allowed here, unlike on Audit: the API's order is "as added", which is a real order
+ * worth getting back to, and a third click on a header returns to it.
+ */
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, basic: sortFn_basic, text: sortFn_text },
+  columnVisibilityFeature
+})
+
+/** TanStack hands state changes over as a value or as a function of the old one. */
+function resolve<T>(next: Updater<T>, current: T): T {
+  return typeof next === 'function' ? (next as (old: T) => T)(current) : next
+}
+
+const categoryHelper = createColumnHelper<typeof features, Category>()
+
+const categoryColumns = categoryHelper.columns([
+  categoryHelper.accessor('name', { sortFn: 'text', enableHiding: false }),
+  categoryHelper.accessor('slug', { sortFn: 'alphanumeric' }),
+  categoryHelper.accessor('products', { sortFn: 'basic', sortDescFirst: true }),
+  categoryHelper.display({ id: 'actions', enableSorting: false, enableHiding: false })
+])
+
+const productHelper = createColumnHelper<typeof features, Product>()
+
+const productColumns = productHelper.columns([
+  productHelper.accessor('name', { sortFn: 'text', enableHiding: false }),
+  productHelper.accessor('sku', { sortFn: 'alphanumeric' }),
+  productHelper.accessor(product => categoryName(product.categoryId), { id: 'category', sortFn: 'text' }),
+  productHelper.accessor(product => product.images.length, { id: 'images', sortFn: 'basic', sortDescFirst: true }),
+  productHelper.accessor('price', { sortFn: 'basic' }),
+  productHelper.display({ id: 'actions', enableSorting: false, enableHiding: false })
+])
+
+const categorySorting = ref<SortingState>([])
+const productSorting = ref<SortingState>([])
+
+// Remembered per browser, like the Audit table's: how one reader likes the table laid out.
+const categoryVisibility = useLocalStorage<ColumnVisibilityState>('catalog-categories-columns', {})
+const productVisibility = useLocalStorage<ColumnVisibilityState>('catalog-products-columns', {})
+
+const categoryTable = useTable({
+  features,
+  columns: categoryColumns,
+  data: categoryRows,
+  getRowId: (category: Category) => String(category.id),
+  state: computed(() => ({ sorting: categorySorting.value, columnVisibility: categoryVisibility.value })),
+  onSortingChange: next => categorySorting.value = resolve(next, categorySorting.value),
+  onColumnVisibilityChange: next => categoryVisibility.value = resolve(next, categoryVisibility.value)
+})
+
+const productTable = useTable({
+  features,
+  columns: productColumns,
+  data: products,
+  getRowId: (product: Product) => String(product.id),
+  state: computed(() => ({ sorting: productSorting.value, columnVisibility: productVisibility.value })),
+  onSortingChange: next => productSorting.value = resolve(next, productSorting.value),
+  onColumnVisibilityChange: next => productVisibility.value = resolve(next, productVisibility.value)
+})
+
+const categoryRowsSorted = computed(() => categoryTable.getRowModel().rows)
+const productRowsSorted = computed(() => productTable.getRowModel().rows)
+
+/** The table whose tab is open — what the toolbar's Columns menu works on. */
+const activeTable = computed(() => tab.value === 'categories' ? categoryTable : productTable)
+
+const columnLabels = computed<Record<string, string>>(() => ({
+  slug: t('catalog.columns.slug'),
+  products: t('catalog.columns.products'),
+  sku: t('catalog.columns.sku'),
+  category: t('catalog.columns.category'),
+  images: t('catalog.columns.images'),
+  price: t('catalog.columns.price')
+}))
+
+const hideable = computed(() =>
+  activeTable.value.getAllLeafColumns().filter(column => column.getCanHide()))
+
+/** Whether a column of the open table is on. The cells are drawn by hand, so they ask. */
+const shownCategory = (id: string) => categoryTable.getColumn(id)?.getIsVisible() ?? true
+const shownProduct = (id: string) => productTable.getColumn(id)?.getIsVisible() ?? true
+
+/** A header's column, which `SortableHead` drives. Every id asked for is one defined above. */
+const categoryColumn = (id: string) => categoryTable.getColumn(id)!
+const productColumn = (id: string) => productTable.getColumn(id)!
 </script>
 
 <template>
@@ -159,10 +275,30 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
         </TabsList>
       </Tabs>
 
+      <!-- The block's "Customize columns", for whichever table the open tab shows. -->
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button variant="outline" size="sm" class="ms-auto">
+            <Columns3 />
+            <span class="max-sm:sr-only">{{ $t('common.columns') }}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-48">
+          <DropdownMenuCheckboxItem
+            v-for="item in hideable"
+            :key="`${tab}-${item.id}`"
+            :model-value="item.getIsVisible()"
+            @update:model-value="item.toggleVisibility(!!$event)"
+            @select.prevent
+          >
+            {{ columnLabels[item.id] }}
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       <Button
         v-if="tab === 'categories'"
         size="sm"
-        class="ms-auto"
         @click="editCategory(null)"
       >
         <Plus />
@@ -171,7 +307,6 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
       <Button
         v-else
         size="sm"
-        class="ms-auto"
         @click="editProduct(null)"
       >
         <Plus />
@@ -200,15 +335,19 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
         <Table>
           <TableHeader class="sticky-head">
             <TableRow>
-              <TableHead class="ps-4">
-                {{ $t('catalog.columns.category') }}
-              </TableHead>
-              <TableHead class="hidden md:table-cell">
-                {{ $t('catalog.columns.slug') }}
-              </TableHead>
-              <TableHead class="text-end">
-                {{ $t('catalog.columns.products') }}
-              </TableHead>
+              <SortableHead :column="categoryColumn('name')" :label="$t('catalog.columns.category')" class="ps-4" />
+              <SortableHead
+                v-if="shownCategory('slug')"
+                :column="categoryColumn('slug')"
+                :label="columnLabels.slug!"
+                class="hidden md:table-cell"
+              />
+              <SortableHead
+                v-if="shownCategory('products')"
+                :column="categoryColumn('products')"
+                :label="columnLabels.products!"
+                align="end"
+              />
               <TableHead class="w-12 pe-4">
                 <span class="sr-only">{{ $t('common.actions') }}</span>
               </TableHead>
@@ -216,18 +355,18 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
           </TableHeader>
           <TableBody>
             <TableRow
-              v-for="category in categories"
-              :key="category.id"
+              v-for="row in categoryRowsSorted"
+              :key="row.id"
               class="cursor-pointer"
-              @click="editCategory(category.id)"
+              @click="editCategory(row.original.id)"
             >
               <TableCell class="ps-4">
                 <div class="flex min-w-0 items-center gap-3">
                   <div class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
                     <img
-                      v-if="category.banner"
-                      :src="contentUrl(category.banner.id)"
-                      :alt="category.banner.altText ?? category.name"
+                      v-if="row.original.banner"
+                      :src="contentUrl(row.original.banner.id)"
+                      :alt="row.original.banner.altText ?? row.original.name"
                       class="size-full object-cover"
                     >
                     <ImageOff v-else class="size-4 text-muted-foreground" />
@@ -237,24 +376,24 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
                       type="button"
                       dir="auto"
                       class="block max-w-full truncate text-start font-medium outline-none hover:underline focus-visible:underline"
-                      @click.stop="editCategory(category.id)"
+                      @click.stop="editCategory(row.original.id)"
                     >
-                      {{ category.name }}
+                      {{ row.original.name }}
                     </button>
                     <p dir="auto" class="truncate text-muted-foreground">
-                      {{ category.description }}
+                      {{ row.original.description }}
                     </p>
                   </div>
                 </div>
               </TableCell>
-              <TableCell class="hidden md:table-cell">
+              <TableCell v-if="shownCategory('slug')" class="hidden md:table-cell">
                 <!-- `dir="ltr"`: a slug is a URL segment, declared [NotMultiLingual] for that reason. -->
                 <Badge variant="outline" class="font-mono text-muted-foreground" dir="ltr">
-                  {{ category.slug }}
+                  {{ row.original.slug }}
                 </Badge>
               </TableCell>
-              <TableCell class="text-end tabular-nums">
-                {{ category.products }}
+              <TableCell v-if="shownCategory('products')" class="text-end tabular-nums">
+                {{ row.original.products }}
               </TableCell>
               <TableCell class="pe-4 text-end" @click.stop>
                 <DropdownMenu>
@@ -264,15 +403,15 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem @select="editCategory(category.id)">
+                    <DropdownMenuItem @select="editCategory(row.original.id)">
                       <Pencil />
                       {{ $t('common.edit') }}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
-                      :disabled="category.products > 0"
-                      @select="confirming = { kind: 'category', id: category.id, name: category.name }"
+                      :disabled="row.original.products > 0"
+                      @select="confirming = { kind: 'category', id: row.original.id, name: row.original.name }"
                     >
                       <Trash2 />
                       {{ $t('common.delete') }}
@@ -283,6 +422,11 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
             </TableRow>
           </TableBody>
         </Table>
+
+        <!-- No pages: the API answers with every category, so a sort here sorts all of them. -->
+        <TablePager :page="1" :page-count="1">
+          <span class="tabular-nums">{{ $t('catalog.categories.count', categories.length) }}</span>
+        </TablePager>
       </TableFrame>
 
       <Empty v-else class="border border-dashed">
@@ -308,21 +452,32 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
         <Table>
           <TableHeader class="sticky-head">
             <TableRow>
-              <TableHead class="ps-4">
-                {{ $t('catalog.columns.product') }}
-              </TableHead>
-              <TableHead class="hidden lg:table-cell">
-                {{ $t('catalog.columns.sku') }}
-              </TableHead>
-              <TableHead class="hidden md:table-cell">
-                {{ $t('catalog.columns.category') }}
-              </TableHead>
-              <TableHead class="hidden text-end xl:table-cell">
-                {{ $t('catalog.columns.images') }}
-              </TableHead>
-              <TableHead class="text-end">
-                {{ $t('catalog.columns.price') }}
-              </TableHead>
+              <SortableHead :column="productColumn('name')" :label="$t('catalog.columns.product')" class="ps-4" />
+              <SortableHead
+                v-if="shownProduct('sku')"
+                :column="productColumn('sku')"
+                :label="columnLabels.sku!"
+                class="hidden lg:table-cell"
+              />
+              <SortableHead
+                v-if="shownProduct('category')"
+                :column="productColumn('category')"
+                :label="columnLabels.category!"
+                class="hidden md:table-cell"
+              />
+              <SortableHead
+                v-if="shownProduct('images')"
+                :column="productColumn('images')"
+                :label="columnLabels.images!"
+                align="end"
+                class="hidden xl:table-cell"
+              />
+              <SortableHead
+                v-if="shownProduct('price')"
+                :column="productColumn('price')"
+                :label="columnLabels.price!"
+                align="end"
+              />
               <TableHead class="w-12 pe-4">
                 <span class="sr-only">{{ $t('common.actions') }}</span>
               </TableHead>
@@ -330,18 +485,18 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
           </TableHeader>
           <TableBody>
             <TableRow
-              v-for="product in products"
-              :key="product.id"
+              v-for="row in productRowsSorted"
+              :key="row.id"
               class="cursor-pointer"
-              @click="editProduct(product.id)"
+              @click="editProduct(row.original.id)"
             >
               <TableCell class="ps-4">
                 <div class="flex min-w-0 items-center gap-3">
                   <div class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
                     <img
-                      v-if="product.primary"
-                      :src="contentUrl(product.primary.id)"
-                      :alt="product.primary.altText ?? product.name"
+                      v-if="row.original.primary"
+                      :src="contentUrl(row.original.primary.id)"
+                      :alt="row.original.primary.altText ?? row.original.name"
                       class="size-full object-cover"
                     >
                     <ImageOff v-else class="size-4 text-muted-foreground" />
@@ -351,31 +506,31 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
                       type="button"
                       dir="auto"
                       class="block max-w-full truncate text-start font-medium outline-none hover:underline focus-visible:underline"
-                      @click.stop="editProduct(product.id)"
+                      @click.stop="editProduct(row.original.id)"
                     >
-                      {{ product.name }}
+                      {{ row.original.name }}
                     </button>
                     <p dir="auto" class="truncate text-muted-foreground">
-                      {{ product.description }}
+                      {{ row.original.description }}
                     </p>
                   </div>
                 </div>
               </TableCell>
-              <TableCell class="hidden lg:table-cell">
+              <TableCell v-if="shownProduct('sku')" class="hidden lg:table-cell">
                 <Badge variant="outline" class="font-mono text-muted-foreground" dir="ltr">
-                  {{ product.sku }}
+                  {{ row.original.sku }}
                 </Badge>
               </TableCell>
-              <TableCell class="hidden md:table-cell">
+              <TableCell v-if="shownProduct('category')" class="hidden md:table-cell">
                 <Badge variant="outline" class="text-muted-foreground">
                   <FolderTree />
-                  {{ categoryName(product.categoryId) }}
+                  {{ categoryName(row.original.categoryId) }}
                 </Badge>
               </TableCell>
-              <TableCell class="hidden text-end xl:table-cell">
-                <span v-if="product.images.length" class="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
+              <TableCell v-if="shownProduct('images')" class="hidden text-end xl:table-cell">
+                <span v-if="row.original.images.length" class="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
                   <Images class="size-3.5" />
-                  {{ product.images.length }}
+                  {{ row.original.images.length }}
                 </span>
                 <span v-else class="text-muted-foreground/60">—</span>
               </TableCell>
@@ -383,8 +538,8 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
                    symbol for the reading locale and Intl marks the result's direction itself, so
                    Arabic gets "349.00 $" and forcing LTR here would undo that. A SKU is a Latin code
                    in every language and does need the override. -->
-              <TableCell class="text-end font-medium tabular-nums">
-                {{ formatPrice(product.price, currencySymbol) }}
+              <TableCell v-if="shownProduct('price')" class="text-end font-medium tabular-nums">
+                {{ formatPrice(row.original.price, currencySymbol) }}
               </TableCell>
               <TableCell class="pe-4 text-end" @click.stop>
                 <DropdownMenu>
@@ -394,14 +549,14 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem @select="editProduct(product.id)">
+                    <DropdownMenuItem @select="editProduct(row.original.id)">
                       <Pencil />
                       {{ $t('common.edit') }}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
-                      @select="confirming = { kind: 'product', id: product.id, name: product.name }"
+                      @select="confirming = { kind: 'product', id: row.original.id, name: row.original.name }"
                     >
                       <Trash2 />
                       {{ $t('common.delete') }}
@@ -412,6 +567,41 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
             </TableRow>
           </TableBody>
         </Table>
+
+        <!--
+          The page size is not offered as a control: it is `CatalogSettings.PageSize`, a setting the
+          whole application reads, and a second answer here would disagree with it the moment it
+          changed. So the footer says what it is and links to where it is decided.
+        -->
+        <TablePager v-model:page="page" :page-count="pageCount">
+          <span class="tabular-nums">{{ range }}</span>
+          <!-- Only with more than one page: on a single page a sort covers every product, and
+               "within this page" would be a caveat about nothing. -->
+          <span v-if="productSorting.length && pageCount > 1" class="flex items-center gap-1.5 text-xs">
+            <span aria-hidden="true">·</span>
+            {{ $t('catalog.table.sortedThisPage') }}
+            <Button
+              variant="link"
+              size="xs"
+              class="h-auto p-0"
+              @click="productSorting = []"
+            >
+              {{ $t('catalog.table.resetSort') }}
+            </Button>
+          </span>
+
+          <template #size>
+            <span class="hidden text-muted-foreground sm:inline">
+              {{ $t('catalog.table.pageSize', { n: pageSize }) }}
+              <NuxtLink to="/settings/catalog" class="font-medium text-foreground underline-offset-4 hover:underline">
+                {{ $t('nav.settings') }}
+                <!-- Mirrored in Arabic, where a path reads right to left. -->
+                <span class="inline-block rtl:-scale-x-100" aria-hidden="true">›</span>
+                {{ groupLabel('catalog', 'CatalogSettings') }}
+              </NuxtLink>
+            </span>
+          </template>
+        </TablePager>
       </TableFrame>
 
       <Empty v-else class="border border-dashed">
@@ -429,19 +619,6 @@ const categoryName = (id: number) => categories.value?.find(c => c.id === id)?.n
           </Button>
         </EmptyContent>
       </Empty>
-
-      <div v-if="productTotal" class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-muted-foreground">
-          {{ range }}
-        </p>
-
-        <PagerControls
-          v-if="pageCount > 1"
-          v-model:page="page"
-          :total="productTotal"
-          :items-per-page="pageSize"
-        />
-      </div>
     </template>
 
     <CategoryEditor

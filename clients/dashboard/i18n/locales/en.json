@@ -21,7 +21,12 @@
     "previous": "Previous page",
     "next": "Next page",
     "actions": "Actions",
-    "sortBy": "Sort by {column}"
+    "sortBy": "Sort by {column}",
+    "columns": "Columns",
+    "rowsPerPage": "Rows per page",
+    "pageOf": "Page {page} of {count}",
+    "firstPage": "First page",
+    "lastPage": "Last page"
   },
   "nav": {
     "overview": "Overview",
@@ -118,7 +123,8 @@
       "title": "Categories",
       "description": "The application's own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.",
       "empty": "No categories yet.",
-      "emptyHint": "A category holds products, so it comes first."
+      "emptyHint": "A category holds products, so it comes first.",
+      "count": "{n} category | {n} categories"
     },
     "products": {
       "title": "Products",
@@ -143,6 +149,11 @@
       "sku": "SKU",
       "price": "Price",
       "images": "Images"
+    },
+    "table": {
+      "sortedThisPage": "Sorted within this page — the catalogue itself lists products in the order they were added.",
+      "resetSort": "Order added",
+      "pageSize": "{n} per page, set in"
     }
   },
   "categoryEditor": {
@@ -346,11 +357,7 @@
       "description": "Every entry written under the same correlation id. An edit is not always one entry: creating a product with text in several languages writes the product's own entry and the creation trail's, in a scope of its own."
     },
     "pager": {
-      "range": "{from}–{to} of {total}",
-      "rowsPerPage": "Rows per page",
-      "pageOf": "Page {page} of {count}",
-      "first": "First page",
-      "last": "Last page"
+      "range": "{from}–{to} of {total}"
     },
     "rules": {
       "title": "What is recorded for {entity}",
@@ -365,7 +372,6 @@
       "retentionNone": "kept indefinitely"
     },
     "table": {
-      "columns": "Columns",
       "sortedThisPage": "Sorted within this page — the trail itself is read newest first.",
       "resetSort": "Newest first"
     }

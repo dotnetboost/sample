@@ -2,8 +2,7 @@
 import type { Component } from 'vue'
 import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
 import {
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns3, GitCompareArrows, Pencil,
-  PlugZap, Plus, RefreshCw, ScrollText, Trash2
+  ChevronRight, Columns3, GitCompareArrows, Pencil, PlugZap, Plus, RefreshCw, ScrollText, Trash2
 } from '@lucide/vue'
 import {
   columnVisibilityFeature,
@@ -253,7 +252,7 @@ const range = computed(() => {
           <DropdownMenuTrigger as-child>
             <Button variant="outline" class="sm:ms-auto">
               <Columns3 />
-              {{ $t('audit.table.columns') }}
+              {{ $t('common.columns') }}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="w-48">
@@ -437,30 +436,32 @@ const range = computed(() => {
           the start side, and the page controls on the end side. Pages are the API's — every move is
           a request — so these drive `useAuditTrail`, not TanStack's own pagination.
         -->
-        <div
+        <TablePager
           v-if="total"
-          class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t px-4 py-3 text-sm"
+          :page="page"
+          :page-count="pageCount"
+          :disabled="pending"
+          @update:page="target => go(() => goTo(target))"
         >
-          <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-            <span class="tabular-nums">{{ range }}</span>
-            <span v-if="!isNewestFirst" class="flex items-center gap-1.5 text-xs">
-              <span aria-hidden="true">·</span>
-              {{ $t('audit.table.sortedThisPage') }}
-              <Button
-                variant="link"
-                size="xs"
-                class="h-auto p-0"
-                @click="sorting = newestFirst"
-              >
-                {{ $t('audit.table.resetSort') }}
-              </Button>
-            </span>
-          </div>
+          <span class="tabular-nums">{{ range }}</span>
+          <!-- Only with more than one page: on a single page a sort covers the whole trail. -->
+          <span v-if="!isNewestFirst && pageCount > 1" class="flex items-center gap-1.5 text-xs">
+            <span aria-hidden="true">·</span>
+            {{ $t('audit.table.sortedThisPage') }}
+            <Button
+              variant="link"
+              size="xs"
+              class="h-auto p-0"
+              @click="sorting = newestFirst"
+            >
+              {{ $t('audit.table.resetSort') }}
+            </Button>
+          </span>
 
-          <div class="ms-auto flex items-center gap-4 lg:gap-6">
+          <template #size>
             <div class="hidden items-center gap-2 sm:flex">
               <Label for="audit-rows-per-page" class="text-sm font-medium">
-                {{ $t('audit.pager.rowsPerPage') }}
+                {{ $t('common.rowsPerPage') }}
               </Label>
               <Select :model-value="query.pageSize" @update:model-value="go(() => setPageSize(Number($event)))">
                 <SelectTrigger id="audit-rows-per-page" size="sm" class="w-20">
@@ -473,54 +474,8 @@ const range = computed(() => {
                 </SelectContent>
               </Select>
             </div>
-
-            <span class="font-medium tabular-nums">
-              {{ $t('audit.pager.pageOf', { page, count: pageCount }) }}
-            </span>
-
-            <!-- Chevrons mirrored in Arabic, where the first page is to the right. -->
-            <div class="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                class="hidden lg:inline-flex"
-                :disabled="pending || page <= 1"
-                :aria-label="$t('audit.pager.first')"
-                @click="go(() => goTo(1))"
-              >
-                <ChevronsLeft class="rtl:rotate-180" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                :disabled="pending || page <= 1"
-                :aria-label="$t('common.previous')"
-                @click="go(() => goTo(page - 1))"
-              >
-                <ChevronLeft class="rtl:rotate-180" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                :disabled="pending || page >= pageCount"
-                :aria-label="$t('common.next')"
-                @click="go(() => goTo(page + 1))"
-              >
-                <ChevronRight class="rtl:rotate-180" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                class="hidden lg:inline-flex"
-                :disabled="pending || page >= pageCount"
-                :aria-label="$t('audit.pager.last')"
-                @click="go(() => goTo(pageCount))"
-              >
-                <ChevronsRight class="rtl:rotate-180" />
-              </Button>
-            </div>
-          </div>
-        </div>
+          </template>
+        </TablePager>
       </TableFrame>
     </template>
   </DashboardPage>

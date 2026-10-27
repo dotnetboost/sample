@@ -67,7 +67,7 @@ useEventListener('keydown', (event: KeyboardEvent) => {
             @select="go(child.to)"
           >
             <span class="text-muted-foreground">{{ link.label }}</span>
-            <span class="text-muted-foreground/60" aria-hidden="true">›</span>
+            <span class="inline-block text-muted-foreground/60 rtl:-scale-x-100" aria-hidden="true">›</span>
             {{ child.label }}
           </CommandItem>
         </template>

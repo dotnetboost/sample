@@ -21,7 +21,12 @@
     "previous": "Page précédente",
     "next": "Page suivante",
     "actions": "Actions",
-    "sortBy": "Trier par {column}"
+    "sortBy": "Trier par {column}",
+    "columns": "Colonnes",
+    "rowsPerPage": "Lignes par page",
+    "pageOf": "Page {page} sur {count}",
+    "firstPage": "Première page",
+    "lastPage": "Dernière page"
   },
   "nav": {
     "overview": "Vue d'ensemble",
@@ -118,7 +123,8 @@
       "title": "Catégories",
       "description": "L'entité propre à l'application. Le nom et la description ne sont pas des colonnes de cette table — ce sont des lignes de traduction, renvoyées déjà remplies pour la langue choisie dans l'en-tête.",
       "empty": "Aucune catégorie pour l'instant.",
-      "emptyHint": "Une catégorie contient des produits : elle vient donc en premier."
+      "emptyHint": "Une catégorie contient des produits : elle vient donc en premier.",
+      "count": "{n} catégorie | {n} catégories"
     },
     "products": {
       "title": "Produits",
@@ -143,6 +149,11 @@
       "sku": "SKU",
       "price": "Prix",
       "images": "Images"
+    },
+    "table": {
+      "sortedThisPage": "Trié au sein de cette page — le catalogue lui-même liste les produits dans l’ordre de leur ajout.",
+      "resetSort": "Ordre d’ajout",
+      "pageSize": "{n} par page, défini dans"
     }
   },
   "categoryEditor": {
@@ -346,11 +357,7 @@
       "description": "Toutes les entrées écrites sous le même identifiant de corrélation. Une édition n'est pas toujours une seule entrée : créer un produit avec du texte en plusieurs langues écrit l'entrée du produit et celle du journal de création, dans une portée qui lui est propre."
     },
     "pager": {
-      "range": "{from}–{to} sur {total}",
-      "rowsPerPage": "Lignes par page",
-      "pageOf": "Page {page} sur {count}",
-      "first": "Première page",
-      "last": "Dernière page"
+      "range": "{from}–{to} sur {total}"
     },
     "rules": {
       "title": "Ce qui est enregistré pour {entity}",
@@ -365,7 +372,6 @@
       "retentionNone": "conservées sans limite"
     },
     "table": {
-      "columns": "Colonnes",
       "sortedThisPage": "Trié au sein de cette page — la piste elle-même est lue de la plus récente à la plus ancienne.",
       "resetSort": "Plus récentes d’abord"
     }
