@@ -69,7 +69,36 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-06-30',
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+
+    // Pre-bundled when the dev server starts, rather than discovered on the first page that imports
+    // them. Discovered late, each one re-bundles the lot and reloads the browser mid-page — a
+    // flicker in development, and a `504 (Outdated Optimize Dep)` with a failed import in the
+    // browser smoke test (`npm run test:e2e`), which runs against the dev server and starts cold.
+    // The list is the one `nuxt dev` prints when it finds them; a new dependency imported from a
+    // page belongs here too, and the smoke test is what says so.
+    optimizeDeps: {
+      include: [
+        '@internationalized/date',
+        '@lucide/vue',
+        '@tanstack/vue-table',
+        '@unovis/vue',
+        '@vue/devtools-core',
+        'class-variance-authority',
+        'cn',
+        'reka-ui',
+        'vue-sonner'
+      ]
+    }
+  },
+
+  // The browser smoke test is Node code — Playwright's runner and its stubs — so it is typechecked
+  // in the Node context, beside this file. Nothing else would include it: Nuxt's generated configs
+  // cover `test/nuxt/` and not `test/e2e/`.
+  typescript: {
+    nodeTsConfig: {
+      include: ['../playwright.config.ts', '../test/e2e/**/*']
+    }
   },
 
   eslint: {

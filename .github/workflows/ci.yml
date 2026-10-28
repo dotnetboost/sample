@@ -125,3 +125,21 @@ jobs:
       # each suite exists because of a bug the .NET side could not have caught.
       - name: Test
         run: npm test
+
+      # Only Chromium, and with the system libraries it needs on a bare runner. The version is the
+      # one the lockfile's @playwright/test was built against, so the browser and the runner agree.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The browser smoke test. No API and no database: every `/api/**` call is answered from the
+      # browser by test/e2e/api.ts. It is here for what the three steps above cannot see — a toast
+      # nobody can see was exactly that, and every one of them passed.
+      - name: Browser smoke test
+        run: npm run test:e2e
+
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: clients/dashboard/test-results/

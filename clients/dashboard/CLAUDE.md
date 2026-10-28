@@ -42,5 +42,8 @@ header, ⌘K command palette.
 
 ## Checks
 
-`npm run lint`, `npm run typecheck`, `npm test` — all three run in CI. Before calling UI work done,
-open it in the browser pane and look at it in light and dark, in English and Arabic, and at 375px.
+`npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` — all four run in CI. The last is
+Playwright against the dev server with every `/api/**` call stubbed in `test/e2e/api.ts`: a page that
+calls a new endpoint needs a stub there, and a new dependency imported from a page needs a line in
+`vite.optimizeDeps.include`. Before calling UI work done, open it in the browser pane and look at it
+in light and dark, in English and Arabic, and at 375px.

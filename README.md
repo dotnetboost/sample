@@ -184,7 +184,7 @@ NUXT_API_URL=http://localhost:5180 npm run dev
 It listens on `http://localhost:3000`. `NUXT_API_URL` is read by the Nitro proxy in
 `server/api/[...path].ts`, never by the browser: every call goes to the dashboard's own origin and
 is forwarded. `clients/dashboard/.env.example` has the other settings worth overriding. Its checks
-are `npm run lint`, `npm run typecheck` and `npm test`.
+are `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`.
 
 ---
 
@@ -674,6 +674,17 @@ because of something `dotnet test` cannot see:
 Each was checked by reverting or breaking what it guards and watching it fail. Specs live under
 `test/nuxt/` because that is the path `npm run typecheck` covers.
 
+```bash
+cd clients/dashboard && npx playwright install chromium && npm run test:e2e
+```
+
+A browser smoke test, in Playwright against the dev server, with every `/api/**` call answered from
+`test/e2e/api.ts` — no API, no database. Every page draws its title with no console error and no Vue
+warning, a refusal's toast is wholly inside the viewport, an Audit row's tooltip opens on hover, and
+Arabic turns `<html dir>` to `rtl`. It exists because the move to shadcn-vue dropped vue-sonner's
+stylesheet and every toast went invisible while all three checks above passed; taking
+`vue-sonner/style.css` out of `nuxt.config.ts` fails it.
+
 ---
 
 ## How the application is built
@@ -796,6 +807,7 @@ clients/dashboard/                       Nuxt 4 + shadcn-vue
   app/composables/                       one per screen's data, plus useShellLocale for direction
   i18n/locales/{en,ar,fr}.json           the dashboard's own labels
   test/nuxt/                             Vitest over the composables
+  test/e2e/                              Playwright smoke test, against a stubbed API
 tests/DotNetBoostSample.Tests/           the claims, as tests; Integration/ boots the real host
 docs/screenshots/                        the images above, and how to retake them
 media/                                   uploaded bytes at runtime (gitignored)
