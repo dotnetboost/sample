@@ -18,13 +18,9 @@ namespace DotNetBoostSample.Application.Catalog.Products;
 public static class UploadProductImage
 {
     /// <summary>
-    /// The bytes and what to call them — not an <c>IFormFile</c>.
-    ///
-    /// <para>The endpoint opens the stream and the handler consumes it, so the handler can be
-    /// driven from a test with a <c>MemoryStream</c> and no multipart request. The size and content
-    /// type are not checked here: <c>WithMaxFileSize</c> and <c>AllowContentTypes</c> were declared
-    /// once in <c>AddInfrastructure</c>, and the library refuses on both — a second opinion in this
-    /// file would be a second number to keep in step.</para>
+    /// The bytes and what to call them — not an <c>IFormFile</c>, so a test can drive the handler
+    /// with a <c>MemoryStream</c>. Size and content type are not checked here: the library refuses
+    /// on the limits declared once in <c>AddInfrastructure</c>.
     /// </summary>
     public sealed record Command(
         int ProductId,

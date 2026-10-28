@@ -24,13 +24,9 @@ public static class CreateCategory
     public sealed record CategoryCreated(int Id, string Slug);
 
     /// <summary>
-    /// The shape the database already enforces, stated where a caller can be told about it.
-    ///
-    /// <para>The slug column is <c>HasMaxLength(128).IsRequired()</c> with a unique index, so an
-    /// empty or oversized slug used to come back as a 500 from the provider. These two rules make
-    /// it a 400 with the field named. Uniqueness is deliberately NOT checked here: a query that
-    /// says "no such slug yet" is already stale by the time the insert runs, so the index stays the
-    /// thing that decides.</para>
+    /// The shape the slug column already enforces, checked here so a bad slug is a 400 naming the
+    /// field rather than a provider error. Uniqueness is left to the index: a "no such slug yet"
+    /// query is stale by the time the insert runs.
     /// </summary>
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -52,11 +48,9 @@ public static class CreateCategory
             // AddAsync, because adding is what assigns the HiLo id — see CategoryConfiguration.
             await db.Categories.AddAsync(category, ct);
 
-            // One SaveChanges for the row, every language's text and its audit entry: MultiLingual's
-            // interceptor writes the queued translations and Auditing's records the creation, in
-            // the same transaction as the insert. The save is TranslatedText's rather than this
-            // handler's because, with a base language configured, the language it runs in decides
-            // where each value lands — see that class.
+            // One SaveChanges for the row, every language's text and its audit entry. TranslatedText
+            // saves, because with a base language configured the language it runs in decides where
+            // each value lands.
             await translatedText.SaveAsync(db, category, request.Translations, ct);
 
             return new CategoryCreated(category.Id, category.Slug);

@@ -321,7 +321,7 @@ honest rather than tidy.
 directives for two or more `DotNetBoost.*` libraries, and seven of them are above. `Program.cs` names
 three and `Infrastructure/DependencyInjection.cs` all four while registering them in independent
 calls, which is the thing this sample is arguing for rather than a join — the second is on the list
-for one line of its three hundred, not for the four blocks around it; `ListProducts.cs` consumes two
+for one line of its two hundred, not for the four blocks around it; `ListProducts.cs` consumes two
 side by side — a page size from Settings and the files from Media — and
 `Api/Auditing/AuditRetentionService.cs` does the same with a retention from Settings and a prune
 from Auditing, neither ever saying that one library's subject is the other's. Meanwhile two files that *are* above name one library each:
@@ -1167,7 +1167,7 @@ public static class ListProducts
 }
 ```
 
-They run 70–153 lines each, comments included. `Program.cs` never learns their names:
+They run 66–147 lines each, comments included. `Program.cs` never learns their names:
 `MapApplicationEndpoints()` scans the assembly for `IEndpoint`, and `AddApplication()` scans it for
 handlers, behaviours and request validators.
 

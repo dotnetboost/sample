@@ -43,15 +43,9 @@ public static class UpdateCategory
 
             category.Slug = request.Slug;
 
-            // The audit entry is recorded by DotNetBoost.Auditing's interceptor, inside this save,
-            // from the change tracker's original and current values — so the slug and its entry
-            // commit together or neither does.
-            //
-            // A PUT that changed nothing records nothing, and it happens: the editor posts the slug
-            // back unchanged whenever only the translations were edited. With a base language
-            // configured Name and Description do move in that case — they are columns then — and
-            // the engine drops them for the reason written on Product.Name, so no entry is written
-            // either way.
+            // Auditing's interceptor records what moved inside this save, so the slug and its entry
+            // commit together. An edit to translations alone records nothing: Name and Description
+            // carry [AuditIgnore] — see Product.Name.
             await translatedText.SaveAsync(db, category, request.Translations, ct);
 
             return category.Slug;
@@ -82,11 +76,9 @@ public static class UpdateCategory
 /// <summary>
 /// The PUT body, without the id — which arrives in the route.
 ///
-/// <para>A separate type from <see cref="UpdateCategory.Command"/> on purpose. Binding the command
-/// straight from the body would put <c>id</c> in the published request schema as well as in the
-/// path, and leave the two free to disagree: a body saying <c>"id": 9</c> on
-/// <c>PUT /api/categories/3</c> has to be either ignored or honoured, and both are surprising. The
-/// route is the only id, and the endpoint is where the two halves meet.</para>
+/// <para>Separate from <see cref="UpdateCategory.Command"/> so the route is the only id: binding
+/// the command from the body would publish <c>id</c> in the request schema too, free to disagree
+/// with the path.</para>
 /// </summary>
 public sealed record UpdateCategoryBody(
     string Slug,
