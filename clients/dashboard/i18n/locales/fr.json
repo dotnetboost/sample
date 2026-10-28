@@ -76,8 +76,8 @@
   },
   "overview": {
     "intro": {
-      "title": "Trois bibliothèques, aucune référence entre elles",
-      "description": "Cette application installe DotNetBoost.Settings, DotNetBoost.Media et DotNetBoost.MultiLingual depuis NuGet. Aucune ne dépend d'une autre, il n'existe pas de paquet de noyau partagé, et aucun paquet d'intégration n'en apparie deux. Tout ce que vous voyez ici est produit par le code de l'application qui les compose."
+      "title": "Quatre bibliothèques, aucune référence entre elles",
+      "description": "Cette application installe DotNetBoost.Settings, DotNetBoost.Media, DotNetBoost.MultiLingual et DotNetBoost.Auditing depuis NuGet. Aucune ne dépend d'une autre, il n'existe pas de paquet de noyau partagé, et aucun paquet d'intégration n'en apparie deux. Tout ce que vous voyez ici est produit par le code de l'application qui les compose."
     },
     "stats": {
       "categories": "Catégories",
@@ -92,7 +92,7 @@
     },
     "composition": {
       "title": "Là où la composition se fait",
-      "dbContext": "Une base PostgreSQL, un DbContext, et trois appels {apply} indépendants. Retirez une bibliothèque et vous supprimez sa seule ligne ; rien d'autre ne change dans le fichier.",
+      "dbContext": "Une base PostgreSQL, un DbContext, et quatre appels {apply} indépendants. Retirez une bibliothèque et vous supprimez sa seule ligne ; rien d'autre ne change dans le fichier.",
       "mediaText": "Un texte alternatif par langue pour un fichier téléversé. Les deux bibliothèques désignent un sujet par {pair}, de sorte que le GUID d'un fichier média devient le sujet de lignes de traduction. {withAltText} des {imageCount} images attachées ont un texte alternatif. Aucune table nouvelle, aucun paquet d'intégration.",
       "branding": "Le nom du groupe dans toutes les langues, et son logo. Ni l'un ni l'autre n'est une valeur de réglage : les autres langues du nom sont des lignes de traduction, et le logo est une pièce jointe média sur un propriétaire sans table. Un projecteur réunit les trois sur le point de terminaison du groupe."
     },
