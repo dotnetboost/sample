@@ -34,7 +34,9 @@ export default defineNuxtConfig({
     }
   },
 
-  css: ['~/assets/css/main.css'],
+  // vue-sonner 2 no longer injects its own styles: without its stylesheet the `<Toaster>` in
+  // app.vue mounts, and every toast is drawn into an unpositioned list nobody sees.
+  css: ['vue-sonner/style.css', '~/assets/css/main.css'],
 
   // shadcn-vue's dark theme hangs off a bare `.dark` class on `<html>`, not `.dark-mode`.
   colorMode: {
