@@ -29,21 +29,16 @@ public static class DeleteProduct
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 
-            // Deletes the files this product was the ONLY holder of, and merely detaches the ones
-            // other products still reference — which is the difference between this and the loop it
-            // replaced. That loop called IMediaManager.DeleteAsync per file, which removes a file
-            // from every owner, so deleting one product pulled shared images out of the rest.
-            //
-            // The alt text is not deleted here: MediaTextCleanup is registered as an
-            // IMediaFilesDeletedHandler and is told exactly which files went, so a detached-but-
-            // surviving image keeps its text and a deleted one loses it.
+            // Deletes the files only this product held and detaches the ones other owners still
+            // use. Their alt text goes through MediaTextCleanup, which is told exactly which files
+            // were deleted, so a surviving image keeps its text.
             await media.For(product).DeleteAllAsync(ct);
 
-            // Read before the row goes, for the same reason as the category's slug.
+            // Read before the row goes; the message names it.
             var sku = product.Sku;
 
-            // The product's own translations ARE removed automatically: MultiLingual's SaveChanges
-            // interceptor sees the entity being deleted.
+            // MultiLingual's interceptor removes the product's translations, and Auditing's records
+            // the delete with the row's final values.
             db.Products.Remove(product);
             await db.SaveChangesAsync(ct);
 

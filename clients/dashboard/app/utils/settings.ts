@@ -1,3 +1,6 @@
+import type { Component } from 'vue'
+import { History, Package, Palette, SlidersHorizontal } from '@lucide/vue'
+
 /**
  * The client's half of a settings tab: an icon, and the one field hint no server can supply.
  *
@@ -20,15 +23,16 @@
  * no entry below still works — it gets the default icon and a form generated entirely from its own
  * schema, which is what makes discovery real rather than decorative.
  */
-const icons: Record<string, string> = {
-  branding: 'i-lucide-palette',
-  catalog: 'i-lucide-package'
+const icons: Record<string, Component> = {
+  auditing: History,
+  branding: Palette,
+  catalog: Package
 }
 
 /** Shown for a group this dashboard has no icon for — a class added in C# and nowhere else. */
-const defaultIcon = 'i-lucide-sliders-horizontal'
+const defaultIcon = SlidersHorizontal
 
-export function groupIcon(route: string): string {
+export function groupIcon(route: string): Component {
   return icons[route] ?? defaultIcon
 }
 

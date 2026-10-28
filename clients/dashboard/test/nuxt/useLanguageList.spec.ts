@@ -16,9 +16,7 @@ import type { Language, NewLanguage } from '~/types'
  * `useLanguageList` exists to hold, and neither is visible from inside any one caller.
  */
 
-// Reached on the way to the list and none of them under test. `useNotify` in particular would
-// need a toast provider a bare runtime does not have.
-mockNuxtImport('useToast', () => () => ({ add: vi.fn() }))
+// Reached on the way to the list and none of them under test.
 mockNuxtImport('useNotify', () => () => ({
   notifySuccess: vi.fn(), notifyFailure: vi.fn(), notifyProblem: vi.fn()
 }))

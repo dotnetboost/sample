@@ -4,13 +4,21 @@ using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoostSample.Domain.Catalog;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace DotNetBoostSample.Infrastructure.Persistence;
 
 /// <summary>
-/// Creates the schema and puts enough in it to see all three libraries working on first run.
-/// A real application would use <c>dotnet ef migrations</c>; a sample you start with one command
-/// should not make you run two.
+/// Creates the schema — including the fourth library's two tables — and puts enough in it to see
+/// Settings, Media and MultiLingual working on first run. A real application would use
+/// <c>dotnet ef migrations</c>; a sample you start with one command should not make you run two.
+///
+/// <para><b>The audit trail starts with the seed.</b> Everything below saves through the same
+/// <c>DbContext</c> the requests do, and DotNetBoost.Auditing's interceptor is attached to it — so
+/// the three languages, two categories and three products are each recorded as created, by nobody:
+/// there is no request here and so no actor, and an unknown actor is the honest answer for a
+/// startup job. Their translation rows are not, because <c>Translation</c> is ignored (see
+/// <c>DependencyInjection.cs</c>). It happens once, on the run that creates the catalogue.</para>
 /// </summary>
 public static class DatabaseInitialiser
 {
@@ -20,7 +28,11 @@ public static class DatabaseInitialiser
         var sp = scope.ServiceProvider;
 
         var db = sp.GetRequiredService<AppDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        if (!await db.Database.EnsureCreatedAsync())
+        {
+            await db.CreateMissingTablesAsync();
+            await db.CreateMissingSequencesAsync();
+        }
 
         var multiLingual = sp.GetRequiredService<IMultiLingualManager>();
 
@@ -120,7 +132,9 @@ public static class DatabaseInitialiser
         var furniture = new Category { Slug = "furniture" };
         var lighting  = new Category { Slug = "lighting" };
 
-        db.Categories.AddRange(furniture, lighting);
+        // AddRangeAsync, because adding is what assigns a HiLo id — and the first add of a run
+        // reads a block of them from the database. See CategoryConfiguration.
+        await db.Categories.AddRangeAsync(furniture, lighting);
 
         Text(furniture,
             ("en", "Furniture", "Tables, chairs and desks."),
@@ -139,7 +153,7 @@ public static class DatabaseInitialiser
         var chair = new Product { Sku = "CHAIR-001", Price = 189.00m, CategoryId = furniture.Id };
         var lamp  = new Product { Sku = "LAMP-001",  Price =  79.00m, CategoryId = lighting.Id  };
 
-        db.Products.AddRange(desk, chair, lamp);
+        await db.Products.AddRangeAsync(desk, chair, lamp);
 
         Text(desk,
             ("en", "Oak writing desk", "Solid oak, two drawers."),
@@ -157,5 +171,103 @@ public static class DatabaseInitialiser
             ("fr", "Lampe de bureau en laiton", "Bras réglable, lumière chaude."));
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Adds the tables the model has and an existing database does not — and nothing else.
+    ///
+    /// <para><c>EnsureCreated</c> does nothing to a database that already exists, and Aspire keeps
+    /// this one on a data volume across runs. So a database created before a library joined the
+    /// model — DotNetBoost.Auditing's <c>AuditEntries</c> and <c>AuditPropertyChanges</c>, the
+    /// first time this branch runs against an older volume — never gets that library's tables, and
+    /// every read of them is a 500. This creates them from EF's own create script, keeping its
+    /// order, so the volume survives the upgrade with its data intact.</para>
+    ///
+    /// <para>Only missing tables and their indexes. A column added to an existing table is a
+    /// migration, which this sample does not have; for that, drop the volume.</para>
+    /// </summary>
+    private static async Task CreateMissingTablesAsync(this AppDbContext db)
+    {
+        var existing = (await db.Database
+                .SqlQueryRaw<string>(
+                    "SELECT table_name AS \"Value\" FROM information_schema.tables WHERE table_schema = current_schema()")
+                .ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var missing = db.Model.GetEntityTypes()
+            .Select(type => type.GetTableName())
+            .OfType<string>()
+            .Where(table => !existing.Contains(table))
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (missing.Count == 0) return;
+
+        var statements = db.Database.GenerateCreateScript()
+            .Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(statement => CreatedTable(statement) is { } table && missing.Contains(table));
+
+        foreach (var statement in statements)
+            await db.Database.ExecuteSqlRawAsync(statement);
+    }
+
+    /// <summary>
+    /// Adds the HiLo sequences the model has and an existing database does not, each starting past
+    /// the ids its table already holds.
+    ///
+    /// <para>The same upgrade as <see cref="CreateMissingTablesAsync"/>, for the keys. Category and
+    /// Product used to be identity columns and now draw their ids from sequences of their own, so
+    /// a volume created before that has the tables and their rows but not the sequences. Created
+    /// as EF's own script would create them — same name, start and increment — and then moved to
+    /// one past the highest id in the table, or the first block handed out would collide with the
+    /// rows already there.</para>
+    ///
+    /// <para>Only a sequence that was missing is moved. One that exists is EF's to advance, and
+    /// setting it back to the table's highest id would hand out again whatever blocks a running
+    /// process still holds.</para>
+    ///
+    /// <para>The columns themselves keep their identity: <c>GENERATED BY DEFAULT</c> accepts the
+    /// id EF now sends, so the old default simply goes unused rather than needing a migration to
+    /// drop.</para>
+    /// </summary>
+    private static async Task CreateMissingSequencesAsync(this AppDbContext db)
+    {
+        var existing = (await db.Database
+                .SqlQueryRaw<string>(
+                    "SELECT sequence_name AS \"Value\" FROM information_schema.sequences WHERE sequence_schema = current_schema()")
+                .ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
+
+        var keys = db.Model.GetEntityTypes()
+            .SelectMany(type => type.GetProperties(), (type, property) => (type, property))
+            .Where(p => p.property.GetValueGenerationStrategy() == NpgsqlValueGenerationStrategy.SequenceHiLo)
+            .Select(p => (
+                Table: p.type.GetTableName()!,
+                Column: p.property.GetColumnName(),
+                Sequence: db.Model.FindSequence(p.property.GetHiLoSequenceName()!)!))
+            .Where(key => !existing.Contains(key.Sequence.Name));
+
+        foreach (var (table, column, sequence) in keys)
+        {
+            // Identifiers, which no parameter can carry — and every one of them read off this
+            // application's own model, not from input.
+            var create = $"CREATE SEQUENCE \"{sequence.Name}\" START WITH {sequence.StartValue} "
+                + $"INCREMENT BY {sequence.IncrementBy} NO CYCLE";
+
+            // is_called = false, so the next nextval returns exactly this value.
+            var align = $"SELECT setval('\"{sequence.Name}\"', "
+                + $"GREATEST((SELECT MAX(\"{column}\") FROM \"{table}\"), {sequence.StartValue - 1}) + 1, false)";
+
+            await db.Database.ExecuteSqlRawAsync(create);
+            await db.Database.ExecuteSqlRawAsync(align);
+        }
+    }
+
+    /// <summary>The table a <c>CREATE TABLE</c> or <c>CREATE INDEX … ON</c> statement is about.</summary>
+    private static string? CreatedTable(string statement)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            statement, "^CREATE (?:UNIQUE )?(?:TABLE|INDEX \\S+ ON) (?:\"[^\"]+\"\\.)?\"([^\"]+)\"");
+
+        return match.Success ? match.Groups[1].Value : null;
     }
 }

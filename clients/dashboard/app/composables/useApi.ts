@@ -1,14 +1,16 @@
 import type {
-  Category, CategoryDetail, CreateResult, Language, MediaOwner, MediaTextValues, ProductDetail,
-  ProductPage, SettingGroupDescriptor, SettingGroupSchema, Translations, WriteResult
+  AuditEntities, AuditEntitySchema, AuditEntry, AuditPage, AuditQuery, Category, CategoryDetail,
+  CreateResult, Language, MediaOwner, MediaTextValues, ProductDetail, ProductPage,
+  SettingGroupDescriptor, SettingGroupSchema, Translations, WriteResult
 } from '~/types'
 
 /**
- * This application's own endpoints, plus the two library endpoints the catalogue pages need.
+ * This application's own endpoints, plus the library endpoints its pages need.
  *
  * The media library is NOT wrapped here: `useMediaLibrary` talks to `/api/media` directly, exactly
  * as the DotNetBoost.Media dashboard does, so searching, filtering, sorting, paging, uploading,
  * attaching and detaching are that library's own behaviour rather than a second implementation.
+ * Those calls therefore carry no Accept-Language, which costs nothing here.
  */
 
 /**
@@ -59,7 +61,17 @@ export interface Abortable {
 
 export function useApi() {
   const language = useLanguage()
-  const headers = () => ({ 'Accept-Language': language.value })
+
+  /**
+   * The header every call below carries: the language to answer in. It travels through the Nitro
+   * proxy untouched; `server/api/[...path].ts` says why.
+   *
+   * No actor: the API signs every request in as its one sample user — see
+   * `Authentication/SampleActorAuthentication.cs`.
+   */
+  const headers = (): Record<string, string> => ({
+    'Accept-Language': language.value
+  })
 
   return {
     // ── DotNetBoost.MultiLingual ──────────────────────────────────────────
@@ -96,6 +108,71 @@ export function useApi() {
         })
     },
 
+    // ── DotNetBoost.Auditing ──────────────────────────────────────────────
+    //
+    // Read-only, because this application maps only the library's read endpoints: no erasure, no
+    // prune. Retention is the `auditing` settings group, carried out inside the API — a client can
+    // set the policy but never delete history on demand. Every one of them requires an authenticated caller — the library's own default, kept —
+    // which the API's sample scheme always provides.
+    audit: {
+      /**
+       * One page of the trail, newest first.
+       *
+       * By `skip` and with `includeTotal`, which is what a numbered pager needs: the offset to jump
+       * to any page and the count to know how many there are. `useAuditTrail` says what that costs.
+       * `after` is never sent — the API refuses it together with `skip` with a `400`.
+       *
+       * `includeChanges` is asked for with the page. The changes are what a row of this trail is
+       * *for*; the alternative is a request per row the moment one is opened.
+       *
+       * Empty strings are left out rather than sent: to this API a blank parameter is an absent
+       * filter, and relying on that would mean relying on it staying true.
+       */
+      query: (
+        query: AuditQuery,
+        page: { skip: number, from?: string, to?: string },
+        { signal }: Abortable = {}
+      ) => $fetch<AuditPage>('/api/audit', {
+        query: {
+          entityName: query.entityName || undefined,
+          entityId: query.entityId || undefined,
+          actor: query.actor || undefined,
+          action: query.action || undefined,
+          correlationId: query.correlationId || undefined,
+          from: page.from,
+          to: page.to,
+          skip: page.skip,
+          take: query.pageSize,
+          includeTotal: true,
+          includeChanges: true
+        },
+        headers: headers(),
+        signal
+      }),
+
+      /** One entry by its id, with its changes. */
+      get: (id: string, { signal }: Abortable = {}) =>
+        $fetch<AuditEntry>(`/api/audit/${id}`, { headers: headers(), signal }),
+
+      /**
+       * What can be filtered by, and `maxPageSize` — the bound every read is subject to, published
+       * so that a client does not have to hard-code a number that must then be kept in step with
+       * the server's by hand.
+       */
+      entities: ({ signal }: Abortable = {}) =>
+        $fetch<AuditEntities>('/api/audit/entities', { headers: headers(), signal }),
+
+      /**
+       * One entity's properties and the rule each falls under.
+       *
+       * Encoded, because a stored entity name is a value and not a path fragment this client
+       * chose — the same reason `translationsUrl` encodes its two.
+       */
+      describe: (entityName: string, { signal }: Abortable = {}) =>
+        $fetch<AuditEntitySchema>(
+          `/api/audit/entities/${encodeURIComponent(entityName)}`, { headers: headers(), signal })
+    },
+
     // ── This application: the catalogue ───────────────────────────────────
     //
     // Accept-Language on the writes as well as the reads. A write's own answer is now a sentence —
@@ -119,12 +196,23 @@ export function useApi() {
       /**
        * One page, newest page size first.
        *
-       * Both parameters are omitted by the catalogue list on purpose: with no `pageSize` the API
-       * uses `CatalogSettings.PageSize`, which is the only way that setting reaches a screen.
-       * The overview passes one because it counts across pages rather than showing them.
+       * The catalogue list never sends `pageSize`, on purpose: without one the API uses
+       * `CatalogSettings.PageSize`, which is the only way that setting reaches a screen. The
+       * overview passes one because it counts across pages rather than showing them.
+       *
+       * `search` is matched against the name and description in the reading language — this
+       * client's `Accept-Language`, sent below — and against the SKU. A blank one is left out
+       * rather than sent: to this API a blank parameter is an absent filter, and relying on that
+       * would mean relying on it staying true.
        */
-      list: (query: { page?: number, pageSize?: number } = {}, { signal }: Abortable = {}) =>
-        $fetch<ProductPage>('/api/products', { query, headers: headers(), signal }),
+      list: (
+        query: { page?: number, pageSize?: number, search?: string, categoryId?: number } = {},
+        { signal }: Abortable = {}
+      ) => $fetch<ProductPage>('/api/products', {
+        query: { ...query, search: query.search?.trim() || undefined },
+        headers: headers(),
+        signal
+      }),
       get: (id: number) => $fetch<ProductDetail>(`/api/products/${id}`),
       create: (body: { sku: string, price: number, categoryId: number, translations: Translations }) =>
         $fetch<CreateResult>('/api/products', { method: 'POST', body, headers: headers() }),

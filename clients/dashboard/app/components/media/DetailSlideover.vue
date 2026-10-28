@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Download, ExternalLink, HardDrive, Link, Link2, Save, Trash2, Unlink } from '@lucide/vue'
 import type { MediaAttachment, MediaFile } from '~/types'
 
 /**
@@ -28,6 +29,7 @@ const emit = defineEmits<{
 const open = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
+const { direction } = useShellLocale()
 
 const fileName = ref(props.file.fileName)
 const category = ref(props.file.category ?? '')
@@ -93,196 +95,186 @@ const facts = computed(() => [
 </script>
 
 <template>
-  <USlideover
-    v-model:open="open"
-    :title="file.fileName"
-    :description="$t('media.detail.description')"
-    :ui="{ content: 'sm:max-w-lg' }"
-  >
-    <!-- Through the slot, not the `title` prop: the prop has nowhere to carry a `dir`, and a
-         file called `321106641.png` reads as `png.321106641` in the RTL panel header without one. -->
-    <template #title>
-      <span dir="auto">{{ file.fileName }}</span>
-    </template>
+  <!--
+    Not `EditorSheet`: its title is a plain string, and this one needs a `dir` of its own — a file
+    called `321106641.png` reads as `png.321106641` in the RTL panel header without one.
+  -->
+  <Sheet v-model:open="open">
+    <SheetContent :side="direction === 'rtl' ? 'left' : 'right'" class="w-full gap-0 p-0 sm:max-w-lg">
+      <SheetHeader class="border-b p-6">
+        <SheetTitle class="truncate pe-8">
+          <span dir="auto">{{ file.fileName }}</span>
+        </SheetTitle>
+        <SheetDescription>{{ $t('media.detail.description') }}</SheetDescription>
+      </SheetHeader>
 
-    <template #body>
-      <div class="flex flex-col gap-5">
-        <div class="relative aspect-[16/9] w-full overflow-hidden rounded-lg border border-default">
-          <MediaThumbnail :file="file" size="lg" class="absolute inset-0 size-full" />
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <UButton
-            icon="i-lucide-external-link"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            :label="$t('common.open')"
-            :to="contentUrl(file.id)"
-            target="_blank"
-          />
-          <UButton
-            icon="i-lucide-download"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            :label="$t('common.download')"
-            :to="contentUrl(file.id, true)"
-          />
-          <UButton
-            v-if="file.url"
-            icon="i-lucide-link-2"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            :label="$t('media.detail.directLink')"
-            :to="file.url"
-            target="_blank"
-            :title="$t('media.detail.directLinkTitle')"
-          />
-        </div>
-
-        <UFormField
-          :label="$t('media.detail.fileName.label')"
-          :description="$t('media.detail.fileName.description')"
-        >
-          <UInput v-model="fileName" dir="auto" class="w-full" />
-        </UFormField>
-
-        <UFormField
-          :label="$t('media.detail.category.label')"
-          :description="$t('media.detail.category.description')"
-        >
-          <UInput
-            v-model="category"
-            dir="auto"
-            :placeholder="$t('common.none')"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField
-          :label="$t('media.detail.tags.label')"
-          :description="$t('media.detail.tags.description')"
-        >
-          <UInputTags
-            v-model="tags"
-            dir="auto"
-            :placeholder="$t('media.detail.tags.placeholder')"
-            class="w-full"
-          />
-        </UFormField>
-
-        <UFormField
-          :label="$t('media.detail.usedBy.label')"
-          :description="usedBy.length > 1
-            ? $t('media.detail.usedBy.descriptionMany')
-            : $t('media.detail.usedBy.descriptionOne')"
-        >
-          <USkeleton v-if="loadingAttachments" class="h-7 w-40" />
-
-          <p v-else-if="!usedBy.length" class="text-sm text-muted">
-            {{ $t('media.detail.usedBy.none') }}
-          </p>
-
-          <div v-else class="flex flex-col gap-1.5">
-            <div
-              v-for="entity in usedBy"
-              :key="`${entity.entityName}/${entity.entityId}`"
-              class="flex flex-wrap items-center gap-1.5"
-            >
-              <!-- `dir="ltr"`: an owner and a role are identifiers the API chose, never prose. -->
-              <UBadge
-                color="primary"
-                variant="subtle"
-                dir="ltr"
-                icon="i-lucide-link"
-                :label="`${entity.entityName} ${entity.entityId}`"
-              />
-
-              <!-- One chip per link, each removable on its own: an entity can hold the same file
-                   under several roles, and a single button for the group could only ever detach
-                   one of them. -->
-              <UButton
-                v-for="link in entity.links"
-                :key="link.id"
-                color="neutral"
-                variant="outline"
-                size="xs"
-                dir="ltr"
-                icon="i-lucide-unlink"
-                :label="link.role"
-                :aria-label="$t('media.detail.usedBy.detach', {
-                  role: link.role,
-                  entity: `${entity.entityName} ${entity.entityId}`
-                })"
-                :loading="busy"
-                @click="emit('detach', link)"
-              />
-            </div>
+      <div class="min-h-0 flex-1 overflow-y-auto p-6">
+        <FieldGroup class="gap-5">
+          <div class="relative aspect-[16/9] w-full overflow-hidden rounded-lg border">
+            <MediaThumbnail :file="file" size="lg" class="absolute inset-0 size-full" />
           </div>
-        </UFormField>
 
-        <USeparator />
-
-        <!-- The sample's one addition to this panel: per-language alt text, which lives in
-             DotNetBoost.MultiLingual rather than in the media row. -->
-        <MediaAltTextSection :media-file-id="file.id" />
-
-        <USeparator />
-
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <template v-for="fact in facts" :key="fact.label">
-            <dt class="text-muted">
-              {{ fact.label }}
-            </dt>
-            <!-- A checksum, a GUID and a media type are identifiers: always left-to-right. -->
-            <dd
-              :dir="fact.mono ? 'ltr' : undefined"
-              class="text-highlighted"
-              :class="[fact.mono && 'font-mono text-xs', fact.truncate && 'truncate']"
-              :title="fact.truncate ? fact.value : undefined"
+          <div class="flex flex-wrap gap-2">
+            <Button as-child variant="outline" size="sm">
+              <a :href="contentUrl(file.id)" target="_blank" rel="noopener">
+                <ExternalLink />
+                {{ $t('common.open') }}
+              </a>
+            </Button>
+            <Button as-child variant="outline" size="sm">
+              <a :href="contentUrl(file.id, true)">
+                <Download />
+                {{ $t('common.download') }}
+              </a>
+            </Button>
+            <Button
+              v-if="file.url"
+              as-child
+              variant="outline"
+              size="sm"
             >
-              {{ fact.value }}
-            </dd>
-          </template>
-        </dl>
+              <a
+                :href="file.url"
+                target="_blank"
+                rel="noopener"
+                :title="$t('media.detail.directLinkTitle')"
+              >
+                <Link2 />
+                {{ $t('media.detail.directLink') }}
+              </a>
+            </Button>
+          </div>
 
-        <UAlert
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-hard-drive"
-          :title="$t('media.detail.storage.title')"
-          :description="$t('media.detail.storage.description')"
-        />
-      </div>
-    </template>
+          <Field>
+            <FieldLabel for="media-file-name">
+              {{ $t('media.detail.fileName.label') }}
+            </FieldLabel>
+            <Input id="media-file-name" v-model="fileName" dir="auto" />
+            <FieldDescription>{{ $t('media.detail.fileName.description') }}</FieldDescription>
+          </Field>
 
-    <template #footer>
-      <div class="flex w-full items-center gap-2">
-        <UButton
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="ghost"
-          :label="$t('common.delete')"
-          :loading="busy"
-          @click="emit('remove')"
-        />
-        <UButton
-          class="ms-auto"
-          color="neutral"
-          variant="ghost"
-          :label="$t('common.close')"
-          @click="open = false"
-        />
-        <UButton
-          icon="i-lucide-save"
-          :label="$t('common.save')"
-          :disabled="!dirty"
-          :loading="busy"
-          @click="save"
-        />
+          <Field>
+            <FieldLabel for="media-category">
+              {{ $t('media.detail.category.label') }}
+            </FieldLabel>
+            <Input
+              id="media-category"
+              v-model="category"
+              dir="auto"
+              :placeholder="$t('common.none')"
+            />
+            <FieldDescription>{{ $t('media.detail.category.description') }}</FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel for="media-tags">
+              {{ $t('media.detail.tags.label') }}
+            </FieldLabel>
+            <TagsInput v-model="tags">
+              <TagsInputItem v-for="tag in tags" :key="tag" :value="tag">
+                <TagsInputItemText />
+                <TagsInputItemDelete />
+              </TagsInputItem>
+              <TagsInputInput id="media-tags" dir="auto" :placeholder="$t('media.detail.tags.placeholder')" />
+            </TagsInput>
+            <FieldDescription>{{ $t('media.detail.tags.description') }}</FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldTitle>{{ $t('media.detail.usedBy.label') }}</FieldTitle>
+            <FieldDescription>
+              {{ usedBy.length > 1
+                ? $t('media.detail.usedBy.descriptionMany')
+                : $t('media.detail.usedBy.descriptionOne') }}
+            </FieldDescription>
+
+            <Skeleton v-if="loadingAttachments" class="h-7 w-40" />
+
+            <p v-else-if="!usedBy.length" class="text-sm text-muted-foreground">
+              {{ $t('media.detail.usedBy.none') }}
+            </p>
+
+            <div v-else class="flex flex-col gap-1.5">
+              <div
+                v-for="entity in usedBy"
+                :key="`${entity.entityName}/${entity.entityId}`"
+                class="flex flex-wrap items-center gap-1.5"
+              >
+                <!-- `dir="ltr"`: an owner and a role are identifiers the API chose, never prose. -->
+                <Badge class="bg-primary/10 text-primary" dir="ltr">
+                  <Link />
+                  {{ entity.entityName }} {{ entity.entityId }}
+                </Badge>
+
+                <!-- One chip per link, each removable on its own: an entity can hold the same file
+                     under several roles, and a single button for the group could only ever detach
+                     one of them. -->
+                <Button
+                  v-for="link in entity.links"
+                  :key="link.id"
+                  variant="outline"
+                  size="xs"
+                  dir="ltr"
+                  :disabled="busy"
+                  :aria-label="$t('media.detail.usedBy.detach', {
+                    role: link.role,
+                    entity: `${entity.entityName} ${entity.entityId}`
+                  })"
+                  @click="emit('detach', link)"
+                >
+                  <Unlink />
+                  {{ link.role }}
+                </Button>
+              </div>
+            </div>
+          </Field>
+
+          <FieldSeparator />
+
+          <!-- The sample's one addition to this panel: per-language alt text, which lives in
+               DotNetBoost.MultiLingual rather than in the media row. -->
+          <MediaAltTextSection :media-file-id="file.id" />
+
+          <FieldSeparator />
+
+          <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <template v-for="fact in facts" :key="fact.label">
+              <dt class="text-muted-foreground">
+                {{ fact.label }}
+              </dt>
+              <!-- A checksum, a GUID and a media type are identifiers: always left-to-right. -->
+              <dd
+                :dir="fact.mono ? 'ltr' : undefined"
+                :class="[fact.mono && 'text-xs', fact.truncate && 'truncate']"
+                :title="fact.truncate ? fact.value : undefined"
+              >
+                {{ fact.value }}
+              </dd>
+            </template>
+          </dl>
+
+          <Alert>
+            <HardDrive />
+            <AlertTitle>{{ $t('media.detail.storage.title') }}</AlertTitle>
+            <AlertDescription>{{ $t('media.detail.storage.description') }}</AlertDescription>
+          </Alert>
+        </FieldGroup>
       </div>
-    </template>
-  </USlideover>
+
+      <SheetFooter class="flex-row items-center border-t p-4">
+        <Button variant="destructive" :disabled="busy" @click="emit('remove')">
+          <Trash2 />
+          {{ $t('common.delete') }}
+        </Button>
+        <Button variant="ghost" class="ms-auto" @click="open = false">
+          {{ $t('common.close') }}
+        </Button>
+        <Button :disabled="!dirty || busy" @click="save">
+          <Spinner v-if="busy" />
+          <Save v-else />
+          {{ $t('common.save') }}
+        </Button>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
 </template>

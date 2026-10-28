@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { ColumnVisibilityState, SortingState, Updater } from '@tanstack/vue-table'
+import { CircleCheck, CircleOff, Database, EllipsisVertical, Eraser, Languages, Pencil, PilcrowLeft, PilcrowRight, PlugZap, Plus, RefreshCw, Star, Trash2 } from '@lucide/vue'
+import {
+  columnVisibilityFeature,
+  createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_text,
+  tableFeatures,
+  useTable
+} from '@tanstack/vue-table'
 import type { Language } from '~/types'
 
 const { t } = useI18n()
@@ -13,16 +23,6 @@ const editing = ref<Language>()
 
 /** The destructive action awaiting confirmation. */
 const confirming = ref<{ kind: 'delete' | 'purge', language: Language } | null>(null)
-
-// Computed: a plain array would freeze the headers in whatever language the table first drew in.
-const columns = computed<TableColumn<Language>[]>(() => [
-  { accessorKey: 'code', header: t('languages.columns.code') },
-  { accessorKey: 'name', header: t('languages.columns.name') },
-  { accessorKey: 'direction', header: t('languages.columns.direction') },
-  { id: 'role', header: t('languages.columns.role') },
-  { accessorKey: 'isActive', header: t('languages.columns.active') },
-  { id: 'actions', header: '' }
-])
 
 function add() {
   editing.value = undefined
@@ -39,29 +39,88 @@ function toggleActive(language: Language, isActive: boolean) {
   update(language.code, { name: language.name, direction: language.direction, isActive })
 }
 
-function actions(language: Language): DropdownMenuItem[][] {
-  return [[{
-    label: t('languages.actions.edit'),
-    icon: 'i-lucide-pencil',
-    onSelect: () => edit(language)
-  }, {
-    label: t('languages.actions.makeDefault'),
-    icon: 'i-lucide-star',
-    disabled: language.isDefault || !language.isActive,
-    onSelect: () => setDefault(language.code)
-  }], [{
-    label: t('languages.actions.purge'),
-    icon: 'i-lucide-eraser',
-    color: 'error',
-    onSelect: () => confirming.value = { kind: 'purge', language }
-  }, {
-    label: t('languages.actions.delete'),
-    icon: 'i-lucide-trash-2',
-    color: 'error',
-    disabled: language.isDefault,
-    onSelect: () => confirming.value = { kind: 'delete', language }
-  }]]
+/**
+ * Which languages are shown: all of them, the active ones, or the ones switched off — tabs over
+ * the table, as on Audit.
+ *
+ * **Narrowed here, not asked of the API**, unlike every other filter in this dashboard, and for a
+ * reason that matters: `GET api/languages` answers with the whole list in one go. There are no
+ * pages, so the rows on screen are all the rows there are, and filtering them cannot leave
+ * anything out — which is the one condition under which a filter in the browser is honest. The
+ * counts on the tabs come from the same list.
+ */
+type ActiveFilter = 'all' | 'active' | 'inactive'
+
+const activeFilter = ref<ActiveFilter>('all')
+
+const counts = computed(() => ({
+  all: languages.value.length,
+  active: languages.value.filter(l => l.isActive).length,
+  inactive: languages.value.filter(l => !l.isActive).length
+}))
+
+const shownLanguages = computed(() => activeFilter.value === 'all'
+  ? languages.value
+  : languages.value.filter(l => l.isActive === (activeFilter.value === 'active')))
+
+/**
+ * The table, on TanStack Table as the others are, for two things: the order of the rows and which
+ * columns are shown. Code and name sort over the whole list, since there are no pages; a third
+ * click returns to the API's order, the default first.
+ */
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { text: sortFn_text },
+  columnVisibilityFeature
+})
+
+const helper = createColumnHelper<typeof features, Language>()
+
+const columns = helper.columns([
+  helper.accessor('code', { sortFn: 'text', enableHiding: false }),
+  helper.accessor('name', { sortFn: 'text', enableHiding: false }),
+  helper.accessor('direction', { enableSorting: false }),
+  helper.display({ id: 'role', enableSorting: false }),
+  helper.accessor('isActive', { id: 'active', enableSorting: false }),
+  helper.display({ id: 'actions', enableSorting: false, enableHiding: false })
+])
+
+function resolve<T>(next: Updater<T>, current: T): T {
+  return typeof next === 'function' ? (next as (old: T) => T)(current) : next
 }
+
+const sorting = ref<SortingState>([])
+// Remembered per browser, as the other tables' are.
+const columnVisibility = useLocalStorage<ColumnVisibilityState>('languages-table-columns', {})
+
+const table = useTable({
+  features,
+  columns,
+  data: shownLanguages,
+  getRowId: (language: Language) => language.code,
+  state: computed(() => ({ sorting: sorting.value, columnVisibility: columnVisibility.value })),
+  onSortingChange: next => sorting.value = resolve(next, sorting.value),
+  onColumnVisibilityChange: next => columnVisibility.value = resolve(next, columnVisibility.value)
+})
+
+const rows = computed(() => table.getRowModel().rows)
+
+const shown = (id: string) => table.getColumn(id)?.getIsVisible() ?? true
+const column = (id: string) => table.getColumn(id)!
+
+const hideable = computed(() => table.getAllLeafColumns().filter(c => c.getCanHide()))
+
+const columnLabels = computed<Record<string, string>>(() => ({
+  code: t('languages.columns.code'),
+  name: t('languages.columns.name'),
+  direction: t('languages.columns.direction'),
+  role: t('languages.columns.role'),
+  active: t('languages.columns.active')
+}))
+
+/** How many columns a full-width cell spans: whatever is on. */
+const span = computed(() => table.getVisibleLeafColumns().length)
 
 const confirmation = computed(() => {
   const target = confirming.value
@@ -101,141 +160,246 @@ async function onConfirm() {
 </script>
 
 <template>
-  <UDashboardPanel id="languages">
-    <template #header>
-      <UDashboardNavbar :title="$t('nav.languages')" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-
-        <template #right>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            :loading="pending"
-            :aria-label="$t('languages.reload')"
-            @click="() => refresh()"
-          />
-          <UButton icon="i-lucide-plus" :label="$t('languages.add')" @click="add" />
-          <LanguageSelect />
-        </template>
-      </UDashboardNavbar>
+  <DashboardPage :title="$t('nav.languages')">
+    <template #actions>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        :disabled="pending"
+        :aria-label="$t('languages.reload')"
+        @click="() => refresh()"
+      >
+        <RefreshCw :class="{ 'animate-spin': pending }" />
+      </Button>
     </template>
 
-    <template #body>
-      <UPageCard
-        :title="$t('languages.title')"
-        :description="$t('languages.card.description')"
-        variant="naked"
-      >
-        <UBadge
-          color="neutral"
-          variant="subtle"
-          dir="ltr"
-          class="w-fit font-mono"
-          label="api/languages"
-        />
-      </UPageCard>
+    <SectionIntro :title="$t('languages.title')" :description="$t('languages.card.description')">
+      <Badge variant="outline" dir="ltr">
+        api/languages
+      </Badge>
+    </SectionIntro>
 
-      <UAlert
-        v-if="loadError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-plug-zap"
-        :title="$t('languages.loadError')"
-        :description="loadError"
-        :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: () => refresh() }]"
-      />
+    <Alert v-if="loadError" variant="destructive">
+      <PlugZap />
+      <AlertTitle>{{ $t('languages.loadError') }}</AlertTitle>
+      <AlertDescription>{{ loadError }}</AlertDescription>
+      <AlertAction>
+        <Button variant="outline" size="sm" @click="() => refresh()">
+          {{ $t('common.tryAgain') }}
+        </Button>
+      </AlertAction>
+    </Alert>
 
-      <UTable
-        v-else
-        :data="languages"
-        :columns="columns"
-        :loading="pending && !languages.length"
-        :empty="$t('languages.empty')"
-        class="rounded-lg border border-default"
-      >
-        <template #code-cell="{ row }">
-          <!-- `dir="ltr"`: a language tag is an identifier, even on a right-to-left page. -->
-          <span dir="ltr" class="font-mono text-highlighted">{{ row.original.code }}</span>
-        </template>
+    <template v-else>
+      <!-- The bar over the table, as on Audit: which languages on the start side, with how many
+           each tab holds; which columns and Add language on the end. -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <Tabs v-model="activeFilter">
+          <TabsList :aria-label="$t('languages.filters.label')">
+            <TabsTrigger value="all">
+              {{ $t('languages.filters.all') }}
+              <span class="tabular-nums text-muted-foreground">{{ counts.all }}</span>
+            </TabsTrigger>
+            <TabsTrigger value="active">
+              <CircleCheck class="text-muted-foreground" />
+              {{ $t('languages.filters.active') }}
+              <span class="tabular-nums text-muted-foreground">{{ counts.active }}</span>
+            </TabsTrigger>
+            <TabsTrigger value="inactive">
+              <CircleOff class="text-muted-foreground" />
+              {{ $t('languages.filters.inactive') }}
+              <span class="tabular-nums text-muted-foreground">{{ counts.inactive }}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <template #name-cell="{ row }">
-          <span :dir="row.original.direction" class="text-highlighted">{{ row.original.name }}</span>
-        </template>
+        <!-- Which columns, then the one action that adds a row — the pair that ends the Catalog
+             bars too. -->
+        <div class="flex items-center gap-2">
+          <ColumnsMenu :columns="hideable" :labels="columnLabels" />
+          <Button @click="add">
+            <Plus />
+            {{ $t('languages.add') }}
+          </Button>
+        </div>
+      </div>
 
-        <template #direction-cell="{ row }">
-          <UBadge
-            color="neutral"
-            variant="outline"
-            dir="ltr"
-            class="font-mono"
-            :icon="row.original.direction === 'rtl' ? 'i-lucide-pilcrow-left' : 'i-lucide-pilcrow-right'"
-            :label="row.original.direction"
-          />
-        </template>
+      <!-- A row opens the language's editor; the switch and the menu stop the click, because each
+           is a control of its own and toggling one must not also open a dialog. -->
+      <TableFrame>
+        <Table>
+          <TableHeader class="sticky-head">
+            <TableRow>
+              <SortableHead :column="column('code')" :label="columnLabels.code!" class="ps-4" />
+              <SortableHead :column="column('name')" :label="columnLabels.name!" />
+              <TableHead v-if="shown('direction')" class="hidden md:table-cell">
+                {{ columnLabels.direction }}
+              </TableHead>
+              <TableHead v-if="shown('role')" class="hidden sm:table-cell">
+                {{ columnLabels.role }}
+              </TableHead>
+              <TableHead v-if="shown('active')">
+                {{ columnLabels.active }}
+              </TableHead>
+              <TableHead class="w-12 pe-4">
+                <span class="sr-only">{{ $t('common.actions') }}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-if="pending && !languages.length">
+              <TableRow v-for="n in 3" :key="n">
+                <!-- One bar across the row rather than one per cell: how many cells a row shows
+                   depends on the screen, and a placeholder should not have to know. -->
+                <TableCell :colspan="span" class="px-4">
+                  <Skeleton class="h-5 w-full" />
+                </TableCell>
+              </TableRow>
+            </template>
 
-        <template #role-cell="{ row }">
-          <div class="flex flex-wrap gap-1">
-            <UBadge
-              v-if="row.original.isDefault"
-              color="primary"
-              variant="subtle"
-              icon="i-lucide-star"
-              :label="$t('languages.badge.default')"
-            />
-            <UTooltip
-              v-if="isBase(row.original.code)"
-              :text="$t('languages.badge.baseTooltip')"
+            <TableEmpty v-else-if="!languages.length" :colspan="span">
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Languages />
+                  </EmptyMedia>
+                  <EmptyTitle>{{ $t('languages.empty') }}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            </TableEmpty>
+
+            <!-- Languages exist, just none on this tab. -->
+            <TableEmpty v-else-if="!rows.length" :colspan="span">
+              <p class="py-6 text-sm text-muted-foreground">
+                {{ activeFilter === 'active'
+                  ? $t('languages.filters.noneActive')
+                  : $t('languages.filters.noneInactive') }}
+              </p>
+            </TableEmpty>
+
+            <TableRow
+              v-for="{ original: language } in rows"
+              v-else
+              :key="language.code"
+              class="cursor-pointer"
+              @click="edit(language)"
             >
-              <UBadge
-                color="info"
-                variant="subtle"
-                icon="i-lucide-database"
-                :label="$t('languages.badge.base')"
-              />
-            </UTooltip>
-          </div>
-        </template>
+              <TableCell class="ps-4">
+                <!-- `dir="ltr"`: a language tag is an identifier, even on a right-to-left page. -->
+                <span dir="ltr" class="font-medium">{{ language.code }}</span>
+              </TableCell>
 
-        <template #isActive-cell="{ row }">
-          <USwitch
-            :model-value="row.original.isActive"
-            :loading="busy === row.original.code"
-            :disabled="busy !== null"
-            :aria-label="row.original.isActive
-              ? $t('languages.deactivate', { name: row.original.name })
-              : $t('languages.activate', { name: row.original.name })"
-            @update:model-value="toggleActive(row.original, $event)"
-          />
-        </template>
+              <TableCell>
+                <button
+                  type="button"
+                  :dir="language.direction"
+                  class="font-medium outline-none hover:underline focus-visible:underline"
+                  @click.stop="edit(language)"
+                >
+                  {{ language.name }}
+                </button>
+              </TableCell>
 
-        <template #actions-cell="{ row }">
-          <div class="flex justify-end">
-            <UDropdownMenu :items="actions(row.original)" :content="{ align: 'end' }">
-              <UButton
-                icon="i-lucide-ellipsis-vertical"
-                color="neutral"
-                variant="ghost"
-                :aria-label="$t('languages.actionsFor', { name: row.original.name })"
-              />
-            </UDropdownMenu>
-          </div>
-        </template>
-      </UTable>
+              <TableCell v-if="shown('direction')" class="hidden md:table-cell">
+                <Badge variant="outline" dir="ltr" class="text-muted-foreground">
+                  <PilcrowLeft v-if="language.direction === 'rtl'" />
+                  <PilcrowRight v-else />
+                  {{ language.direction }}
+                </Badge>
+              </TableCell>
 
-      <LanguagesFormModal v-model:open="formOpen" :language="editing" />
+              <TableCell v-if="shown('role')" class="hidden sm:table-cell">
+                <!-- The block's status badges: an outline, muted text, and the one thing that matters
+                   carried by a coloured icon. -->
+                <div class="flex flex-wrap gap-1">
+                  <Badge v-if="language.isDefault" variant="outline" class="text-muted-foreground">
+                    <Star class="fill-primary text-primary" />
+                    {{ $t('languages.badge.default') }}
+                  </Badge>
+                  <Tooltip v-if="isBase(language.code)">
+                    <TooltipTrigger as-child>
+                      <Badge variant="outline" class="text-muted-foreground">
+                        <Database class="text-primary" />
+                        {{ $t('languages.badge.base') }}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>{{ $t('languages.badge.baseTooltip') }}</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TableCell>
 
-      <ConfirmModal
-        :open="confirming !== null"
-        :title="confirmation.title"
-        :description="confirmation.description"
-        :confirm-label="confirmation.label"
-        :loading="busy !== null"
-        @update:open="!$event && (confirming = null)"
-        @confirm="onConfirm"
-      />
+              <TableCell v-if="shown('active')" @click.stop>
+                <div class="flex items-center gap-2">
+                  <Switch
+                    :model-value="language.isActive"
+                    :disabled="busy !== null"
+                    :aria-label="language.isActive
+                      ? $t('languages.deactivate', { name: language.name })
+                      : $t('languages.activate', { name: language.name })"
+                    @update:model-value="toggleActive(language, $event)"
+                  />
+                  <Spinner v-if="busy === language.code" class="size-3.5 text-muted-foreground" />
+                </div>
+              </TableCell>
+
+              <TableCell class="pe-4 text-end" @click.stop>
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      :aria-label="$t('languages.actionsFor', { name: language.name })"
+                    >
+                      <EllipsisVertical />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem @select="edit(language)">
+                      <Pencil />
+                      {{ $t('languages.actions.edit') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      :disabled="language.isDefault || !language.isActive"
+                      @select="setDefault(language.code)"
+                    >
+                      <Star />
+                      {{ $t('languages.actions.makeDefault') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      @select="confirming = { kind: 'purge', language }"
+                    >
+                      <Eraser />
+                      {{ $t('languages.actions.purge') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      :disabled="language.isDefault"
+                      @select="confirming = { kind: 'delete', language }"
+                    >
+                      <Trash2 />
+                      {{ $t('languages.actions.delete') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableFrame>
     </template>
-  </UDashboardPanel>
+
+    <LanguagesFormModal v-model:open="formOpen" :language="editing" />
+
+    <ConfirmModal
+      :open="confirming !== null"
+      :title="confirmation.title"
+      :description="confirmation.description"
+      :confirm-label="confirmation.label"
+      :loading="busy !== null"
+      @update:open="!$event && (confirming = null)"
+      @confirm="onConfirm"
+    />
+  </DashboardPage>
 </template>

@@ -44,9 +44,7 @@ public static class UpdateProduct
 
             if (product is null) return Error.NotFound("Catalog.ProductNotFound", request.Id);
 
-            // Moving a product to a category that does not exist is the same mistake CreateProduct
-            // guards, with the same reasoning — and worth checking separately, because a PUT can
-            // change CategoryId on a product that was perfectly valid a moment ago.
+            // CreateProduct's check, because a PUT can move a product to any category.
             if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct))
                 return Error.NotFound("Catalog.CategoryNotFound", request.CategoryId);
 
@@ -54,6 +52,9 @@ public static class UpdateProduct
             product.Price      = request.Price;
             product.CategoryId = request.CategoryId;
 
+            // Auditing's interceptor records what moved, old value → new, in this same save. Name
+            // and Description carry [AuditIgnore] (see Product.Name), so a save that moved nothing
+            // else records nothing.
             await translatedText.SaveAsync(db, product, request.Translations, ct);
 
             return product.Sku;

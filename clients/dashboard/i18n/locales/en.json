@@ -17,18 +17,37 @@
     "refresh": "Refresh",
     "none": "None",
     "empty": "—",
-    "filtered": "filtered"
+    "filtered": "filtered",
+    "previous": "Previous page",
+    "next": "Next page",
+    "actions": "Actions",
+    "sortBy": "Sort by {column}",
+    "columns": "Columns",
+    "rowsPerPage": "Rows per page",
+    "pageOf": "Page {page} of {count}",
+    "firstPage": "First page",
+    "lastPage": "Last page"
   },
   "nav": {
     "overview": "Overview",
     "catalog": "Catalog",
     "media": "Media",
     "languages": "Languages",
+    "audit": "Audit",
     "settings": "Settings",
     "apiReference": "API reference",
     "github": "DotNetBoost on GitHub",
     "goTo": "Go to",
-    "documentTitle": "{page} — DotNetBoost Sample"
+    "documentTitle": "{page} — DotNetBoost Sample",
+    "resources": "Resources",
+    "search": "Search…",
+    "searchPlaceholder": "Type a page name…",
+    "searchDescription": "Jump to a page of the dashboard.",
+    "noResults": "No page matches that.",
+    "toggleSidebar": "Toggle sidebar",
+    "content": "Content",
+    "administration": "Administration",
+    "showSections": "Show the sections of {page}"
   },
   "brand": {
     "subtitle": "Sample"
@@ -39,13 +58,13 @@
   "appearance": {
     "trigger": "Appearance",
     "theme": "Theme",
-    "primary": "Primary",
-    "neutral": "Neutral",
     "mode": "Appearance",
     "light": "Light",
     "dark": "Dark",
-    "nuxtUiDocs": "Nuxt UI documentation",
-    "githubRepository": "GitHub repository"
+    "githubRepository": "GitHub repository",
+    "accent": "Accent",
+    "system": "System",
+    "shadcnVueDocs": "shadcn-vue documentation"
   },
   "errorPage": {
     "title": "Page not found",
@@ -57,24 +76,40 @@
   },
   "overview": {
     "intro": {
-      "title": "Three libraries, zero references between them",
-      "description": "This application installs DotNetBoost.Settings, DotNetBoost.Media and DotNetBoost.MultiLingual from NuGet. None depends on another, there is no shared kernel package, and no integration package pairs any two of them. Everything here is produced by application code composing them."
+      "title": "Four libraries, zero references between them",
+      "description": "This application installs DotNetBoost.Settings, DotNetBoost.Media, DotNetBoost.MultiLingual and DotNetBoost.Auditing from NuGet. None depends on another, there is no shared kernel package, and no integration package pairs any two of them. Everything here is produced by application code composing them."
     },
     "stats": {
       "categories": "Categories",
       "products": "Products",
       "files": "Files in the library",
-      "languages": "Languages"
+      "languages": "Languages",
+      "categoriesHint": "{count} with a banner image",
+      "productsHint": "{withAltText} of {imageCount} images have alt text",
+      "filesHint": "Stored by DotNetBoost.Media",
+      "languagesHint": "{active} active · default {code}",
+      "open": "Open"
     },
     "composition": {
       "title": "Where the composition happens",
-      "dbContext": "One PostgreSQL database, one DbContext, and three independent {apply} calls. Remove a library and you delete its one line; nothing else in the file changes.",
+      "dbContext": "One PostgreSQL database, one DbContext, and four independent {apply} calls. Remove a library and you delete its one line; nothing else in the file changes.",
       "mediaText": "Per-language alt text for an uploaded file. Both libraries address a subject by {pair}, so a media file's own GUID becomes the subject of translation rows. {withAltText} of {imageCount} attached images have alt text. No new table, no integration package.",
       "branding": "The group's name in every language, and its logo. Neither is a settings value: the name's other languages are translation rows, and the logo is a media attachment on an owner with no table behind it. A projector joins all three onto the group's own endpoint."
     },
     "languageAlert": {
       "title": "Switch the language in any page header",
       "description": "Every product name, description and image alt text is re-read in that language — Arabic flips the whole shell to RTL. The API resolves it from Accept-Language. The dashboard's own labels follow the same selector."
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "What the audit trail recorded each day, by action.",
+      "ranges": {
+        "7d": "7 days",
+        "30d": "30 days",
+        "90d": "3 months"
+      },
+      "empty": "Nothing was recorded in this range.",
+      "capped": "Drawn from the latest {shown} of {total} changes in this range — the most one read of the trail returns."
     }
   },
   "catalog": {
@@ -87,16 +122,17 @@
     "categories": {
       "title": "Categories",
       "description": "The application's own entity. Name and description are not columns on this table — they are translation rows, returned already filled in for the language in the header.",
-      "empty": "No categories yet."
+      "empty": "No categories yet.",
+      "emptyHint": "A category holds products, so it comes first.",
+      "count": "{n} category | {n} categories"
     },
     "products": {
       "title": "Products",
       "description": "Name and description are translation rows; images are attachments in the media library. Neither library knows the other exists.",
       "empty": "No products yet.",
-      "range": "{from}–{to} of {total}"
+      "range": "{from}–{to} of {total}",
+      "emptyHint": "Give it a SKU, a price and its text in each language."
     },
-    "productCount": "{n} product | {n} products",
-    "imageCount": "{n} image | {n} images",
     "confirmDelete": {
       "title": "Delete {name}?",
       "description": "This cannot be undone. A product's images and their alt text go with it — written out by hand, because nothing cascades across library boundaries."
@@ -104,6 +140,29 @@
     "toast": {
       "deleted": "Deleted",
       "deleteFailed": "Could not delete"
+    },
+    "columns": {
+      "category": "Category",
+      "product": "Product",
+      "slug": "Slug",
+      "products": "Products",
+      "sku": "SKU",
+      "price": "Price",
+      "images": "Images"
+    },
+    "table": {
+      "sortedThisPage": "Sorted within this page — the catalogue itself lists products in the order they were added.",
+      "resetSort": "Order added",
+      "pageSize": "{n} per page, set in"
+    },
+    "filters": {
+      "search": "Search by name, description or SKU…",
+      "clearSearch": "Clear the search",
+      "category": "Category",
+      "allCategories": "All categories",
+      "emptyTitle": "No products match",
+      "emptyDescription": "Names and descriptions are searched in the language in the header, SKUs in any.",
+      "clear": "Clear filters"
     }
   },
   "categoryEditor": {
@@ -244,6 +303,94 @@
         "required": "Required.",
         "nameTooLong": "At most 128 characters."
       }
+    },
+    "filters": {
+      "label": "Which languages",
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive",
+      "noneActive": "No language is active.",
+      "noneInactive": "Every language is active."
+    }
+  },
+  "audit": {
+    "title": "Audit trail",
+    "card": {
+      "description": "Served by MapAuditEndpoints() from DotNetBoost.Auditing.API — library endpoints, not ones this application wrote. Every filter below is a parameter on the query the API is asked."
+    },
+    "reload": "Reload the trail",
+    "loadError": "Could not load the trail",
+    "empty": "Nothing has been recorded yet. Change a product or a category and it will be here.",
+    "emptyFiltered": "No entries match this filter.",
+    "expand": "Show the property changes",
+    "filterToEntity": "Show only {entity} {id}",
+    "unknownActor": "unknown",
+    "unknownActorTooltip": "No actor was captured for this change. The entry names nobody — which is not the same as naming the system.",
+    "changeCount": "{n} change | {n} changes",
+    "noChanges": "No property values were recorded with this entry.",
+    "redacted": "not disclosed",
+    "redactedTooltip": "The model marks this property sensitive, so the values were withheld rather than recorded. They are not missing — they were never stored.",
+    "truncated": "truncated",
+    "truncatedTooltip": "A value was longer than the configured limit and was cut short when it was recorded.",
+    "filters": {
+      "entity": "Entity",
+      "anyEntity": "Any entity",
+      "notAudited": "Declared, but changes to it are not being recorded right now.",
+      "entityId": "Key",
+      "actor": "Actor",
+      "action": "Action",
+      "dates": "Dates",
+      "anyDate": "Any date",
+      "clearDates": "Clear dates",
+      "datesHelp": "Whole days, read in UTC — the trail is stored in UTC, while the times in the table are your own.",
+      "allActions": "All"
+    },
+    "actions": {
+      "created": "Created",
+      "updated": "Updated",
+      "deleted": "Deleted"
+    },
+    "columns": {
+      "occurredAt": "When",
+      "entity": "Entity",
+      "action": "Action",
+      "actor": "Actor",
+      "changes": "Changes"
+    },
+    "changes": {
+      "property": "Property",
+      "oldValue": "Before",
+      "newValue": "After"
+    },
+    "entry": {
+      "id": "Entry",
+      "occurredAt": "Recorded",
+      "metadata": "Metadata",
+      "correlationId": "Edit",
+      "showEdit": "The rest of this edit"
+    },
+    "editFilter": {
+      "title": "One edit",
+      "description": "Every entry written under the same correlation id. An edit is not always one entry: creating a product with text in several languages writes the product's own entry and the creation trail's, in a scope of its own."
+    },
+    "pager": {
+      "range": "{from}–{to} of {total}"
+    },
+    "rules": {
+      "title": "What is recorded for {entity}",
+      "description": "What the model says about this class — not a summary of the entries, so it answers before the trail has a single row in it.",
+      "notAudited": "not recorded",
+      "record": "recorded with their values",
+      "redact": "recorded without them",
+      "ignore": "never recorded — a translated value depends on the language, and an entry has no language",
+      "retentionOwn": "kept {n} day — its own | kept {n} days — its own",
+      "retentionDefault": "kept {n} day — the configured default | kept {n} days — the configured default",
+      "retentionPruned": "deleted after {n} day — the Audit trail setting | deleted after {n} days — the Audit trail setting",
+      "retentionNone": "kept indefinitely"
+    },
+    "table": {
+      "sortedThisPage": "Sorted within this page — the trail itself is read newest first.",
+      "resetSort": "Newest first"
     }
   },
   "media": {
@@ -270,7 +417,8 @@
         "usedByNone": "Nothing is using it.",
         "usedByOne": "It is attached to {entity}, which loses it.",
         "usedByMany": "It is attached to {count} entities, and all of them lose it: {entities}."
-      }
+      },
+      "perPage": "Files per page"
     },
     "filters": {
       "search": "Search file names…",
@@ -406,6 +554,21 @@
       "detachFailed": "Could not detach the file",
       "deleted": "Deleted {fileName}",
       "deleteFailed": "Could not delete the file"
+    },
+    "view": {
+      "label": "View",
+      "grid": "Grid",
+      "list": "List"
+    },
+    "list": {
+      "columns": {
+        "file": "File",
+        "kind": "Type",
+        "category": "Category",
+        "size": "Size",
+        "uploaded": "Uploaded"
+      },
+      "details": "Details"
     }
   },
   "entity": {
@@ -468,6 +631,24 @@
           "currencySymbol": {
             "label": "Currency symbol",
             "description": "Shown next to prices."
+          }
+        }
+      },
+      "auditing": {
+        "label": "Audit trail",
+        "description": "How long the audit trail is kept. Pruning runs in the API, which reads this group every minute, so a change applies without a restart. Deleted entries cannot be recovered.",
+        "fields": {
+          "pruneEnabled": {
+            "label": "Delete old entries",
+            "description": "Off by default, so the trail is kept indefinitely. When on, entries older than the retention below are deleted at each prune."
+          },
+          "retentionDays": {
+            "label": "Retention (days)",
+            "description": "How old an entry must be before a prune deletes it. Applies to every entity, this group's own saves included."
+          },
+          "pruneIntervalHours": {
+            "label": "Prune every (hours)",
+            "description": "How often a prune runs while deletion is on. Turning deletion on prunes within a minute; this sets the gap after that."
           }
         }
       }

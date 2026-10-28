@@ -93,87 +93,64 @@ async function save() {
   <div class="space-y-3">
     <div class="flex items-center justify-between gap-2">
       <div>
-        <p class="text-sm font-medium text-highlighted">
+        <p class="text-sm font-medium">
           {{ $t('media.altText.title') }}
         </p>
-        <p class="text-xs text-muted">
+        <p class="text-xs text-muted-foreground">
           {{ $t('media.altText.subtitle') }}
         </p>
       </div>
 
-      <UBadge
-        v-if="missing"
-        color="warning"
-        variant="subtle"
-        size="sm"
-        :label="$t('media.altText.missing', missing)"
-      />
-      <UBadge
-        v-else
-        color="success"
-        variant="subtle"
-        size="sm"
-        :label="$t('media.altText.covered')"
-      />
+      <Badge v-if="missing" class="bg-warning/15 text-warning">
+        {{ $t('media.altText.missing', missing) }}
+      </Badge>
+      <Badge v-else class="bg-success/15 text-success">
+        {{ $t('media.altText.covered') }}
+      </Badge>
     </div>
 
-    <div v-if="loading" class="py-4 text-center text-sm text-muted">
+    <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+      <Spinner />
       {{ $t('common.loading') }}
     </div>
 
     <template v-else>
-      <div class="flex flex-wrap gap-1.5">
-        <UButton
-          v-for="option in languages"
-          :key="option.code"
-          :label="option.name"
-          :color="active === option.code ? 'primary' : 'neutral'"
-          :variant="active === option.code ? 'solid' : 'outline'"
-          size="xs"
-          @click="active = option.code"
-        >
-          <template #trailing>
-            <span class="flex items-center gap-1">
-              <UIcon v-if="hasContent(option.code)" name="i-lucide-circle-check" class="size-3" />
-              <span class="font-mono text-[10px] opacity-60">{{ option.code }}</span>
-            </span>
-          </template>
-        </UButton>
-      </div>
+      <LanguagePills v-model="active" :languages="languages" :filled="hasContent" />
 
-      <div v-if="draft[active]" class="space-y-3 rounded-lg border border-default p-3">
-        <UFormField
-          :label="$t('media.altText.altText.label')"
-          :description="$t('media.altText.altText.description')"
-        >
-          <UInput
+      <FieldGroup v-if="draft[active]" class="gap-4 rounded-lg border p-3">
+        <Field>
+          <FieldLabel :for="`alt-${active}`">
+            {{ $t('media.altText.altText.label') }}
+          </FieldLabel>
+          <Input
+            :id="`alt-${active}`"
             v-model="draft[active]!.altText as string"
             :dir="activeIsRtl ? 'rtl' : 'ltr'"
-            class="w-full"
           />
-        </UFormField>
+          <FieldDescription>{{ $t('media.altText.altText.description') }}</FieldDescription>
+        </Field>
 
-        <UFormField :label="$t('media.altText.caption')">
-          <UInput
+        <Field>
+          <FieldLabel :for="`caption-${active}`">
+            {{ $t('media.altText.caption') }}
+          </FieldLabel>
+          <Input
+            :id="`caption-${active}`"
             v-model="draft[active]!.caption as string"
             :dir="activeIsRtl ? 'rtl' : 'ltr'"
-            class="w-full"
           />
-        </UFormField>
+        </Field>
 
         <div class="flex items-center justify-between gap-2">
-          <p class="text-xs text-muted">
+          <p class="text-xs text-muted-foreground">
             {{ $t('media.altText.note') }}
           </p>
-          <UButton
-            size="xs"
-            :label="$t('media.altText.save')"
-            :disabled="!dirty"
-            :loading="saving"
-            @click="save"
-          />
+          <Button size="xs" :disabled="!dirty || saving" @click="save">
+            <Spinner v-if="saving" />
+            {{ $t('media.altText.save') }}
+          </Button>
         </div>
-      </div>
+      </FieldGroup>
     </template>
   </div>
 </template>

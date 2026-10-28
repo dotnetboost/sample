@@ -26,6 +26,10 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         product.ToTable("Products");
         product.HasKey(p => p.Id);
+
+        // HiLo, from a sequence of its own — see CategoryConfiguration for why a key assigned
+        // before the save is what keeps a creation's audit entry in that save.
+        product.Property(p => p.Id).UseHiLo("ProductIds");
         product.Property(p => p.Sku).HasMaxLength(64).IsRequired();
         product.Property(p => p.Price).HasPrecision(18, 2);
         product.HasIndex(p => p.Sku).IsUnique().HasDatabaseName(SkuIndex);

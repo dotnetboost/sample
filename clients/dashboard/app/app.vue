@@ -2,16 +2,23 @@
 /**
  * The shell's language and direction, set in one place.
  *
- * `dir` goes on `<html>` rather than on a wrapper element because modals and slideovers are
+ * `dir` goes on `<html>` rather than on a wrapper element because dialogs and sheets are
  * portalled to `document.body`: a direction scoped to a div inside the layout would leave every
  * dialog in the dashboard reading left-to-right while the page behind it read right-to-left.
- * `UApp` is told as well — reka-ui positions its popovers and dropdowns from that value rather
- * than from the DOM attribute.
+ * reka-ui's `ConfigProvider` is told as well — the shadcn-vue components are reka-ui underneath,
+ * and it positions their popovers and dropdowns from that value rather than from the DOM attribute.
+ * The toaster is the third reader: it stacks toasts from the reading side.
  *
  * `lang` is the reading language, not the UI locale. They are usually the same, but when they are
  * not it is the content that a screen reader and a spell-checker are looking at.
  */
-const { languages, loaded, direction, componentLocale } = useShellLocale()
+import { ConfigProvider } from 'reka-ui'
+
+const { languages, loaded, direction } = useShellLocale()
+const { locale } = useI18n()
+
+// The accent picked in the sidebar's Appearance menu, applied on `<html>` — see main.css.
+const accent = useAccent()
 const language = useLanguage()
 
 /**
@@ -53,14 +60,19 @@ watch([language, direction], ([code, dir]) => {
 
 useHead({
   htmlAttrs: {
-    lang: language,
-    dir: direction
+    'lang': language,
+    'dir': direction,
+    'data-accent': accent
   }
 })
 </script>
 
 <template>
-  <UApp :locale="componentLocale" :dir="direction">
+  <!--
+    `locale` is the UI locale rather than the reading language, so the calendar's month names and
+    weekday initials are in the same language as the labels around them — see plugins/ui-language.ts.
+  -->
+  <ConfigProvider :dir="direction" :locale="locale">
     <!--
       Both of these are in Nuxt's own default `app.vue`, and writing one of our own is what left
       them out.
@@ -80,5 +92,12 @@ useHead({
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-  </UApp>
+
+    <Toaster
+      rich-colors
+      close-button
+      :dir="direction"
+      :position="direction === 'rtl' ? 'bottom-left' : 'bottom-right'"
+    />
+  </ConfigProvider>
 </template>

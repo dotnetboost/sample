@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -15,7 +16,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// metadata: fast, infrastructure-free, and unable to see any of what the README actually claims.
 /// That a plain <c>ToListAsync()</c> comes back translated, that alt text written through one
 /// library reads back beside a file owned by another, that a settings value changes what an
-/// endpoint answers without a restart — all of it is behaviour of three libraries wired into one
+/// endpoint answers without a restart — all of it is behaviour of four libraries wired into one
 /// <c>DbContext</c>, and none of it is provable without the database they share. The bug fixed in
 /// 9d3f782 — a translated name written into the settings cache — was invisible to every test here
 /// and would have been caught by the first one below.</para>
@@ -60,9 +61,9 @@ public class SampleApp : IAsyncLifetime
     ///
     /// <para>Asked for rather than written down as <c>1</c>, which is what nine of these tests
     /// did. That literal is not wrong today — every fixture gets a fresh container and the seed
-    /// creates its categories first, so the first identity id is 1 and belongs to furniture. It is
-    /// an undeclared dependency on both of those facts, and it fails badly in either direction:
-    /// if no category has id 1 any more, a test about Arabic text answers 404 on its product
+    /// creates its categories first, so the first id the sequence hands out is 1 and belongs to
+    /// furniture. It is an undeclared dependency on both of those facts, and it fails badly in
+    /// either direction: if no category has id 1 any more, a test about Arabic text answers 404 on its product
     /// create and names the seed nowhere; and if id 1 is simply a DIFFERENT category — one added
     /// above furniture in <c>DatabaseInitialiser</c> — nothing fails at all, the products are
     /// just filed somewhere nobody meant, which is the worse of the two.</para>
@@ -144,10 +145,17 @@ public class SampleApp : IAsyncLifetime
     /// is in the tables rather than what the API answers — the translation rows a delete should
     /// have taken with it, for one.
     /// </summary>
-    public async Task WithDbAsync(Func<AppDbContext, Task> work)
+    public Task WithDbAsync(Func<AppDbContext, Task> work) =>
+        WithScopeAsync(services => work(services.GetRequiredService<AppDbContext>()));
+
+    /// <summary>
+    /// One DI scope of the running application, for an assertion about what two services resolved
+    /// in the same scope share — the request's context and a library writing through it.
+    /// </summary>
+    public async Task WithScopeAsync(Func<IServiceProvider, Task> work)
     {
         using var scope = _factory!.Services.CreateScope();
-        await work(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+        await work(scope.ServiceProvider);
     }
 
     /// <summary>
@@ -170,6 +178,50 @@ public class SampleApp : IAsyncLifetime
 
         return value;
     }
+
+    /// <summary>
+    /// A connection string for another database in this run's PostgreSQL — for the one test that
+    /// needs a database of its own to change the schema of, without touching the one every other
+    /// test in the collection shares.
+    /// </summary>
+    public string ConnectionStringFor(string database) =>
+        new Npgsql.NpgsqlConnectionStringBuilder(_postgres.GetConnectionString()) { Database = database }
+            .ConnectionString;
+
+    /// <summary>
+    /// A second copy of the real application, on <paramref name="connectionString"/> and this run's
+    /// media root. Booted the same way as <see cref="InitializeAsync"/> boots the shared one, so the
+    /// initialiser it runs is the one <c>aspire run</c> runs. The caller disposes it.
+    /// </summary>
+    public WebApplicationFactory<Program> Boot(string connectionString) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("ConnectionStrings:catalog", connectionString);
+            builder.UseSetting("Media:Root", _mediaRoot);
+
+            if (BaseLanguage is not null)
+                builder.UseSetting("MultiLingual:BaseLanguage", BaseLanguage);
+        });
+
+    /// <summary>
+    /// The running instance of a hosted service, for a test that drives one step of it rather than
+    /// waiting for its timer — <c>AuditRetentionService.PruneIfDueAsync</c>, which is what the
+    /// timer calls.
+    /// </summary>
+    public T HostedService<T>() where T : IHostedService =>
+        _factory!.Services.GetServices<IHostedService>().OfType<T>().Single();
+
+    /// <summary>
+    /// Puts the auditing settings group back to its defaults — pruning off — so a test that turned
+    /// it on cannot leave the shared database pruning under the tests after it.
+    /// </summary>
+    public Task ResetAuditingSettingsAsync() =>
+        Client.PostAsJsonChecked("/api/settings/auditing", new
+        {
+            pruneEnabled = false,
+            retentionDays = 365,
+            pruneIntervalHours = 24
+        });
 
     /// <summary>Resets the catalogue settings group, so one test's edit cannot reach another.</summary>
     public Task ResetCatalogSettingsAsync() =>

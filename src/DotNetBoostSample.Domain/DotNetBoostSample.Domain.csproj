@@ -4,13 +4,18 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
   </PropertyGroup>
 
-  <ItemGroup Label="The only package a domain entity needs">
+  <ItemGroup Label="The two packages a domain entity needs">
     <!-- [MultiLingual] and [NotMultiLingual] sit on Category and Product. A purist would call an
          attribute from a library a persistence concern on a domain type; it is one MIT,
          abstraction-only package, declaring which properties are translated at all — the same
-         bargain a domain entity carrying [Required] already makes. Nothing else is referenced
-         here, and nothing else should be. -->
+         bargain a domain entity carrying [Required] already makes. -->
     <PackageReference Include="DotNetBoost.MultiLingual.Core" />
+    <!-- And [AuditIgnore] on the two properties the first attribute made translatable, for the
+         reason written above them: a trail has no language, so a property whose value depends on
+         one cannot be stated in it. The same bargain, taken a second time, and deliberately the
+         ONLY thing this package is used for here — no [Audited], no [AuditEntity], nothing that
+         would make an entity's identity depend on being audited. -->
+    <PackageReference Include="DotNetBoost.Auditing.Core" />
   </ItemGroup>
 
 </Project>

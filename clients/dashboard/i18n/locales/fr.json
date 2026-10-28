@@ -17,18 +17,37 @@
     "refresh": "Actualiser",
     "none": "Aucune",
     "empty": "—",
-    "filtered": "filtré"
+    "filtered": "filtré",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "actions": "Actions",
+    "sortBy": "Trier par {column}",
+    "columns": "Colonnes",
+    "rowsPerPage": "Lignes par page",
+    "pageOf": "Page {page} sur {count}",
+    "firstPage": "Première page",
+    "lastPage": "Dernière page"
   },
   "nav": {
     "overview": "Vue d'ensemble",
     "catalog": "Catalogue",
     "media": "Médias",
     "languages": "Langues",
+    "audit": "Audit",
     "settings": "Paramètres",
     "apiReference": "Référence de l'API",
     "github": "DotNetBoost sur GitHub",
     "goTo": "Aller à",
-    "documentTitle": "{page} — Exemple DotNetBoost"
+    "documentTitle": "{page} — Exemple DotNetBoost",
+    "resources": "Ressources",
+    "search": "Rechercher…",
+    "searchPlaceholder": "Saisissez le nom d’une page…",
+    "searchDescription": "Accéder à une page du tableau de bord.",
+    "noResults": "Aucune page ne correspond.",
+    "toggleSidebar": "Afficher ou masquer la barre latérale",
+    "content": "Contenu",
+    "administration": "Administration",
+    "showSections": "Afficher les sections de {page}"
   },
   "brand": {
     "subtitle": "Exemple"
@@ -39,13 +58,13 @@
   "appearance": {
     "trigger": "Apparence",
     "theme": "Thème",
-    "primary": "Couleur principale",
-    "neutral": "Couleur neutre",
     "mode": "Mode",
     "light": "Clair",
     "dark": "Sombre",
-    "nuxtUiDocs": "Documentation Nuxt UI",
-    "githubRepository": "Dépôt GitHub"
+    "githubRepository": "Dépôt GitHub",
+    "accent": "Couleur d’accent",
+    "system": "Système",
+    "shadcnVueDocs": "Documentation shadcn-vue"
   },
   "errorPage": {
     "title": "Page introuvable",
@@ -57,24 +76,40 @@
   },
   "overview": {
     "intro": {
-      "title": "Trois bibliothèques, aucune référence entre elles",
-      "description": "Cette application installe DotNetBoost.Settings, DotNetBoost.Media et DotNetBoost.MultiLingual depuis NuGet. Aucune ne dépend d'une autre, il n'existe pas de paquet de noyau partagé, et aucun paquet d'intégration n'en apparie deux. Tout ce que vous voyez ici est produit par le code de l'application qui les compose."
+      "title": "Quatre bibliothèques, aucune référence entre elles",
+      "description": "Cette application installe DotNetBoost.Settings, DotNetBoost.Media, DotNetBoost.MultiLingual et DotNetBoost.Auditing depuis NuGet. Aucune ne dépend d'une autre, il n'existe pas de paquet de noyau partagé, et aucun paquet d'intégration n'en apparie deux. Tout ce que vous voyez ici est produit par le code de l'application qui les compose."
     },
     "stats": {
       "categories": "Catégories",
       "products": "Produits",
       "files": "Fichiers dans la bibliothèque",
-      "languages": "Langues"
+      "languages": "Langues",
+      "categoriesHint": "{count} avec une bannière",
+      "productsHint": "{withAltText} images sur {imageCount} ont un texte alternatif",
+      "filesHint": "Stockés par DotNetBoost.Media",
+      "languagesHint": "{active} actives · par défaut {code}",
+      "open": "Ouvrir"
     },
     "composition": {
       "title": "Là où la composition se fait",
-      "dbContext": "Une base PostgreSQL, un DbContext, et trois appels {apply} indépendants. Retirez une bibliothèque et vous supprimez sa seule ligne ; rien d'autre ne change dans le fichier.",
+      "dbContext": "Une base PostgreSQL, un DbContext, et quatre appels {apply} indépendants. Retirez une bibliothèque et vous supprimez sa seule ligne ; rien d'autre ne change dans le fichier.",
       "mediaText": "Un texte alternatif par langue pour un fichier téléversé. Les deux bibliothèques désignent un sujet par {pair}, de sorte que le GUID d'un fichier média devient le sujet de lignes de traduction. {withAltText} des {imageCount} images attachées ont un texte alternatif. Aucune table nouvelle, aucun paquet d'intégration.",
       "branding": "Le nom du groupe dans toutes les langues, et son logo. Ni l'un ni l'autre n'est une valeur de réglage : les autres langues du nom sont des lignes de traduction, et le logo est une pièce jointe média sur un propriétaire sans table. Un projecteur réunit les trois sur le point de terminaison du groupe."
     },
     "languageAlert": {
       "title": "Changez la langue dans l'en-tête de n'importe quelle page",
       "description": "Chaque nom de produit, chaque description et chaque texte alternatif est relu dans cette langue — l'arabe fait basculer toute l'interface en RTL. L'API la résout depuis Accept-Language. Les libellés du tableau de bord suivent le même sélecteur."
+    },
+    "activity": {
+      "title": "Activité",
+      "description": "Ce que la piste d’audit a enregistré chaque jour, par action.",
+      "ranges": {
+        "7d": "7 jours",
+        "30d": "30 jours",
+        "90d": "3 mois"
+      },
+      "empty": "Rien n’a été enregistré sur cette période.",
+      "capped": "Tracé à partir des {shown} dernières modifications sur {total} de la période — le maximum qu’une lecture de la piste renvoie."
     }
   },
   "catalog": {
@@ -87,16 +122,17 @@
     "categories": {
       "title": "Catégories",
       "description": "L'entité propre à l'application. Le nom et la description ne sont pas des colonnes de cette table — ce sont des lignes de traduction, renvoyées déjà remplies pour la langue choisie dans l'en-tête.",
-      "empty": "Aucune catégorie pour l'instant."
+      "empty": "Aucune catégorie pour l'instant.",
+      "emptyHint": "Une catégorie contient des produits : elle vient donc en premier.",
+      "count": "{n} catégorie | {n} catégories"
     },
     "products": {
       "title": "Produits",
       "description": "Le nom et la description sont des lignes de traduction ; les images sont des pièces jointes dans la bibliothèque de médias. Ni l'une ni l'autre bibliothèque ne sait que l'autre existe.",
       "empty": "Aucun produit pour l'instant.",
-      "range": "{from}–{to} sur {total}"
+      "range": "{from}–{to} sur {total}",
+      "emptyHint": "Donnez-lui un SKU, un prix et son texte dans chaque langue."
     },
-    "productCount": "{n} produit | {n} produits",
-    "imageCount": "{n} image | {n} images",
     "confirmDelete": {
       "title": "Supprimer {name} ?",
       "description": "Cette action est irréversible. Les images d'un produit et leurs textes alternatifs partent avec lui — écrits à la main, car rien ne se propage en cascade au-delà des frontières d'une bibliothèque."
@@ -104,6 +140,29 @@
     "toast": {
       "deleted": "Supprimé",
       "deleteFailed": "Suppression impossible"
+    },
+    "columns": {
+      "category": "Catégorie",
+      "product": "Produit",
+      "slug": "Slug",
+      "products": "Produits",
+      "sku": "SKU",
+      "price": "Prix",
+      "images": "Images"
+    },
+    "table": {
+      "sortedThisPage": "Trié au sein de cette page — le catalogue lui-même liste les produits dans l’ordre de leur ajout.",
+      "resetSort": "Ordre d’ajout",
+      "pageSize": "{n} par page, défini dans"
+    },
+    "filters": {
+      "search": "Rechercher par nom, description ou SKU…",
+      "clearSearch": "Effacer la recherche",
+      "category": "Catégorie",
+      "allCategories": "Toutes les catégories",
+      "emptyTitle": "Aucun produit ne correspond",
+      "emptyDescription": "Les noms et descriptions sont recherchés dans la langue de l’en-tête, les SKU dans toutes.",
+      "clear": "Effacer les filtres"
     }
   },
   "categoryEditor": {
@@ -244,6 +303,94 @@
         "required": "Obligatoire.",
         "nameTooLong": "128 caractères au maximum."
       }
+    },
+    "filters": {
+      "label": "Quelles langues",
+      "all": "Toutes",
+      "active": "Actives",
+      "inactive": "Inactives",
+      "noneActive": "Aucune langue n’est active.",
+      "noneInactive": "Toutes les langues sont actives."
+    }
+  },
+  "audit": {
+    "title": "Journal d'audit",
+    "card": {
+      "description": "Servi par MapAuditEndpoints() de DotNetBoost.Auditing.API — les points de terminaison de la bibliothèque, pas ceux de cette application. Chaque filtre ci-dessous est un paramètre de la requête envoyée à l'API."
+    },
+    "reload": "Recharger le journal",
+    "loadError": "Impossible de charger le journal",
+    "empty": "Rien n'a encore été enregistré. Modifiez un produit ou une catégorie et l'entrée apparaîtra ici.",
+    "emptyFiltered": "Aucune entrée ne correspond à ce filtre.",
+    "expand": "Afficher les propriétés modifiées",
+    "filterToEntity": "N'afficher que {entity} {id}",
+    "unknownActor": "inconnu",
+    "unknownActorTooltip": "Aucun acteur n'a été capturé pour cette modification. L'entrée ne nomme personne — ce qui n'est pas la même chose que nommer le système.",
+    "changeCount": "{n} modification | {n} modifications",
+    "noChanges": "Aucune valeur de propriété n'a été enregistrée avec cette entrée.",
+    "redacted": "non divulguée",
+    "redactedTooltip": "Le modèle marque cette propriété comme sensible : les valeurs ont été retenues au lieu d'être enregistrées. Elles ne manquent pas — elles n'ont jamais été stockées.",
+    "truncated": "tronquée",
+    "truncatedTooltip": "Une valeur dépassait la limite configurée et a été coupée à l'enregistrement.",
+    "filters": {
+      "entity": "Entité",
+      "anyEntity": "Toute entité",
+      "notAudited": "Déclarée, mais ses modifications ne sont pas enregistrées actuellement.",
+      "entityId": "Clé",
+      "actor": "Acteur",
+      "action": "Action",
+      "dates": "Dates",
+      "anyDate": "Toutes les dates",
+      "clearDates": "Effacer les dates",
+      "datesHelp": "Des journées entières, lues en UTC — le journal est stocké en UTC, tandis que les heures du tableau sont les vôtres.",
+      "allActions": "Toutes"
+    },
+    "actions": {
+      "created": "Créé",
+      "updated": "Modifié",
+      "deleted": "Supprimé"
+    },
+    "columns": {
+      "occurredAt": "Quand",
+      "entity": "Entité",
+      "action": "Action",
+      "actor": "Acteur",
+      "changes": "Modifications"
+    },
+    "changes": {
+      "property": "Propriété",
+      "oldValue": "Avant",
+      "newValue": "Après"
+    },
+    "entry": {
+      "id": "Entrée",
+      "occurredAt": "Enregistrée",
+      "metadata": "Métadonnées",
+      "correlationId": "Édition",
+      "showEdit": "Le reste de cette édition"
+    },
+    "editFilter": {
+      "title": "Une seule édition",
+      "description": "Toutes les entrées écrites sous le même identifiant de corrélation. Une édition n'est pas toujours une seule entrée : créer un produit avec du texte en plusieurs langues écrit l'entrée du produit et celle du journal de création, dans une portée qui lui est propre."
+    },
+    "pager": {
+      "range": "{from}–{to} sur {total}"
+    },
+    "rules": {
+      "title": "Ce qui est enregistré pour {entity}",
+      "description": "Ce que dit le modèle de cette classe — et non un résumé des entrées : la réponse arrive avant que le journal ne contienne la moindre ligne.",
+      "notAudited": "non enregistrée",
+      "record": "enregistrées avec leurs valeurs",
+      "redact": "enregistrées sans leurs valeurs",
+      "ignore": "jamais enregistrées — une valeur traduite dépend de la langue, et une entrée n'a pas de langue",
+      "retentionOwn": "conservées {n} jour — sa propre règle | conservées {n} jours — sa propre règle",
+      "retentionDefault": "conservées {n} jour — la valeur par défaut configurée | conservées {n} jours — la valeur par défaut configurée",
+      "retentionPruned": "supprimées après {n} jour — réglage Journal d'audit | supprimées après {n} jours — réglage Journal d'audit",
+      "retentionNone": "conservées sans limite"
+    },
+    "table": {
+      "sortedThisPage": "Trié au sein de cette page — la piste elle-même est lue de la plus récente à la plus ancienne.",
+      "resetSort": "Plus récentes d’abord"
     }
   },
   "media": {
@@ -270,7 +417,8 @@
         "usedByNone": "Rien ne l'utilise.",
         "usedByOne": "Il est attaché à {entity}, qui le perdra.",
         "usedByMany": "Il est attaché à {count} entités, et toutes le perdront : {entities}."
-      }
+      },
+      "perPage": "Fichiers par page"
     },
     "filters": {
       "search": "Rechercher dans les noms de fichiers…",
@@ -406,6 +554,21 @@
       "detachFailed": "Impossible de détacher le fichier",
       "deleted": "{fileName} supprimé",
       "deleteFailed": "Impossible de supprimer le fichier"
+    },
+    "view": {
+      "label": "Affichage",
+      "grid": "Grille",
+      "list": "Liste"
+    },
+    "list": {
+      "columns": {
+        "file": "Fichier",
+        "kind": "Type",
+        "category": "Catégorie",
+        "size": "Taille",
+        "uploaded": "Téléversé"
+      },
+      "details": "Détails"
     }
   },
   "entity": {
@@ -468,6 +631,24 @@
           "currencySymbol": {
             "label": "Symbole monétaire",
             "description": "Affiché à côté des prix."
+          }
+        }
+      },
+      "auditing": {
+        "label": "Journal d'audit",
+        "description": "Durée de conservation du journal d'audit. La purge s'exécute dans l'API, qui relit ce groupe chaque minute : un changement s'applique sans redémarrage. Les entrées supprimées ne peuvent pas être récupérées.",
+        "fields": {
+          "pruneEnabled": {
+            "label": "Supprimer les anciennes entrées",
+            "description": "Désactivé par défaut : le journal est conservé sans limite. Activé, les entrées plus anciennes que la durée ci-dessous sont supprimées à chaque purge."
+          },
+          "retentionDays": {
+            "label": "Conservation (jours)",
+            "description": "L'âge à partir duquel une purge supprime une entrée. S'applique à toutes les entités, y compris aux enregistrements de ce groupe."
+          },
+          "pruneIntervalHours": {
+            "label": "Purger toutes les (heures)",
+            "description": "La fréquence des purges tant que la suppression est activée. L'activer déclenche une purge dans la minute ; ce réglage fixe l'intervalle ensuite."
           }
         }
       }

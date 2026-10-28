@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FilterX, ImageOff, LayoutGrid, List, PlugZap, RefreshCw, Upload } from '@lucide/vue'
 import type { MediaAttachment, MediaFile } from '~/types'
 
 /**
@@ -53,6 +54,32 @@ const {
   pageCount, isFiltered, categoryOptions, tagOptions,
   load, upload, update, detach, readOne, remove, reset
 } = library
+
+/**
+ * Grid or list, remembered per browser — how one reader likes to look at the library, which the
+ * page and the picker share. The grid shows what the files look like; the list shows what they
+ * are, a row each, sortable by the three orders the API serves.
+ */
+const view = useLocalStorage<'grid' | 'list'>('media-view', 'grid')
+
+const { table: fileTable, hideable: hideableColumns, labels: columnLabels }
+  = useMediaFileTable(items, query, patch => Object.assign(query, patch))
+
+/**
+ * The page sizes offered: the size this browser starts at — 12 on the page, 9 in the picker — and
+ * its doubles. Multiples of the starting size keep the grid's rows full, since that size was chosen
+ * to fill three and four columns alike.
+ */
+const pageSizes = computed(() => [1, 2, 4, 8].map(times => props.pageSize * times))
+
+/** A new page size starts again from page 1: the old page number counted in pages of the old size. */
+function setPageSize(size: number) {
+  query.pageSize = size
+  query.page = 1
+}
+
+/** Ids for the page-size labels. The page and the picker can both be mounted, so not a literal. */
+const uid = useId()
 
 const uploading = ref(false)
 const selected = ref<MediaFile | null>(null)
@@ -226,96 +253,158 @@ onMounted(load)
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
-      <MediaFilters
-        :query="query"
-        :category-options="categoryOptions"
-        :tag-options="tagOptions"
-        :is-filtered="isFiltered"
-        :pending="pending"
-        :compact="compact"
-        class="flex-1"
-        @update="Object.assign(query, $event)"
-        @reset="reset"
-      />
-
-      <div class="flex items-center gap-2 lg:shrink-0">
-        <UButton
-          icon="i-lucide-refresh-cw"
-          color="neutral"
-          variant="ghost"
-          :loading="pending"
-          :aria-label="$t('common.refresh')"
-          @click="load"
-        />
-        <UButton
-          icon="i-lucide-upload"
-          :label="$t('common.upload')"
-          class="flex-1 justify-center lg:flex-none"
-          @click="uploading = true"
-        />
-      </div>
-    </div>
-
-    <UAlert
-      v-if="loadError"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-plug-zap"
-      :title="$t('media.browser.loadError')"
-      :description="loadError"
-      :actions="[{ label: $t('common.tryAgain'), color: 'neutral', variant: 'outline', onClick: load }]"
+    <MediaFilters
+      :query="query"
+      :category-options="categoryOptions"
+      :tag-options="tagOptions"
+      :is-filtered="isFiltered"
+      :pending="pending"
+      :compact="compact"
+      @update="Object.assign(query, $event)"
+      @reset="reset"
     />
 
+    <Alert v-if="loadError" variant="destructive">
+      <PlugZap />
+      <AlertTitle>{{ $t('media.browser.loadError') }}</AlertTitle>
+      <AlertDescription>{{ loadError }}</AlertDescription>
+      <AlertAction>
+        <Button variant="outline" size="sm" @click="load">
+          {{ $t('common.tryAgain') }}
+        </Button>
+      </AlertAction>
+    </Alert>
+
     <template v-else>
-      <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-        <UBadge
-          color="neutral"
-          variant="subtle"
-          dir="ltr"
-          class="font-mono"
-          label="GET api/media"
-        />
-        <span v-if="range">{{ range }}</span>
-        <span v-if="isFiltered" class="text-dimmed">· {{ $t('common.filtered') }}</span>
+      <!--
+        The bar over the files, as the tables' is over theirs: what is being shown on the start
+        side — the endpoint, and in the grid the range, which the list says in its own footer —
+        and on the end side how to show it and what to do: refresh, grid or list, the list's
+        columns, upload.
+      -->
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <Badge variant="outline" dir="ltr">
+            GET api/media
+          </Badge>
+          <span v-if="range && view === 'grid'" class="tabular-nums">{{ range }}</span>
+          <span v-if="isFiltered && view === 'grid'" class="text-muted-foreground/70">· {{ $t('common.filtered') }}</span>
+        </div>
+
+        <div class="ms-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            :disabled="pending"
+            :aria-label="$t('common.refresh')"
+            @click="load"
+          >
+            <RefreshCw :class="{ 'animate-spin': pending }" />
+          </Button>
+
+          <!-- Grid or list. An outline toggle pair rather than tabs: it changes how the files are
+               drawn, not which files are shown. -->
+          <ToggleGroup
+            :model-value="view"
+            type="single"
+            variant="outline"
+            :aria-label="$t('media.view.label')"
+            @update:model-value="value => { if (value) view = value as 'grid' | 'list' }"
+          >
+            <ToggleGroupItem value="grid" :aria-label="$t('media.view.grid')" :title="$t('media.view.grid')">
+              <LayoutGrid />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" :aria-label="$t('media.view.list')" :title="$t('media.view.list')">
+              <List />
+            </ToggleGroupItem>
+          </ToggleGroup>
+
+          <ColumnsMenu v-if="view === 'list'" :columns="hideableColumns" :labels="columnLabels" />
+
+          <Button @click="uploading = true">
+            <Upload />
+            {{ $t('common.upload') }}
+          </Button>
+        </div>
       </div>
 
-      <div v-if="pending && !items.length" :class="gridClass">
-        <USkeleton v-for="n in pageSize" :key="n" class="h-56 rounded-lg" />
+      <div v-if="pending && !items.length && view === 'grid'" :class="gridClass">
+        <Skeleton v-for="n in pageSize" :key="n" class="h-56 rounded-xl" />
       </div>
 
-      <div
-        v-else-if="!items.length"
-        class="flex flex-col items-center gap-3 rounded-lg border border-dashed border-default py-16 text-center"
-      >
-        <UIcon name="i-lucide-image-off" class="size-8 text-dimmed" />
-        <div>
-          <p class="font-medium text-highlighted">
+      <div v-else-if="pending && !items.length" class="flex flex-col gap-2">
+        <Skeleton v-for="n in 6" :key="n" class="h-12 w-full rounded-lg" />
+      </div>
+
+      <Empty v-else-if="!items.length" class="border border-dashed">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ImageOff />
+          </EmptyMedia>
+          <EmptyTitle>
             {{ isFiltered
               ? $t('media.browser.emptyFiltered.title')
               : $t('media.browser.emptyNone.title') }}
-          </p>
-          <p class="text-sm text-muted">
+          </EmptyTitle>
+          <EmptyDescription>
             {{ isFiltered
               ? $t('media.browser.emptyFiltered.description')
               : $t('media.browser.emptyNone.description') }}
-          </p>
-        </div>
-        <UButton
-          v-if="isFiltered"
-          icon="i-lucide-filter-x"
-          color="neutral"
-          variant="outline"
-          :label="$t('media.browser.clearFilters')"
-          @click="reset"
-        />
-        <UButton
-          v-else
-          icon="i-lucide-upload"
-          :label="$t('media.browser.uploadFirst')"
-          @click="uploading = true"
-        />
-      </div>
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            v-if="isFiltered"
+            variant="outline"
+            size="sm"
+            @click="reset"
+          >
+            <FilterX />
+            {{ $t('media.browser.clearFilters') }}
+          </Button>
+          <Button v-else size="sm" @click="uploading = true">
+            <Upload />
+            {{ $t('media.browser.uploadFirst') }}
+          </Button>
+        </EmptyContent>
+      </Empty>
+
+      <MediaFileTable
+        v-else-if="view === 'list'"
+        :table="fileTable"
+        :labels="columnLabels"
+        :selectable="selectable"
+        :attached-ids="attachedIds"
+        :busy="busy"
+        @open="selected = $event"
+        @select="onSelect"
+        @remove="confirmDelete"
+      >
+        <template #footer>
+          <TablePager v-model:page="query.page" :page-count="pageCount" :disabled="pending">
+            <span class="tabular-nums">{{ range }}</span>
+            <span v-if="isFiltered" class="text-muted-foreground/70">· {{ $t('common.filtered') }}</span>
+
+            <template #size>
+              <div class="hidden items-center gap-2 sm:flex">
+                <Label :for="`${uid}-rows`" class="text-sm font-medium">
+                  {{ $t('common.rowsPerPage') }}
+                </Label>
+                <Select :model-value="query.pageSize" @update:model-value="setPageSize(Number($event))">
+                  <SelectTrigger :id="`${uid}-rows`" size="sm" class="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    <SelectItem v-for="size in pageSizes" :key="size" :value="size">
+                      {{ size }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </template>
+          </TablePager>
+        </template>
+      </MediaFileTable>
 
       <div v-else :class="gridClass">
         <MediaCard
@@ -330,12 +419,31 @@ onMounted(load)
         />
       </div>
 
-      <div v-if="pageCount > 1" class="flex justify-center pt-1">
-        <UPagination
+      <!-- The grid's footer: how many files a page holds on the start side, the pager on the end.
+           Shown whenever there are files, so a page size can be chosen before there is a second
+           page to need one. -->
+      <div v-if="items.length && view === 'grid'" class="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div class="flex items-center gap-2">
+          <Label :for="`${uid}-files`" class="text-sm font-medium">
+            {{ $t('media.browser.perPage') }}
+          </Label>
+          <Select :model-value="query.pageSize" @update:model-value="setPageSize(Number($event))">
+            <SelectTrigger :id="`${uid}-files`" size="sm" class="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent side="top">
+              <SelectItem v-for="size in pageSizes" :key="size" :value="size">
+                {{ size }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <PagerControls
+          v-if="pageCount > 1"
           v-model:page="query.page"
           :total="total"
           :items-per-page="query.pageSize"
-          :sibling-count="compact ? 0 : 1"
         />
       </div>
     </template>

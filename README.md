@@ -1,182 +1,143 @@
 # DotNetBoost Sample
 
-**Three DotNetBoost libraries in one application, with zero references between them.**
+**Four DotNetBoost libraries in one application, with zero references between them.**
 
 This sample installs [DotNetBoost.Settings](https://www.nuget.org/packages/DotNetBoost.Settings.Core),
-[DotNetBoost.Media](https://www.nuget.org/packages/DotNetBoost.Media.Core) and
-[DotNetBoost.MultiLingual](https://www.nuget.org/packages/DotNetBoost.MultiLingual.Core) from
-nuget.org and composes them into a small product catalogue — a store with categories and products
-whose names are translated, product images with per-language alt text, and branding you can change
-at runtime.
+[DotNetBoost.Media](https://www.nuget.org/packages/DotNetBoost.Media.Core),
+[DotNetBoost.MultiLingual](https://www.nuget.org/packages/DotNetBoost.MultiLingual.Core) and
+[DotNetBoost.Auditing](https://www.nuget.org/packages/DotNetBoost.Auditing.Core) from nuget.org and
+composes them into a small product catalogue: categories and products with translated names,
+product images with per-language alt text, branding you can change at runtime, and a trail of who
+changed what, when, and from what to what.
 
-What it is built to demonstrate is as much what is *absent* as what is present:
+What it demonstrates is as much what is *absent* as what is present:
 
 - no `DotNetBoost.Core` or `DotNetBoost.Abstractions` shared-kernel package
 - no `AddDotNetBoost(b => b.AddSettings().AddMedia())` unifying builder
 - no integration package pairing any two libraries
 
-Each library is installed on its own and configured on its own terms. Everything that joins them
-is this application's code, in five files — counted honestly below. `tests/` asserts that none of
-them references another, so the claim cannot quietly stop being true.
+Each library is installed and configured on its own. Everything that joins them is this
+application's code, in nine files, [listed below](#where-the-composition-happens). `tests/` asserts
+that no library references another, so the claim cannot quietly stop being true.
 
-The application around them is a monolith in four projects, with its own routes written as vertical
-slices and dispatched as commands and queries — one file per feature, and no MediatR. [How the
-application is built](#how-the-application-is-built) has that part; the five files come first,
-because they are the point.
+**Auditing was added last, to a solution the other three were already in** — the one measure of
+"no shared kernel" that cannot be faked by reading libraries already installed. It cost one `Apply*`
+line, one registration block and `UseAuditing(sp)` beside `UseMultiLingual(sp)`, and no handler
+records anything. It also exposed the real cost of independence: for one release its change capture
+could not be used here at all, until `1.0.0-preview.2` added one builder method.
+[MultiLingual's row is not in the trail](#6-multilinguals-row-is-not-in-the-trail) is that finding
+and its fix.
+
+Around the libraries is a monolith in four projects, with its routes written as vertical slices
+dispatched as commands and queries — one file per feature, no MediatR. [How the application is
+built](#how-the-application-is-built) covers that; the composition comes first, because it is the
+point.
 
 ---
 
 ## The dashboard
 
-![The overview page: four counts, and the three files where the libraries
-meet](docs/screenshots/overview.png)
+![The overview page](docs/screenshots/overview.png)
 
-A sidebar shell matching the three libraries' own dashboards — **Catalog**, **Media**,
-**Languages**, **Settings**, with the reading-language selector in every page header.
+A sidebar shell with **Catalog**, **Media**, **Languages**, **Audit** and **Settings**, and a
+reading-language selector in every page header.
 
-That one selector moves **both** languages in the dashboard. The content language is a row in
-DotNetBoost.MultiLingual that the API resolves from `Accept-Language`; the dashboard's own labels,
-buttons, help text and toasts are static bundles under `clients/dashboard/i18n/locales` —
-English, Arabic and French, the three the sample seeds. Nothing makes them the same thing, so
-`app/plugins/ui-language.ts` is the one file that decides they move together. A second switcher
-for the chrome would be a second answer to the same question, and two answers can disagree.
+**One selector moves both languages.** The content language is a DotNetBoost.MultiLingual row the
+API resolves from `Accept-Language`; the dashboard's labels are static bundles under
+`clients/dashboard/i18n/locales` (English, Arabic, French). `app/plugins/ui-language.ts` is the one
+file that makes them move together. A language added on the Languages page has content before it
+has a bundle: its labels fall back to English, and the shell still flips if it reads right-to-left,
+because direction comes from the language row, not the bundle.
 
-Add a language on the Languages page and it has content long before it has a bundle: the labels
-fall back to English, and the shell still flips if the language reads right-to-left, because
-direction travels with the language row rather than with the translation file.
-
-The choice is **remembered**, so the dashboard reopens in the language you left it in. Its
-direction is remembered beside it — a cache of the API's last answer, not a list of RTL codes in
-the client — so a remembered Arabic opens right-to-left on the first paint instead of flipping a
-round trip later. A language that was deleted or deactivated in the meantime falls back to the
-default rather than leaving the selector stuck on a code that no longer exists.
-
-The same page, read in English and in Arabic. Nothing is duplicated between them: the product
-names and descriptions are translation rows the API resolved from `Accept-Language`, the labels
-around them are the dashboard's own bundles, and the shell is right-to-left because direction
-travels with the language row.
+The choice is remembered across visits, with its direction cached beside it, so a remembered Arabic
+opens right-to-left on the first paint. A language deleted in the meantime falls back to the default.
 
 | English | العربية |
 |---|---|
 | ![The catalogue in English](docs/screenshots/catalog.png) | ![The same catalogue in Arabic, right to left](docs/screenshots/catalog-rtl.png) |
 
-Counts are pluralised by CLDR rules rather than by an English `-s`, which is why two products
-read **منتجان** in Arabic — the dual — and zero reads *0 produit* in French. Dates, relative times
-and file sizes come from `Intl` in the UI locale, so a size is `1.4MB`, `1,4Mo` or `1.4 م.ب`
-without a unit name being written down anywhere.
+Counts use CLDR plural rules, so two products read **منتجان** (the Arabic dual) and zero reads
+*0 produit* in French. Dates and file sizes come from `Intl` in the UI locale.
 
-The sidebar header is the whole sample in miniature: the store's **name** is a
-DotNetBoost.Settings value, its **logo** is a DotNetBoost.Media attachment, the **size** that logo
-is drawn at is another setting, and nothing but `BrandingProjector` knows all three exist. Change
-any of them on the Settings page and the header follows on the next read — no restart, no redeploy.
+The sidebar header is the sample in miniature: the store **name** is a DotNetBoost.Settings value,
+the **logo** is a DotNetBoost.Media attachment, the logo's **size** is another setting, and only
+`BrandingProjector` knows all three exist. Change any of them and the header follows on the next
+read — no restart.
 
-![The branding settings tab: a generated form, the same name in other languages, and the logo
+![The branding settings group: a generated form, the store name in other languages, and the logo
 attachment](docs/screenshots/settings.png)
 
-One page, three libraries, and no file of its own — `pages/settings/[route].vue` draws every
-group. The form is Settings'; `Store name in other languages` appears because the group's schema
-reports a `[MultiLingual]` property; the `Logo` box appears because the group's response publishes
-the owner its media is filed under, and `GET /api/media/roles/Branding` says that owner has one
-single-valued role.
+**Settings** lists the registered `[SettingGroup]`s down the side, from `GET /api/settings`, and one
+page — `pages/settings/[route].vue` — draws every group from what the group says about itself:
 
-**Settings** is DotNetBoost.Settings' own dashboard design: a tab per `[SettingGroup]`, and a form
-*generated from what the group says about itself* rather than written out — a `bool` becomes a
-switch, an `int` a number spinner, a `string` an input. Add a property to the C# class and the field
-appears; remove one and it goes, which is exactly what happened when `LogoFileId` left
-`BrandingSettings`.
+- **The form** is generated from `GET /api/settings/{group}/schema`: a `bool` becomes a switch, an
+  `int` a number field, a `string` an input. Add a property to the C# class and the field appears.
+- **The bounds** come from the group's FluentValidation rules, which the schema publishes — so
+  `headerLogoSize`'s 16–64 range is `BrandingSettingsValidator`'s, and saving 500 is refused with
+  `400` by the same rule the form drew.
+- **`translated`** comes from this application's `MultiLingualSchemaContributor`, because the
+  settings engine has never heard of `[MultiLingual]`. That flag is what adds the *Store name in
+  other languages* card.
+- **The logo box** appears because the group's response publishes the media owner it is filed
+  under, and `GET /api/media/roles/Branding` says that owner has one role.
 
-The **bounds** come from the class too. `GET /api/settings/{group}/schema` publishes each property's
-type, its default, whether it is `[Sensitive]`, and the constraints its validators enforce — so
-`headerLogoSize`'s 16–64 range is `BrandingSettingsValidator`'s rule, read by the control that draws
-it. It used to be a literal in the client that matched nothing in C#, and that the API would have
-accepted any value outside. Try saving 500: refused with `400`, by the same rule the form drew.
+Adding a settings class in C# adds a working entry here with no client change. The only
+per-group thing in the client is an icon in `app/utils/settings.ts`.
 
-The **tabs** come from the class too. `GET /api/settings` names the registered groups, so adding a
-`[SettingGroup]` class in C# puts a working tab on this page with no change in the client at all:
-it gets a default icon and a form generated from its own schema, through one dynamic page. That is
-why there is no `pages/settings/catalog.vue` — there is a `[route].vue`. Branding keeps a page of
-its own only because it has more than a form: per-language text, and a logo.
+Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it as `If-Match`, and a save
+that would overwrite someone else's is refused with `412`. The form then offers to re-apply only the
+fields you edited on top of the latest values.
 
-Even `translated` comes from the class. That flag mirrors `[MultiLingual]` — DotNetBoost.MultiLingual's
-attribute, which the settings engine has never heard of and cannot publish on its own. So this
-application publishes it, in `Settings/MultiLingualSchemaContributor.cs`: about ten lines
-implementing `ISettingSchemaContributor`, asking `MultiLingualMetadata` which properties are
-translatable rather than reimplementing the rule. The schema endpoint **merges** contributors, so
-`storeName` comes back carrying `required` and `maxLength` from its validator *and* `translated`
-from here — until preview.2 it took only the first, and registering this would have silently
-deleted the bounds.
+The **Catalog** group is read somewhere other than the page that writes it. `PageSize` is how many
+products `GET /api/products` answers with, and `CurrencySymbol` is the glyph `Intl` places beside a
+price (`€349.00` in English, `349.00 €` in Arabic). Change `PageSize` from 12 to 2 and the products
+list pages by two, with no restart.
 
-Which leaves exactly one thing in `clients/dashboard/app/utils/settings.ts`: a map from route to
-icon. Nothing about any property, in any group.
+**Languages** is DotNetBoost.MultiLingual's page: code, native name, direction, default marker, an
+active switch, and edit, make-default, delete-translations and delete per row. Refusals are shown in
+the API's words, and leaving Direction as "from the code" lets the API derive it — `he` comes back
+right-to-left without being told.
 
-Saves are conditional: the `GET` returns an `ETag`, the `POST` sends it back as `If-Match`, and a
-save that would overwrite someone else's is refused with `412`. The form then offers to re-apply
-only the fields *you* edited on top of the latest values, so neither writer clobbers the other.
-Verified by changing a group out-of-band mid-edit.
+![The media library](docs/screenshots/media.png)
 
-The second tab, **Catalog**, is there to show a group that is read somewhere other than the page
-that writes it — three values, each landing in a different place:
+**Media** is DotNetBoost.Media's browser — search, filters, sorting, paging, upload, details,
+attachments and delete, all of it parameters on the API query. The one addition is **alt text** in
+a file's details: not media data at all, but MultiLingual rows filed under the subject `MediaFile`.
 
-| | |
-|---|---|
-| `PageSize` | How many products `GET /api/products` answers with. The catalogue list asks for no page size, so this is the one that decides; the pager under the list follows it. |
-| `CurrencySymbol` | The glyph beside a price. Only the glyph — `Intl` places it, so the same `€` reads `€349.00` in English and `349.00 €` in Arabic. |
+**Catalog** has Categories and Products tabs, and each editor is the composition on one form: a
+button per language with that language's fields, and a box per media role read from
+`GET /api/media/roles/{entityName}` — a category's `banner`, a product's `primary` and `gallery`.
+Attaching, detaching and reordering go straight to the media library's own endpoints; this
+application has none of its own. The products list sends no page size, so the API's
+`CatalogSettings.PageSize` decides it and the pager reads back what was used. Saves and deletes are
+reported in the API's own sentences, in the reading language — see [What a catalogue write answers
+with](#what-a-catalogue-write-answers-with).
 
-Change `PageSize` from 12 to 2, reload the Catalog page, and it pages by two — no restart, no
-redeploy, which is the entire claim of a settings library and is worth seeing actually happen.
+![The audit trail: one entity's entries, and what the model says is recorded for
+it](docs/screenshots/audit.png)
 
-**Languages** is DotNetBoost.MultiLingual's own page: a table with the code, the name written in
-its own script and direction, the direction badge, the default marker, an active switch, and a
-per-row menu for edit, make-default, *delete its translations* and delete. Refusals are shown in
-the API's words — deactivating the default answers "The default language cannot be deactivated.
-Promote another language to default first", and the switch snaps back.
+**Audit** is DotNetBoost.Auditing's trail. Its endpoints require an authenticated caller by default,
+and this sample keeps that default; a [stand-in
+scheme](src/DotNetBoostSample.Api/Authentication/SampleActorAuthentication.cs) signs every request
+that names nobody in as `sample.user@example.com`, so the dashboard needs no sign-in and your writes
+are attributed to that user.
 
-Leaving Direction as "from the code" lets the API derive it from the runtime's culture data:
-adding `he` comes back right-to-left without being told.
+The filters — entity, key, actor, action, date range — are parameters on the API query. The entity
+list and the page-size bound come from `GET /api/audit/entities`, not from the client. Pages are
+numbered, by offset with a total, and go back to page 1 whenever the filter changes. An entry
+expands to what moved, old value → new; a **redacted** change is drawn as "not disclosed" rather
+than as a blank, and a **null actor** as `unknown`, never "system".
 
-![The media library: every uploaded file, with the query in the
-API](docs/screenshots/media.png)
-
-**Media** is DotNetBoost.Media's own browser, lifted wholesale — search, category and tag filters,
-content-type filter, sorting, paging, upload, file details, attachments and delete, all of it in
-the query the API is asked rather than applied to the rows already on screen. The one addition is
-**alt text**, which appears in a file's details below "Used by": it is not media data at all, but
-DotNetBoost.MultiLingual rows filed under the subject `MediaFile`.
-
-**Catalog** has two tabs. Each lists, edits and deletes, and each editor is the composition on one
-form:
-
-- a **button per available language**, ticked when that language has content, with the fields for
-  whichever is selected — right-aligned automatically for Arabic
-- **a box per media role**, read from `GET /api/media/roles/{entityName}`: one box for a category's
-  `banner`, one for a product's `primary`, and a box per file plus a trailing empty one for its
-  `gallery`. Clicking a box opens the same browser in a modal, already committed to that role.
-
-Nothing on those forms knows it is touching three libraries. The slug and SKU are columns; the
-name and description are translation rows; the images are attachment rows — and attaching,
-detaching and reordering go straight to **the media library's own endpoints**, so this application
-has no attachment endpoints of its own.
-
-The products list is **paged**, and it does not decide the page size itself: it sends none, so the
-API answers with `CatalogSettings.PageSize` and reports in `take` what it used. The pager reads that
-number back rather than holding a second opinion about it, which is why editing the setting moves
-the list and why the two cannot end up disagreeing. Prices are drawn with the same group's
-`CurrencySymbol`.
-
-Saving and deleting are reported in **the API's words** rather than the dashboard's: a delete reads
-"تم حذف التصنيف coques-telephone." and not "Deleted", because the sentence naming the row comes back
-on the write's own response, in the language the list is being read in. A category that still has
-products is refused in the same language. [What a catalogue write answers
-with](#what-a-catalogue-write-answers-with) has the shapes.
+Pick an entity and the page shows **what is recorded for it**, from the model rather than the
+entries. `Name` and `Description` are reported as `Ignore` — which is where someone who edited a
+product's Arabic text and saw no new entry finds out why. See [A translated property is not in the
+trail](#7-a-translated-property-is-not-in-the-trail).
 
 ## Run it
 
 Needs **.NET 10 SDK**, **Node 22+**, and a **container runtime** (Docker Desktop, OrbStack or
-Podman) for PostgreSQL.
-
-The three class libraries also build for `net8.0`, which needs the .NET 8 reference packs — present
-if you have the .NET 8 SDK installed, and restored as packages otherwise. Only the libraries:
-`aspire run` and `dotnet test` exercise the `net10.0` host either way.
+Podman) for PostgreSQL. The three class libraries also build for `net8.0`, using the .NET 8
+reference packs.
 
 ```bash
 aspire run
@@ -188,34 +149,31 @@ Or, without the Aspire CLI:
 dotnet run --project aspire/DotNetBoostSample.AppHost
 ```
 
-The Aspire dashboard opens with three resources: `postgres`, `api` and `dashboard`. Open the
-`dashboard` URL. The database schema is created and seeded on first run — three languages
-(English, Arabic, French), two categories and three products, each translated.
-
-Switch the language in the dashboard header. Every product name, description and image alt text
-is re-read in that language, every label and button on the page is re-rendered in it, and Arabic
-flips the shell to RTL.
+The Aspire dashboard shows `postgres`, `api` and `dashboard`; open the `dashboard` URL. The first
+run creates and seeds the database: three languages (English, Arabic, French), two categories and
+three products, each translated. Switch the language in the header and the content, the labels and
+the layout direction all follow.
 
 ### Each piece on its own
 
-`aspire run` is the way to run the sample, and it is the only path where nothing is yours to wire
-up. Starting the two halves separately is worth knowing anyway — working on the dashboard is
-quicker against an API already running, and this is where the requirements above stop being the
-AppHost's problem.
+Useful when working on the dashboard against an API that is already running.
 
-**The API** needs a PostgreSQL and the `catalog` connection string the AppHost otherwise injects.
-It refuses to start without one and says where to get it:
+**The API** needs PostgreSQL and the `catalog` connection string the AppHost otherwise injects:
 
 ```bash
 ConnectionStrings__catalog="Host=localhost;Port=5432;Database=catalog;Username=postgres;Password=postgres" \
   dotnet run --project src/DotNetBoostSample.Api
 ```
 
-`http://localhost:5180`, with its Scalar reference at `/scalar`. The schema is created and seeded
-on first run either way.
+It listens on `http://localhost:5180`, with its Scalar reference at `/scalar`. To read the trail as
+someone other than the default sample user, send the stand-in header — which verifies nothing:
 
-**The dashboard** needs **Node 22+**, its dependencies installed — `aspire run` does that for you
-and nothing else does — and the address of that API:
+```bash
+curl -H 'X-Sample-Actor: alice@example.com' \
+  'http://localhost:5180/api/audit?entityName=Product&take=10'
+```
+
+**The dashboard** needs its dependencies installed and the API's address:
 
 ```bash
 cd clients/dashboard
@@ -223,56 +181,51 @@ npm install
 NUXT_API_URL=http://localhost:5180 npm run dev
 ```
 
-`http://localhost:3000`. `NUXT_API_URL` is read by the Nitro proxy in `server/api/[...path].ts`
-and never by the browser: every call the dashboard makes goes to its own origin and is forwarded
-from there, so the API's address is a server-side value and changing environment is changing that
-one variable. `clients/dashboard/.env.example` has the other two worth overriding. Its own checks
-are `npm run lint`, `npm run typecheck` and `npm test`, and they are not part of `dotnet test`.
+It listens on `http://localhost:3000`. `NUXT_API_URL` is read by the Nitro proxy in
+`server/api/[...path].ts`, never by the browser: every call goes to the dashboard's own origin and
+is forwarded. `clients/dashboard/.env.example` has the other settings worth overriding. Its checks
+are `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`.
 
 ---
 
 ## Where the composition happens
 
-Five files, all of them application code, none of them large. Each is a place where this
-application says two libraries are talking about the same thing — which is the only way they ever
-find out, since none of them references another:
+Nine files of this application's own code. Each is a place where it says two libraries are talking
+about the same thing — the only way they ever find out, since none references another — or, for the
+last three, where one library's data has no place in another's in the shape it is stored in:
 
 | | File | Joins | What it says |
 |---|---|---|---|
-| 1 | `Infrastructure/Persistence/AppDbContext.cs` | all three | these tables live in one database |
+| 1 | `Infrastructure/Persistence/AppDbContext.cs` | all four | these tables live in one database |
 | 2 | `Application/Composition/MediaText.cs` | Media × MultiLingual | a file's alt text is a translation of the subject `("MediaFile", <id>)` |
 | 3 | `Application/Composition/MediaTextCleanup.cs` | Media → MultiLingual | when the file goes, that text goes |
 | 4 | `Application/Composition/MultiLingualSchemaContributor.cs` | Settings × MultiLingual | this settings property is translated |
-| 5 | `Application/Settings/BrandingSettings.cs` | all three | branding's name, its other languages and its logo are one thing |
+| 5 | `Application/Settings/BrandingSettings.cs` | Settings × Media × MultiLingual | branding's name, its other languages and its logo are one thing |
+| 6 | `Infrastructure/DependencyInjection.cs` — one line | Auditing → MultiLingual | MultiLingual's translation row is not in the trail: `.IgnoreEntity<Translation>()` |
+| 7 | `Domain/Catalog/Category.cs` and `Product.cs` | MultiLingual → Auditing | a translated property is not in the trail: `[AuditIgnore]` beside `[MultiLingual]` |
+| 8 | `Infrastructure/Persistence/SettingGroupAuditObserver.cs` | Settings → Auditing | a settings save is one entry for the group, not one per row |
 
-Five rather than a rounder number because every file that joins two libraries is on the list. A
-sixth would mean the claim had quietly stopped being true, so it is worth counting honestly.
+Nine files in eight entries, because the seventh is one sentence said once per entity. It was five
+before Auditing arrived. Three of these exist because two libraries **disagree**, which is a worse
+kind of glue than "these two tables are about one thing" — and the reason the count is kept honest
+rather than tidy.
 
-**And grep cannot check it, in either direction.** Eight files under `src/` carry `using`
-directives for two or more `DotNetBoost.*` namespaces, and only three of them are above.
-`Program.cs` and `Infrastructure/DependencyInjection.cs` name all three while registering them in
-independent calls, which is the thing this sample is arguing for rather than a join;
-`GetCategory.cs`, `GetProduct.cs` and `ListProducts.cs` consume two side by side — a product's
-translations from one library and its images from another, a page size from Settings and the files
-from Media — without ever saying that one library's subject is the other's. Meanwhile two files
-that *are* above name one library each: `MediaText` references only MultiLingual, because what
-joins it to Media is the subject name `"MediaFile"` and not a type, and `MediaTextCleanup`
-references only Media, because it is that library's own deleted-files handler. A join is the
-identity assertion — this file's alt text **is** that translation subject, this settings property
-**is** that media owner — and the assertion is usually a string both sides agree on, which is why
-`BrandingOwnerTests` and `KeyFormatAgreementTests` exist.
+**Grep cannot find this list.** Some files name several libraries without joining them —
+`Program.cs` and `DependencyInjection.cs` register them side by side, `ListProducts.cs` reads a page
+size from one and files from another — while `MediaText` names only MultiLingual, because what ties
+it to Media is the string `"MediaFile"`, not a type. A join is an identity assertion, usually a
+string, an attribute or a type both sides must agree on, which is why `BrandingOwnerTests`,
+`KeyFormatAgreementTests` and `AuditRuleTests` exist.
 
-**And note where four of the five sit.** `MediaText`, `MediaTextCleanup`,
-`MultiLingualSchemaContributor` and `BrandingProjector` name `DotNetBoost.*.Core` and nothing else
-— no EF Core, no ASP.NET, no provider — so they live in the application layer, in a folder called
-`Composition`. Only `AppDbContext` is infrastructure. That split is not a filing convention; it is
-the finding. Joining two libraries is not a persistence concern. Joining them **in one database**
-is, and that is one file.
+**Six of the nine name only `DotNetBoost.*.Core`**, so they live in the application and domain
+layers beside the code that uses them. Only `AppDbContext`, the `IgnoreEntity` line and
+`SettingGroupAuditObserver` are infrastructure, and all three are there because four libraries share
+**one `DbContext`**. Joining two libraries is not a persistence concern; joining them in one
+database is.
 
-### 1. One database, three libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
+### 1. One database, four libraries — `src/DotNetBoostSample.Infrastructure/Persistence/AppDbContext.cs`
 
-The only place all three libraries' **tables** are named together, and all it amounts to is three
-independent `Apply*` calls:
+The only place all four libraries' tables are named together, and it is four independent calls:
 
 ```csharp
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
@@ -284,60 +237,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplySettings(this);
         modelBuilder.ApplyMedia();
         modelBuilder.ApplyMultiLingual(this);
+        modelBuilder.ApplyAuditing();
     }
 }
 ```
 
-Remove a library and you delete its one line. Nothing else changes.
-
-Each library used to ask for a marker interface and a pair of `DbSet` properties as well — six
-properties and three interfaces that the stores never read, since each reaches its own tables
-through `Set<T>()`. They are obsolete as of preview.2, and a context now declares only the
-application's own entities. Settings' engine is read off the context too, so switching provider in
-`AddInfrastructure` needs no matching edit here.
+Removing a library deletes its line, and adding the fourth was exactly one line here. An audit entry
+points **at** a row by `(entityName, entityId)` with no foreign key back, so auditing something new
+needs no migration and a deleted product's history outlives the row.
 
 ### 2. Per-language alt text — `src/DotNetBoostSample.Application/Composition/MediaText.cs`
 
-The interesting one, because `MediaFile` has **no** alt-text or caption field, and alt text is both
-required for accessibility and inherently per-language.
-
-Both libraries address a subject by the same two strings — an entity name and an entity id, under
-the rules of *DotNetBoost Entity Addressing v1*. MultiLingual files translations against
-`(EntityName, EntityId, PropertyName, LanguageCode)`; Media files attachments against
-`(OwnerEntityName, OwnerEntityId)`. **That shared addressing convention is the entire integration
-surface.**
-
-So the glue declares one subject name and uses a media file's own `Guid` as the entity id:
+`MediaFile` has no alt-text field, and alt text is both required for accessibility and different in
+every language. Both libraries address a subject by the same two strings under *DotNetBoost Entity
+Addressing v1*: MultiLingual files translations against `(EntityName, EntityId, PropertyName,
+LanguageCode)`, Media files attachments against `(OwnerEntityName, OwnerEntityId)`. **That shared
+convention is the entire integration surface.** So the glue declares one subject name and uses the
+file's own `Guid` as its id:
 
 ```csharp
 public const string Subject = "MediaFile";
 
-// One query for a whole page of files, in the request's language, with the default-language
-// fallback the library's own EF interceptors apply to a translated entity.
+// One query for a whole page of files, in the request's language, with the same default-language
+// fallback the library's EF interceptors apply to a translated entity.
 public async Task<IReadOnlyDictionary<Guid, MediaTextValues>> GetManyAsync(…) =>
     await multiLingual.ForMany(Subject, ids).GetAsync(ct) …
 ```
 
-**This file is a quarter of what it was.** It used to drop to the raw `ITranslationStore`, because
-MultiLingual could only address an entity it owned the type of — and reimplement four things the
-library already knew: how to format a key, how to fall back from the current language to the
-default, how to read many subjects in one query, and how to build a batch write. The fallback copy
-was the dangerous one: the library's own rule, living in application code, free to drift from the
-interceptors, so one file could resolve its alt text differently from the list it sat in.
-`For(entityName, entityId)` and `ForMany(…)` arrived in preview.2 and all of it went.
-
-Writing is gone too. The dashboard's alt-text editor calls MultiLingual's own
-`/api/translations/MediaFile/{id}`, so what is left here is the read this API needs in its *own*
-responses — a product listing carries its images' alt text, which no media endpoint can know about.
-
-No new table, no schema change in either library, and swapping media storage from local disk to
-Azure or S3 does not touch this file.
+Writing goes through MultiLingual's own `/api/translations/MediaFile/{id}`, so this class only reads
+what this API's *own* responses need — a product listing carries its images' alt text. No new table,
+and moving media storage to Azure or S3 does not touch it.
 
 ### 3. Deleting a file deletes its alt text — `src/.../Application/Composition/MediaTextCleanup.cs`
 
-The other half of the subject above: MultiLingual stores rows about `("MediaFile", <id>)`, Media
-deletes the file those rows are about, and **neither knows the other exists**. Something has to say
-so. One class, registered once:
+MultiLingual stores rows about `("MediaFile", <id>)`, Media deletes the file they are about, and
+neither knows the other exists. One handler, registered once, says so:
 
 ```csharp
 // Infrastructure/DependencyInjection.cs, inside the Media block.
@@ -350,32 +284,17 @@ public sealed class MediaTextCleanup(MediaText mediaText) : IMediaFilesDeletedHa
 }
 ```
 
-**This replaced a data-loss bug, not just some duplication.** Every endpoint that deleted a file
-used to delete its translation rows too, in a loop beside the delete — and the sample got that
-wrong in two directions at once:
-
-- The product delete called `IMediaManager.DeleteAsync` per file, which is the *remove it from the
-  library* operation: it takes the file out of **every** owner. The sample attaches one file under
-  several owners on purpose, so deleting one product pulled shared images out of the others.
-- A file deleted through DotNetBoost.Media's own `DELETE /api/media/{id}` cleaned up nothing at
-  all, because only the dashboard knew to follow up, and that route is not the dashboard's to
-  follow.
-
-The handler fixes both, because it is told **which files actually went**. `DeleteAllAsync` deletes
-the files this owner alone held and merely *detaches* the ones others still reference, and it
-reports only the first kind — so an image still in use somewhere else keeps its alt text, and the
-cleanup runs for every delete whatever triggered it. A handler's exceptions are logged and
-swallowed by the library, which is right here: the bytes are already gone, so failing would report
-a completed delete as a failure.
+It runs for every delete, including Media's own `DELETE /api/media/{id}`, and is told only the files
+that actually went: `DeleteAllAsync` deletes the files an owner alone held and merely detaches shared
+ones, so an image still used elsewhere keeps its alt text. The library logs and swallows a handler's
+exceptions, which is right here — the bytes are already gone.
 
 ### 4. One library's attribute in another's schema — `src/.../Application/Composition/MultiLingualSchemaContributor.cs`
 
-`GET /api/settings/{route}/schema` is what the dashboard generates its settings form from. It can
-say a property is a `string`, that it is required, and that it is at most 120 characters, because
-those are DotNetBoost.Settings' business. It cannot say the property is **translated**, because
-`[MultiLingual]` belongs to another library and the settings engine has never heard of it.
-
-`ISettingSchemaContributor` is the port for exactly that, and the whole implementation is this:
+`GET /api/settings/{route}/schema` can say a property is a required `string` of at most 120
+characters, because that is DotNetBoost.Settings' business. It cannot say the property is
+**translated**: `[MultiLingual]` belongs to another library. `ISettingSchemaContributor` is the port
+for exactly that:
 
 ```csharp
 public bool CanDescribe(Type type) => MultiLingualMetadata.IsMultiLingual(type);
@@ -388,22 +307,13 @@ public IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> Describ
         StringComparer.Ordinal);
 ```
 
-Two things make it more than a cast. It **asks** which properties are translatable rather than
-reading the attribute itself — `[MultiLingual]` may sit on the property or on the class, and
-`MultiLingualMetadata.For` is the library's own resolution of that, so this cannot drift from what
-the translation store actually writes. And it **merges**: `DotNetBoost.Settings.FluentValidation`
-registers a contributor over the validation rules, the schema endpoint composes every applicable
-one, and `storeName` comes back with `required` and `maxLength` from those rules *and* `translated`
-from here. Until preview.2 it was first-match-wins, and registering this would have silently
-deleted the bounds.
-
-The flag used to live in `clients/dashboard/app/utils/settings.ts`, hand-written, kept in step with
-the C# class by nothing at all.
+It asks the library which properties are translatable rather than reading the attribute itself, so
+it cannot drift from what the translation store writes. Contributors **merge**, so `storeName` comes
+back with `required` and `maxLength` from its validator *and* `translated` from here.
 
 ### 5. Branding: text from one library, its logo from another — `src/.../Application/Settings/BrandingSettings.cs`
 
-The branding settings group holds text. Its logo is a **media attachment**, on an owner that has no
-table anywhere:
+The branding group holds text. Its logo is a **media attachment**, on an owner with no table:
 
 ```csharp
 [SettingGroup("branding")]
@@ -421,112 +331,177 @@ public class BrandingSettings
 ```
 
 ```csharp
-// Infrastructure/DependencyInjection.cs — reads the [MediaRole] attributes off that one class.
-.DeclareRoles<BrandingSettings>()
-
-// Reading it back.
 var branding = await settings.For<BrandingSettings>().GetAsync();
 var logo     = await media.For("Branding", "branding").GetByRoleAsync("logo");
 ```
 
-> **Do not assign to what `GetAsync` hands you.** It is the instance `SettingManager` cached, not a
-> copy, so `branding.StoreName = translated` writes one request's language into the entry every
-> later reader of the group is served from — and `GET /api/settings/branding` hands it back as
-> though it were the stored value. That was a real bug here, in the `/api/branding` endpoint this
-> group's projector replaced. `BrandingProjector` returns a new `BrandingResponse` instead of
-> touching the group, so there is nothing to assign to; it is still pinned by an integration test,
-> because nothing else would notice.
+Products show attaching to rows, which a foreign key can do. Branding has no row — it is a group of
+setting rows, and there is only ever one — and a foreign key cannot express that. The media library
+does not care: an owner is two strings it never resolves. So the dashboard draws branding's logo
+with the same role box it draws a product's image with. The id `"branding"` is degenerate, like
+`Id = 1` on a single-row config table, but the library needs both halves of an address.
 
-**This is the sharpest demonstration of the attachment model in the sample.** Products show
-attaching to rows, which any schema can do with a foreign key. Branding has no row at all — it is a
-group of setting rows and there can only ever be one of it — and a foreign key could not express
-that. The media library does not care: an owner is two opaque strings it never tries to resolve. So
-the dashboard draws branding's logo with the *same* role box and the *same* picker it draws a
-product's primary image with, over the same `GET /api/media/roles/{entityName}`.
-
-The id `"branding"` is degenerate — there is only one branding, so it carries no information, the
-way a config table with a single row conventionally uses `Id = 1`. It has to be *something*,
-because the library requires both halves of an address, and that uniformity is exactly what lets
-one table serve every owner with no column per owner type.
+> **Do not assign to what `GetAsync` hands you.** It is the instance `SettingManager` cached, so
+> `branding.StoreName = translated` writes one request's language into what every later reader is
+> served. `BrandingProjector` returns a new `BrandingResponse` instead, and an integration test pins
+> it, because nothing else would notice.
 
 #### Why the logo is not a `Guid` on the settings class
 
-It was, and that is a perfectly ordinary way to reference a file. Two problems surfaced, in order:
+A file referenced only by a setting's value is **invisible to the media library**: it is used by
+nothing, and deleting it warns about nothing until the site loses its logo. Keeping the id *and* an
+attachment gives two records of one fact, and nothing keeps them in step when the logo is detached
+from the Media page. So the attachment is the only record.
 
-1. A file referenced only by a setting's value is **invisible to the media library** — it appears in
-   no entity's attachments, its details panel says it is used by nothing, and deleting it warns
-   about nothing, right up until the site loses its logo.
-2. Attaching it *as well* fixed the reading but left **two records of one fact**. A settings change
-   handler kept them in step one way; nothing could keep them in step the other way, because
-   `DotNetBoost.Media` ships no change hook at all. Detaching the logo from the Media page removed
-   the attachment and left the setting pointing at the file.
-
-So the attachment is now the only record. Nothing can drift, because detaching the logo and the
-site having no logo are the same statement.
-
-**What that costs, honestly.** The logo is no longer part of the settings group, so it is absent
-from `GET /api/settings/branding`, from that group's ETag, and from its audit trail. Those three
-things are what storing an id in a setting buys, and they were given up deliberately for a single
-source of truth. If you need a file reference inside a settings group's versioning and audit, keep
-the id — and know that you are choosing to maintain the second record yourself.
+**The cost:** the logo is outside the settings group, so it is absent from
+`GET /api/settings/branding`'s stored values, from the group's ETag and from its audit trail. If you
+need a file inside a group's versioning, keep the id — and maintain the second record yourself.
 
 #### Why the store name is edited on two cards
 
-The Settings page shows branding's text twice: once as a field in the generated group form, and
-once in a **Store name** card beneath it with a box per language. (The card sits in the form's
-`extra` slot — the same slot the logo's media picker uses, and for the same reason: a form built
-from the values the API returns cannot know that one of them is translated, or where to put four
-languages of it.) That looks like two writers for one value, which is the thing the logo was just
-rescued from. It is not — they are split by **language**, and no language has two writers.
+The Settings page shows branding's text twice: as a field in the generated form, and in a **Store
+name** card with a box per language. They are split by **language**, so no language has two writers:
 
 | Where | Holds | Edited by |
 |---|---|---|
 | `Setting` row, in the branding group | the **default** language's text | the generated group form |
 | `Translation` rows, under `("Branding", "branding")` | **every other** language | the Store name card |
 
-The card leaves the default language out deliberately — `languages.filter(l => !l.isDefault)` — so
-the two never address the same cell. `GET /api/settings/branding` then returns the setting row as
-stored **and** the translation for the request's language beside it, under `resolved`, which is
-what makes the setting row the value every untranslated language falls back to.
+`GET /api/settings/branding` returns the stored row **and**, under `resolved`, the request
+language's translation beside it. The form posts the stored value back to the default-language row,
+so replacing `storeName` with the Arabic text would save Arabic over English. A renderer reads
+`resolved.storeName ?? storeName`; an editor reads `storeName`.
 
-The two travel separately on purpose. That endpoint is also what the settings form loads and posts
-back, and the row it writes is the default language's — so a projection that replaced `storeName`
-with the Arabic text would have the form save Arabic into the English row, from a screen that never
-mentions translation. A renderer reads `resolved.storeName ?? storeName`; an editor reads the
-property and is right without knowing any of this.
+It is not translation rows all the way down, like `Category.Name`, because a settings group is not
+in the EF model — there is no column for `ApplyMultiLingual` to strip. Keeping the default language
+in the `Setting` row keeps it inside the group's ETag, conditional save and audit trail. For the
+same reason `BrandingProjector` does not call `LocalizeAsync()`, which outside base-language mode
+nulls a property with no translation and would erase the name in every untranslated language.
 
-**Why it is not simply translation rows all the way down, like `Category.Name`.** A category's name
-is not stored anywhere else at all: `ApplyMultiLingual(this)` strips every `[MultiLingual]` string
-property off the entities in the model, so `Categories` has no `Name` column and *every* language,
-default included, is a translation row. It cannot do that here, because there is no column to
-strip — a settings group is not in the EF model. Its value is a `Setting` row that `SettingManager`
-owns, decomposed from the class, and the only question left is whether that row is the base value
-or dead weight beside a parallel translation.
+**The cost:** two cards instead of one, and the form shows the default language's text while the
+sidebar shows the reading language's. It is the mirror of the logo's trade: there, one record won
+and the audit trail was given up; here, the audit trail won and a second editing surface was
+accepted.
 
-Making it the base value is what keeps the default language's text inside the machinery the
-settings group already has: its `ETag`, its conditional save, its audit trail. Translating it away
-would hand the group's own text to a store that has none of those.
+### 6. MultiLingual's row is not in the trail
 
-> This is also why `BrandingProjector` does **not** call `LocalizeAsync()`. Outside base-language
-> mode MultiLingual treats the translations as the only store, so it nulls a property it finds
-> nothing for — which would erase the branding name in every language nobody has translated yet.
-> Here the settings row *is* the base, so a missing translation must leave it alone.
+`src/DotNetBoostSample.Infrastructure/DependencyInjection.cs` — one line, `.IgnoreEntity<Translation>()`
+— plus HiLo keys on `Category` and `Product`.
 
-**What it costs.** Two cards instead of one, and `GET /api/settings/branding` answers with the
-default language's text rather than with what the header is currently rendering — so the group form
-and the sidebar can read differently while you are editing in Arabic. That is the price of the
-default language keeping its version history, and it is the mirror image of the trade on the logo
-just above: there, one record won and the audit trail was given up; here, the audit trail won and a
-second editing surface was accepted.
+`UseAuditing(sp)` attaches DotNetBoost.Auditing's `SaveChangesInterceptor`, which records every
+create, update and delete in the same `SaveChanges` as the change, with no application code. On
+`1.0.0-preview.1` that was the one claim in four libraries' documentation this sample **could not
+reproduce**. The first save that tracked a translation row — every catalogue write — threw:
+
+```
+Translation has a composite primary key (EntityName, EntityId, PropertyName, LanguageCode).
+An audit entry records a single key. Give the entity a surrogate key, exclude it with
+[AuditIgnore], or record against it by hand with audit.For(name, id).
+```
+
+`Translation` is DotNetBoost.MultiLingual's entity, and its natural key is deliberate. Of the three
+remedies, this application could use only one:
+
+| | |
+|---|---|
+| Give the entity a surrogate key | MultiLingual's decision, and a considered one |
+| Exclude it with `[AuditIgnore]` | an attribute cannot be applied to a type from the outside |
+| Record by hand | what this sample did, for one release |
+
+**Two independent libraries in one database, incompatible at the capture level, and no shared
+kernel to arbitrate.** What closed it was a fourth remedy, in the library that raised the problem:
+
+```csharp
+services.AddAuditing()
+    .UseEntityFrameworkCore<AppDbContext>()
+    .DeclareEntities(typeof(Category), typeof(Product))
+    .IgnoreEntity<Translation>()          // DotNetBoost.MultiLingual's row
+    .Build();
+```
+
+`IgnoreEntity<T>()` is the class-level `[AuditIgnore]` for a type the application cannot annotate.
+Neither library learned the other's name: the fix was an ignore-list on one builder, not a package
+pairing the two.
+
+**Keys are assigned before the save.** For a database-generated key, the interceptor writes the
+`Created` entry in a second, nested `SaveChanges` — which on this context also runs through
+MultiLingual's interceptor mid-save, and a second save of a just-created entity once wrote an empty
+product name over the stored one. Rather than depend on the order of two libraries' interceptors,
+the catalogue's entities take HiLo keys:
+
+```csharp
+category.Property(c => c.Id).UseHiLo("CategoryIds");
+product.Property(p => p.Id).UseHiLo("ProductIds");
+```
+
+The id is assigned at `AddAsync`, so a creation's entry goes into the caller's own save. The costs:
+ids have gaps, and an older database needs the sequences created past its existing ids, which
+`DatabaseInitialiser` does and `SchemaUpgradeTests` checks.
+
+**What the trail holds:** everything this `DbContext` saves except `Translation` and `Setting` —
+`MediaFile`, `MediaAttachment` and `Language` as well as the catalogue, and the seed's first run with
+no actor. Settings saves are recorded by [the observer](#8-a-settings-save-is-one-entry-not-one-per-row--srcinfrastructurepersistencesettinggroupauditobservercs).
+`GET /api/audit/entities` lists only what is **declared** — the application's own two — so the
+dashboard shows the libraries' entries under *Any*. `AuditTrailTests` asserts each of these.
+
+### 7. A translated property is not in the trail
+
+`src/DotNetBoostSample.Domain/Catalog/Category.cs` and `Product.cs` — two attributes, one sentence.
+
+```csharp
+[MultiLingual]
+public class Product
+{
+    [AuditIgnore] public string Name { get; set; } = string.Empty;          // translated
+    [AuditIgnore] public string Description { get; set; } = string.Empty;   // translated
+
+    [NotMultiLingual] public string Sku { get; set; } = string.Empty;       // in the trail
+    public decimal Price { get; set; }                                      // in the trail
+}
+```
+
+An audit entry has no language. `Name: "Desk" → "Writing desk"` would be true of one language and
+silent about which — and by default there is no `Name` column at all, so the value compared is
+whatever the request's language hydrated. Saying it with the **engine's own attribute** means every
+way of recording honours it, and `GET /api/audit/entities/Product` reports it as `Ignore`.
+
+`AuditRuleTests` asserts that every `[MultiLingual]` property is an `[AuditIgnore]` one, read through
+each library's metadata — because a translated property added without the second attribute would
+produce a trail that confidently says the wrong thing.
+
+### 8. A settings save is one entry, not one per row — `src/.../Infrastructure/Persistence/SettingGroupAuditObserver.cs`
+
+DotNetBoost.Settings stores a group one row per property, so the interceptor alone recorded a
+branding save as one entry per value, each addressed by a row id nobody knows. The settings library
+already knows where an edit begins and ends, and reports it through `ISettingWriteObserver`:
+
+```csharp
+// Settings block
+.UseWriteObserver<SettingGroupAuditObserver>()
+
+// Auditing block
+.IgnoreEntity<Translation>()
+.IgnoreEntity<Setting>();
+```
+
+The observer records the group's whole diff as one `Setting` entry addressed by the group's name.
+The write carries the group's class as its type, so the ignore — checked by type — does not drop it,
+and `[AuditIgnore]` and `[AuditRedact]` on a group's properties apply. A `[Sensitive]` property is
+marked redacted, so the trail does not read "changed from nothing to nothing". The entry is saved
+through a context of its own, so a failure leaves nothing behind on the request's.
+
+**The cost:** this is the one entry that does not commit with its change. The observer runs after
+the settings save, and DotNetBoost.Settings logs and swallows its failures, so a failed record leaves
+the change without an entry. For dashboard-edited configuration, "catalog: page size 17 → 18" in
+one line is worth that.
 
 ---
 
 ## Two places a language can live
 
-Everything above is written for the mode this sample runs in: a `[MultiLingual]` property has **no
-column at all**. `ApplyMultiLingual(this)` strips `Name` and `Description` off `Categories` and
-`Products`, and every language — the default one included — is a row in the translations table.
-That is why the README can say `Products` has no `Name` column and mean it literally.
+Everything above describes the default mode: a `[MultiLingual]` property has **no column**.
+`ApplyMultiLingual(this)` strips `Name` and `Description` off `Categories` and `Products`, and every
+language, the default included, is a translation row.
 
 DotNetBoost.MultiLingual has a second mode. Give it a base language:
 
@@ -536,143 +511,81 @@ services.AddMultiLingual(o => o.BaseLanguage = "en")
         .Build();
 ```
 
-and a translatable property **keeps** its column, that column holds English, and every other
-language stays a translation row. A missing translation falls back to the column, so content is
-never null once it exists; an entity may only be *created* in that language, since the base value
-is what every translation hangs off; and the language itself can no longer be deleted or
-deactivated.
-
-In this repository it is one setting rather than an edit, so the sample can be run both ways and
-tested both ways:
+and a translatable property **keeps** its column, holding English, while every other language stays
+a row. A missing translation falls back to the column; an entity may only be created in the base
+language; and that language cannot be deleted or deactivated. Here it is one setting:
 
 ```bash
 MultiLingual__BaseLanguage=en dotnet run --project src/DotNetBoostSample.Api
 ```
 
-**Against a fresh database.** This is a decision about the *schema* — it is what decides whether
-`Products` has a `Name` column — so flipping it under existing content would leave that content
-half in rows and half in a column nobody filled. It is also deliberately **not** the default
-language: the default is a row in the languages table and can be changed from the dashboard at any
-time, while the base language is fixed for the life of the database. Keeping them separate is what
-lets the default move without touching a stored value.
+**Against a fresh database**, because it decides whether `Products` has a `Name` column. It is also
+not the *default* language: the default is a row you can change from the dashboard, while the base
+language is fixed for the life of the database.
 
 ### What the application had to do about it
 
-One class — `Catalog/Shared/TranslatedText.cs`, an entity's text in every language. The four writes
-already went through it; the two detail reads now do too, because the read half of this question is
-as easy to get wrong as the write half:
+One class, `Catalog/Shared/TranslatedText.cs`, through which the four writes and two detail reads go:
 
 | `TranslatedText` | In the default mode | With a base language |
 |---|---|---|
-| `SaveAsync` | queues every language with `Set` and saves | assigns the base language's values to the entity's own properties, queues the rest, and runs the save **in** the base language |
-| `LoadAsync` | the query, then `GetAllAsync()` | reads the entity in the base language and puts its columns into the map under that language's code |
+| `SaveAsync` | queues every language with `Set` and saves | assigns the base language's values to the entity, queues the rest, and saves **in** the base language |
+| `LoadAsync` | the query, then `GetAllAsync()` | reads the entity in the base language and adds its columns under that language's code |
 
-Each half is answering one refusal the library makes on purpose. `Set("en", …)` throws
-`BaseLanguageNotTranslatableException`, because that language is not a translation; a create under
-`Accept-Language: ar` throws `BaseLanguageRequiredException`, because the base value has to exist
-first. Moving the save into the base language settles both at once — and the request's own language
-is put back afterwards, because the sentence the endpoint answers with is written in
-`CurrentLanguage` and an Arabic request must not come back in English.
+Each half answers a refusal the library makes on purpose: `Set("en", …)` throws, because the base
+language is not a translation, and a create under `Accept-Language: ar` throws, because the base
+value must exist first. Saving in the base language settles both, and the request's language is put
+back afterwards so the response sentence stays in Arabic. The read half matters as much: without
+it, the editor would open with empty English boxes and save that emptiness over the real text.
 
-The read side is the one that would have been worst to get wrong. `GetAllAsync()` answers with
-stored *translations*, and the base language is not one of them — so the dashboard's editor would
-have opened with the English boxes empty and saved that emptiness over the canonical text on the
-first write. A silent erasure, from a screen that looked right.
-
-The seed had to learn the same thing, in one line. `DatabaseInitialiser` authors content in
-`BaseLanguage ?? "en"` and assigns that language's values to the entities themselves, queueing the
-other two as rows — so `BaseLanguage = "ar"` puts the Arabic text in the columns with English and
-French beside it, and the default mode writes exactly the rows it wrote before. A base language the
-seed does not carry is refused by name before anything is created, rather than reaching the library
-and coming back as a message about the request's language.
-
-There is a second file, and it is the only one that exists *because* of this mode:
-`Persistence/MultiLingualModelCacheKeyFactory.cs`. EF Core caches one model per DbContext type,
-and this context's model now depends on an option read at runtime — so two instances of the
-application in one process with different base languages would share whichever model was built
-first. The library notices and refuses rather than corrupting anything, which is the right failure
-and still a failure. A dozen lines put the option in the cache key. Nothing else in the solution
-asks which mode is on.
+The seed authors content in `BaseLanguage ?? "en"`, and `Persistence/MultiLingualModelCacheKeyFactory.cs`
+puts the option in EF's model cache key so two hosts with different modes can share a process.
+Nothing else asks which mode is on.
 
 ### What does not change
 
-The point of the table above is everything missing from it. **No endpoint's response changes**:
-same routes, same status codes, same bodies, the same keys in the same `translations` map. **The
-dashboard is not touched** — it already reads `baseLanguage` from its runtime config, so
-`NUXT_PUBLIC_BASE_LANGUAGE=en` is all it takes for the Languages page to draw the "base" badge, and
-nothing else about it is mode-aware. Branding is not affected at all: its `[MultiLingual]` store
-name is a settings row with translation rows beside it, not an entity with columns, and a *subject*
-— branding, a media file's alt text — has no columns for the base language to live in, so every
-language it carries is a row in both modes.
-
-One difference is visible, and it is pinned by a test rather than left to be discovered: content
-created with **no** text in the base language reads as `""` in a language nobody translated, where
-the default mode answers `null`. That is what a non-nullable `string` column means — "nothing was
-ever written" has an empty value rather than no row. Refusing the write instead would have been a
-new `400` on a request the API accepts today, which is the one thing this mode is not allowed to
-do.
+**No endpoint's response changes** — same routes, status codes, bodies and `translations` maps. **The
+dashboard is not touched**: `NUXT_PUBLIC_BASE_LANGUAGE=en` only makes the Languages page draw a
+"base" badge. Subjects without columns — branding, a file's alt text — keep every language as a row
+in both modes. One difference is pinned by a test: content created with no base-language text reads
+as `""` where the default mode answers `null`, because the column is a non-nullable `string`.
 
 ### How that is checked rather than claimed
 
-`dotnet test` boots the sample twice — two hosts, two schemas, one run. That is what
-`MultiLingualModelCacheKeyFactory` is for, and it is the only reason it exists.
+`dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: forty tests against each, the same assertions,
-nothing adapted — and between them they call **every one of the API's 41 published routes**, found
-by listing the generated document and crossing it against what the tests request. That inventory is
-now one of the forty rather than a cross-check someone did once: `OpenApiShapeTests` asserts the
-forty-one by name, so a route mapped by this application or by the next version of a library fails
-the suite instead of quietly going uncalled. The rest were not written for this mode and were not
-changed for it, which is what makes them worth re-running — branding, media shapes, settings,
-refusals, the generated document and the catalogue itself all have to come out the same.
+**The whole integration suite runs in both modes**: fifty-seven tests against each, the same
+assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
+`OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
+library version fails the suite rather than going uncalled.
 
-Then **fifteen more** that only base-language mode can be asked, in `BaseLanguageTests`. The first
-reads the `Name` column with raw SQL; without it the other fourteen would pass just as well with
-the mode off and prove nothing. The rest walk the surface a client can actually reach:
+`BaseLanguageTests` then asks what only this mode can: that the `Name` column holds English (read
+with raw SQL), that the editor's round trip keeps it, that writes in Arabic leave it alone, that
+refusals keep their status and language, and that cascades and the other libraries behave the same.
+Deleting the one line that puts base-language values on the entity fails six tests, two of them
+duplicated default-mode classes running in this mode, while every default-mode copy still passes.
 
-| | |
-|---|---|
-| Reads | the request's language, falling back to the column; the detail endpoint carrying every language including the base one; the editor's full round trip — read it, post it back, the English survives |
-| Writes | a create under `Accept-Language: ar` answering `201` with its sentence in Arabic; an update in Arabic leaving the English base alone and inventing no Arabic row; a category created and renamed across both languages |
-| Refusals | `400`, `404` and `409` unchanged — and the `409` asserted against the Arabic *sentence*, not just the status, because the database raises it while the save is inside the base language and only the `finally` in `TranslatedText` puts the caller's language back |
-| Cascades | deleting an entity takes every language with it; deleting a file takes its alt text |
-| The other libraries | branding resolving its translated name beside the stored one; alt text still taking every language, base included, because a subject has no columns; the settings schema still flagging `translated`; purging a language's rows, and the same button pressed on the base language leaving the columns alone |
-| The library's own rules | the base language cannot be deleted; content created with no base-language text reads as `""` |
-
-**The matrix is load-bearing, which is also checked.** Deleting one branch of the write path —
-the line that puts the base language's values on the entity instead of queueing them as a
-translation — fails six tests: four in `BaseLanguageTests` and, more to the point, two of the
-duplicated ones, `CatalogCompositionTestsInBaseLanguageMode` and
-`CatalogRefusalTestsInBaseLanguageMode`. Every default-mode copy still passes. That is the shape a
-mode-specific regression has, and the suite has to be able to see it.
-
-**And measured, not just tested.** Two APIs, two freshly seeded databases, one in each mode:
-
-- the generated OpenAPI document is **byte-identical**, apart from the port in `servers[0].url`;
-- every `GET` response is byte-identical across **nine endpoints in all three languages** —
-  including the two detail endpoints, whose `translations` map is assembled completely differently
-  in the two modes.
-
-The dashboard was then driven against both, by hand, through the screens that matter: the editor
-opening with its English boxes filled, a product created and edited while reading Arabic, branding's
-translated store name reaching the header, alt text written in every language, and the Languages
-page drawing its **base** badge from `NUXT_PUBLIC_BASE_LANGUAGE` alone. Not one line of it changed.
+Measured as well: across two freshly seeded APIs, one per mode, the OpenAPI document is
+byte-identical apart from its port, and so is every `GET` response across nine endpoints in all
+three languages.
 
 ---
 
 ## What this costs
 
-Being honest about the trade-off, because it is the point of the sample:
-
 | | |
 |---|---|
-| **Glue per app** | Every application writes the join itself. Here it is 49 lines of code across three files — `Composition/MediaText.cs` (28), `Composition/MultiLingualSchemaContributor.cs` (14) and `Composition/MediaTextCleanup.cs` (7) — in 189 lines of file, so the comment outweighs the code three to one. The code was four times this before the libraries grew `For(entityName, entityId)`, a files-deleted hook and merging schema contributors. |
-| **Cascade is opt-in** | Deleting a `MediaFile` still does not know its alt text exists. One `IMediaFilesDeletedHandler`, registered once, connects the two — so the cleanup is exact and runs for every delete whatever triggered it, including the media library's own endpoint. Better than the call beside every delete it replaced, but still the application's job to know the two records are about one thing. |
-| **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, and asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
-| **Agreement by published spec** | Both libraries must address an entity identically, and now both implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, so the dependency is one constant to compare rather than a convention to trust. Each also ships the conformance suite — but in its `TestSupport` project, which is not packaged, so `tests/KeyFormatAgreementTests.cs` still spells the agreement out here. |
+| **Glue per app** | Every application writes the join itself: here, 49 lines of code across `MediaText.cs`, `MultiLingualSchemaContributor.cs` and `MediaTextCleanup.cs`, plus `.IgnoreEntity<Translation>()` and two HiLo keys. |
+| **Cascade is opt-in** | Deleting a `MediaFile` does not know its alt text exists. One `IMediaFilesDeletedHandler` connects them, but knowing the two records are about one thing is still the application's job. |
+| **Magic strings** | `"MediaFile"` has no compile-time link to the type. Mitigated with one `const`, asserted against `MediaEntityNames.For(typeof(MediaFile))`. |
+| **Agreement by published spec** | Three libraries must address an entity identically. All implement *DotNetBoost Entity Addressing v1* and publish `EntityKey.AddressingVersion`, and `KeyFormatAgreementTests` spells the agreement out. For Auditing a silent mismatch would not break a join — it would write a trail no read can find. |
+| **A capability can be missing until one library moves** | On Auditing `preview.1` the capture could not share a `DbContext` with MultiLingual's composite-key row, and no remedy was this application's. [Section 6](#6-multilinguals-row-is-not-in-the-trail) is the finding and the fix. |
 
-None of these are capability limits. They are ergonomics, and they are the price of being able to
-install one library without the other two.
+The first four are ergonomics: the price of installing one library without the others. The last
+was a capability missing in this combination — the strongest argument *against* this arrangement,
+and the one thing an integration package would genuinely have fixed. The fix landed in one library's
+builder instead, without a package that knows both names. What it cost was a release of waiting,
+which is what four independent release cadences mean.
 
 ---
 
@@ -682,97 +595,59 @@ install one library without the other two.
 dotnet test
 ```
 
-- **`ZeroCouplingTests`** — no library references another, and none references a
-  `DotNetBoost.Core` or `DotNetBoost.Abstractions`. A README sentence decays; a failing build does
-  not.
-The first two groups read attributes and type metadata: no database, no host, milliseconds. They
-say what the code *is*. The third boots the application and says what it *does*.
-
 ### What the code is
 
-- **`KeyFormatAgreementTests`** — Media and MultiLingual format the same `Guid`, `int`, `long` and
-  `string` key to the same string, and cap it at the same length. It also pins the other half of
-  the agreement: ids only find each other if both stores are asked about the same *entity name*, so
-  `MediaText.Subject` is asserted equal to `MediaEntityNames.For(typeof(MediaFile))`. Renaming
-  `MediaFile` upstream fails here rather than stranding every stored alt text under a name nothing
-  asks about. Together, this is what makes `MediaText.cs` safe.
-- **`BrandingOwnerTests`** — the branding logo has exactly one record of it, the owner name the
-  code uses is the one the attribute stores under, and the group's `Id` stays out of both the
-  settings table and the JSON.
+These read attributes and type metadata: no database, no host, milliseconds.
+
+- **`ZeroCouplingTests`** — no library references another, or a `DotNetBoost.Core` or
+  `DotNetBoost.Abstractions`. The assertions did not change when the fourth library arrived.
+- **`KeyFormatAgreementTests`** — Media, MultiLingual and Auditing format the same keys to the same
+  strings, and `MediaText.Subject` equals the name Media resolves for `MediaFile`, so a rename
+  upstream fails here rather than stranding every stored alt text.
+- **`BrandingOwnerTests`** — the logo has exactly one record, the owner name in code is the one the
+  attribute stores, and the group's `Id` stays out of the settings table and the JSON.
+- **`AuditRuleTests`** — the `[MultiLingual]` and `[AuditIgnore]` properties of each entity are the
+  same set, the language-independent columns are recorded, and nothing is redacted.
+- **`DocumentedCountTests`** — the counts these documents state are the counts there are.
 
 ### What the code does
 
 `tests/.../Integration/` boots **this exact `Program.cs`** through `WebApplicationFactory` against a
-throwaway PostgreSQL from Testcontainers, and drives it over HTTP. Only two things are overridden,
-both infrastructure rather than composition: the connection string, and `Media:Root` so uploaded
-bytes land in a temp directory instead of your `media/` folder.
+throwaway PostgreSQL from Testcontainers and drives it over HTTP, overriding only the connection
+string and `Media:Root`. That a plain `ToListAsync()` comes back translated, that alt text written
+through one library reads back beside another's file, that a refused write takes its audit entry
+with it — none of it is provable without the database the libraries share.
 
-It exists because everything above is blind to the part that matters. That a plain `ToListAsync()`
-comes back translated, that alt text written through one library reads back beside a file owned by
-another, that a settings value changes what an endpoint answers without a restart — all of it is
-behaviour of three libraries sharing one `DbContext`, and none of it is provable without the
-database they share.
+**Every class below runs twice**, once per [language mode](#two-places-a-language-can-live): an
+abstract class holds the assertions and two sealed subclasses bind it to each fixture.
 
-**Every class below runs twice**, against two applications on two databases: once in the mode the
-sample ships in, and once with `MultiLingualOptions.BaseLanguage = "en"`. Each is an abstract class
-holding the assertions and two sealed subclasses binding it to one fixture or the other —
-`CatalogCompositionTestsInDefaultMode` and `CatalogCompositionTestsInBaseLanguageMode`. Running
-them rather than reasoning about which ones could care is the point: the mode moves content between
-a column and a translation row, and [the claim](#two-places-a-language-can-live) is that no caller
-can tell.
-
-- **`BrandingCompositionTests`** — the group publishes `owner`, the two strings its media is filed
-  under, and the name it publishes is one `GET /api/media/roles/{entityName}` actually has roles
-  for. That pair cannot be derived: the group list answers with the CLR class name, `[MediaEntity]`
-  pins the stored name away from it on purpose, and a wrong guess is answered `200 []` rather than
-  refused — so a client guessing it renders no logo and nothing fails. The dashboard used to write
-  the two strings into a page of its own; publishing them deleted the duplicate. Also: reading
-  branding in Arabic must not change what
-  `GET /api/settings/branding` answers. That is a regression test for a real bug: the endpoint used
-  to assign the translated name onto the instance `SettingManager` cached, writing one request's
-  language into the entry every later reader is served from. No metadata test could see it.
 - **`CatalogCompositionTests`** — entities come back in the request's language with nothing asking;
-  a missing translation falls back to the default; alt text stored as MultiLingual rows reads back
-  on a Media file; refusals and confirmations arrive in the language the content was read in
-  (asserted against the actual Arabic and French sentences); and deleting a product takes its
-  images' alt text with it, through the handler that connects two libraries which still know
-  nothing about each other.
-- **`CatalogSettingsTests`** — `PageSize` changes the listing with no restart, a caller may
-  override it but not past the cap, and a group answers with its values and nothing else.
-- **`MediaShapeTests`** — one file attached under two roles is **one** image in the listing and
-  **two** boxes in the editor; no shape carries a URL but the bytes are reachable from the id;
-  several languages of alt text are one write, and a null still removes its row; and the text
-  delete still works once the file itself is gone.
-- **`SettingsSchemaTests`** — `GET /api/settings/{group}/schema` publishes the FluentValidation
-  bounds *and* this application's own `translated` flag, merged rather than one replacing the other,
-  so the dashboard's generated form draws its controls from the server's rules.
-- **`OpenApiShapeTests`** — the generated document describes the shape each endpoint actually
-  answers with, which is not free: a route returning `IResult` publishes nothing, so the nine
-  refusable ones declare `.Produces<T>()` and the two listings return their value directly. It also
-  holds the route inventory — all forty-one, by method and path — which is what keeps the claim
-  above from going stale when a library adds an endpoint.
-- **`BaseLanguageTests`** — what only base-language mode can be asked, which is everything the
-  classes above cannot express because they have to pass in both: that the `Name` column exists and
-  holds English (read with raw SQL — in the default mode that statement would not even parse), that
-  a create under `Accept-Language: ar` is allowed at all, that an update in Arabic leaves the base
-  text alone, that the base language cannot be deleted. Fifteen tests, beside the forty the
-  suite runs in each mode. See [Two places a language can live](#two-places-a-language-can-live).
-- **`RemainingRouteTests`** — the six routes nothing else called, found by crossing the OpenAPI
-  document against what the suite requests: promoting a language to default (allowed with a base
-  language configured, and leaving the columns alone — the default and the base language are
-  different things), resolving a subject's values one at a time and in bulk, reordering a role and
-  detaching from it, and the direct-URL route a FileSystem backend mints nothing for.
-- **`CatalogRefusalTests`** — every request that used to be answered with a 500: a body of the wrong
-  shape, a `categoryId` naming no category, a slug or SKU already taken. Each is now a 400, a 404 or
-  a 409, in the request's language. **All three were found by running the application rather than by
-  the build** — the suite had never sent an invalid body — which is exactly why they are tests now.
+  missing translations fall back; alt text reads back on a Media file; messages arrive in the
+  reading language; deleting a product takes its images' alt text with it.
+- **`CatalogRefusalTests`** — a body of the wrong shape, a `categoryId` naming nothing, a taken slug
+  or SKU: each a 400, 404 or 409 in the request's language. All three used to be 500s, found by
+  running the application.
+- **`CatalogSettingsTests`** — `PageSize` changes the listing with no restart; a caller may override
+  it up to the cap.
+- **`BrandingCompositionTests`** — the group publishes the media owner its logo is filed under, and
+  reading branding in Arabic does not change what the group returns.
+- **`MediaShapeTests`** — a file attached under two roles is one image in a listing and two boxes in
+  the editor; alt text in several languages is one write.
+- **`SettingsSchemaTests`** — the schema carries FluentValidation's bounds and `translated`, merged.
+- **`OpenApiShapeTests`** — the document describes what each endpoint actually answers, and holds
+  the inventory of all forty-eight routes.
+- **`RemainingRouteTests`** — the six routes nothing else called.
+- **`AuditTrailTests`** — a product's life in the trail and the history that outlives it; a change
+  made straight through `AppDbContext` recorded all the same; no `Translation` entry; settings saves
+  as one entry; the right actor on each entry; and **a refused write records nothing**.
+- **`AuditRetentionTests`** — retention is off by default, and once switched on,
+  `AuditRetentionService` deletes old entries and keeps new ones.
+- **`SchemaUpgradeTests`** — a database from before the HiLo keys still boots and creates rows.
+- **`BaseLanguageTests`** — what only base-language mode can be asked.
+  Fifteen tests, beside the fifty-seven the suite runs in each mode.
 
-Both regression tests were checked the only way that means anything: the fix was reverted, the test
-failed, the fix was put back.
-
-**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 26 fast
-tests and reports the other 95 as skipped, with the reason. The README already asks for Docker,
-OrbStack or Podman to run the sample at all, so this adds no prerequisite.
+**Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
+tests and reports the other 130 as skipped, with the reason.
 
 ### And the dashboard's own
 
@@ -780,74 +655,66 @@ OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 cd clients/dashboard && npm test
 ```
 
-Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Two suites,
-and each exists because of a bug `dotnet test` could not have caught.
+Vitest in Nuxt's test environment, over the composables the pages are built from. Each suite exists
+because of something `dotnet test` cannot see:
 
-The first: attaching a logo on the
-branding tab left the role box showing the file that had just been replaced. The images it draws
-come from `useSettingsGroup`'s `values`, a plain ref, and the refresh being called could only
-re-run `useAsyncData` entries — so the header updated and the box did not.
+- **`useSettingsGroup.spec.ts`** — `refreshValues()` picks up a logo attached outside the form and
+  keeps a half-typed field; `load()` may discard edits. Attaching a logo once left the old file
+  showing.
+- **`useLanguageList.spec.ts`** — every reader shares one request, and a language created afterwards
+  reaches all of them. The list used to be read under four keys and frozen in each.
+- **`useAuditTrail.spec.ts`** — the page goes back to 1 whenever the filter changes, a new filter is
+  not answered with the page already in flight, and the declared entities are read once.
+- **`useProductList.spec.ts`** — the products listing sends no page size and draws its pager from
+  what the API used; a search is one request once typing stops; a filter goes back to page 1, a
+  delete that empties the last page moves back one, and a language switch re-reads the rows.
+- **`uiLanguage.spec.ts`** — one reading language moves the labels, `uiText` and `Intl`; `fr-CA`
+  reads in French; and Hebrew, with no bundle, gets English labels and an RTL shell.
 
-`test/nuxt/useSettingsGroup.spec.ts` pins the two things `refreshValues()` has to do at once: pick
-up a change made outside the form, and leave a half-typed field alone, because an attach is a
-different request about a different thing. A third test asserts the contrast — `load()` *is*
-allowed to discard edits — so the distinction is written down rather than remembered.
+Each was checked by reverting or breaking what it guards and watching it fail. Specs live under
+`test/nuxt/` because that is the path `npm run typecheck` covers.
 
-Both were checked by reverting the fix two ways: with `refreshValues` doing nothing, the media test
-and the edits test fail; with it re-reading but not keeping `changedKeys()`, only the edits test
-does.
+```bash
+cd clients/dashboard && npx playwright install chromium && npm run test:e2e
+```
 
-`test/nuxt/useLanguageList.spec.ts` is the second, and its bug was the language list being read
-under four `useAsyncData` keys and a fetch of its own. Nuxt de-duplicates by key alone and does not
-re-run an entry that has already resolved, so each copy was fetched separately and then frozen:
-adding a language on the Languages page left the header selector, the catalogue's editors and the
-overview's count describing the languages as they had been when each of those screens first
-loaded — and the shell could not flip to RTL for a language it did not have. The suite mounts
-three independent readers against a real Nitro endpoint and asserts one request between them, then
-that a language created afterwards reaches the two that never asked again. The first assertion
-failed when it was written — three readers, three requests — which is how `dedupe: 'defer'` got
-there.
-
-The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
-`npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which
-they were, briefly, and which hid an incomplete fixture in the very first one.
+A browser smoke test, in Playwright against the dev server, with every `/api/**` call answered from
+`test/e2e/api.ts` — no API, no database. Every page draws its title with no console error and no Vue
+warning, a refusal's toast is wholly inside the viewport, an Audit row's tooltip opens on hover, and
+Arabic turns `<html dir>` to `rtl`. It exists because the move to shadcn-vue dropped vue-sonner's
+stylesheet and every toast went invisible while all three checks above passed; taking
+`vue-sonner/style.css` out of `nuxt.config.ts` fails it.
 
 ---
 
 ## How the application is built
 
 Four projects, and nothing points back: `Domain` ← `Application` ← `Infrastructure`, with `Api`
-depending on all three because it composes them.
+composing all three.
 
 | Project | Targets | Holds | Must not reference |
 |---|---|---|---|
-| `Domain` | `net8.0;net10.0` | `Category`, `Product` | anything but `DotNetBoost.MultiLingual.Core` |
+| `Domain` | `net8.0;net10.0` | `Category`, `Product` | anything but `DotNetBoost.MultiLingual.Core` and `DotNetBoost.Auditing.Core` |
 | `Application` | `net8.0;net10.0` | the eleven slices, the dispatcher, the composition, the settings groups | Npgsql, the `*.EntityFrameworkCore` packages, the `*.API` packages |
 | `Infrastructure` | `net8.0;net10.0` | `AppDbContext`, the EF model, the seeder, `AddInfrastructure()` | ASP.NET endpoint mapping |
 | `Api` | `net10.0` | `Program.cs`, `appsettings`, `Resources/*.json` | — |
 
-The three class libraries multi-target `net8.0;net10.0`, matching the TFMs the DotNetBoost packages
-themselves ship, so the application code is proved against both. The host cannot follow: Aspire
-13.5 and the Npgsql EF Core 10 provider require `net10.0`. EF Core is therefore pinned per
-framework in `Directory.Packages.props` — 8.0.30 and 10.0.11, the versions the DotNetBoost EF
-packages ask for on each, because naming a lower one is a package downgrade and an error.
+The class libraries target both frameworks the DotNetBoost packages ship for. The host cannot:
+Aspire 13.6 and the Npgsql EF Core 10 provider need `net10.0`. EF Core is pinned per framework in
+`Directory.Packages.props`.
 
-**`Domain` references one package**, for `[MultiLingual]` and `[NotMultiLingual]` on its two
-entities. A purist would call an attribute from a library a persistence concern on a domain type;
-it is one MIT, abstraction-only package, declaring which properties are translated at all — the
-same bargain a domain entity carrying `[Required]` already makes. If the library ever grows a
-fluent configuration path, that declaration moves to `Infrastructure` and `Domain` references
-nothing.
+`Domain` carries two libraries' attributes — `[MultiLingual]` and `[AuditIgnore]` — from MIT,
+abstraction-only packages: the same bargain as `[Required]` on an entity.
 
 ### A feature is a file
 
-Each of the application's eleven routes is one file holding its whole vertical slice — what is
-asked, what comes back, what bounds the ask, who answers it, and the URL it answers on:
+Each of the eleven routes is one file holding its whole slice — what is asked, what comes back,
+what bounds it, who answers it, and the URL:
 
 ```csharp
 public static class ListProducts
 {
-    public sealed record Query(int? CategoryId, int? Page, int? PageSize)
+    public sealed record Query(int? CategoryId, string? Search, int? Page, int? PageSize)
         : IQuery<PagedResult<ProductListItem>>;
 
     public sealed record ProductListItem(int Id, string Name, /* … */ AttachedFile? Primary);
@@ -859,44 +726,33 @@ public static class ListProducts
     public sealed class Endpoint : IEndpoint
     {
         public void Map(IEndpointRouteBuilder app) =>
-            app.MapGet("/api/products", (int? categoryId, int? page, int? pageSize,
+            app.MapGet("/api/products", (int? categoryId, string? search, int? page, int? pageSize,
                                          IDispatcher dispatcher, CancellationToken ct) =>
-                   dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+                   dispatcher.SendAsync(new Query(categoryId, search, page, pageSize), ct))
                .WithTags("Products");
     }
 }
 ```
 
-They run 70–153 lines each, comments included. `Program.cs` never learns their names:
-`MapApplicationEndpoints()` scans the assembly for `IEndpoint`, and `AddApplication()` scans it for
-handlers, behaviours and request validators.
+They run 66–147 lines each, comments included. `MapApplicationEndpoints()` and `AddApplication()`
+find them by scanning, so `Program.cs` never names one.
 
-Handlers read `db.Products` through `IAppDbContext` rather than a repository, and that is
-deliberate: a plain `ToListAsync()` comes back already translated because MultiLingual's EF Core
-interceptors act on the query. Routing reads through a `GetAllAsync` would hide the single most
-interesting thing this sample does. The honest cost is that `IAppDbContext` hands out `IQueryable`
-and is not a real seam — what it buys is that `Application` never names the provider.
+Handlers read `db.Products` through `IAppDbContext` rather than a repository, because a plain
+`ToListAsync()` coming back translated is the most interesting thing this sample does, and a
+repository would hide it. The cost: `IAppDbContext` hands out `IQueryable` and is not a real seam.
 
 ### CQRS without MediatR
 
 `Abstractions/Cqrs/Dispatcher.cs` is 57 lines of code: `IRequest`, `IQuery`, `ICommand`,
-`IRequestHandler`, `IPipelineBehavior`, `IDispatcher` and the dispatcher itself.
-
-MediatR would work — 14.2.0 targets `netstandard2.0` and `net8.0`, so it loads on `net10.0` — but it
-changed licence at **v13.0** to Reciprocal Public License 1.5 or commercial, and the last
-Apache-2.0 release, 12.5.0, is unmaintained. A repository whose first claim is three MIT libraries
-with no shared kernel should not acquire an RPL-1.5-or-pay dependency to dispatch eleven handlers.
-
-The shape is MediatR's on purpose, so swapping to it — or to a source-generated mediator — is a
-change of `using` directives and one registration call. `IRequest` is kept for that reason even
-though it sits a few lines from actual HTTP requests: a folder name costs nothing to change, a
-public contract costs the escape hatch. The folder is `Cqrs` rather than the conventional
-`Messaging`, because "messaging" in .NET means a broker and nothing here crosses a process — and
-the day this application publishes an event, those abstractions should get that name.
+`IRequestHandler`, `IPipelineBehavior`, `IDispatcher` and the dispatcher. MediatR changed licence at
+v13.0 to RPL-1.5 or commercial, and a repository arguing for four MIT libraries with no shared kernel
+should not take that on to dispatch eleven handlers. The shape is MediatR's, so swapping back is a
+change of `using`s and one registration.
 
 ### What a refusal is
 
-A handler that can fail returns `Result<T>`, carrying a message **key** rather than a sentence:
+A handler that can fail returns `Result<T>` with a message **key**, and one method turns it into
+localized RFC 7807 problem details, so no handler takes a localizer:
 
 ```csharp
 if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
@@ -904,182 +760,92 @@ if (await db.Products.AnyAsync(p => p.CategoryId == request.Id, ct))
     return Error.Conflict("Catalog.CategoryHasProducts");
 ```
 
-One method turns that into RFC 7807 problem details, localized, with the status code derived from
-the kind — which is why no handler takes `IStringLocalizer<ApiMessages>`.
+A duplicate slug or SKU never reaches a handler: the unique index refuses it, and
+`PostgresErrorTranslator` — the only file that names Npgsql types — turns the constraint name into a
+`409`. Reading a `PostgresException` cannot happen in `Application` and `IExceptionHandler` cannot
+happen in `Infrastructure`, so the translator is an interface implemented on the provider's side.
 
-Not every refusal reaches a handler, though, and where each one is decided is the interesting part:
+### Why four projects for 47 files
 
-| | Answers | Decided by |
-|---|---|---|
-| A body of the wrong shape — empty SKU, negative price | `400` with the fields named | `ValidationBehavior` runs each slice's `Validator`; `ValidationExceptionHandler` maps the failure. ASP.NET does **not** map a FluentValidation `ValidationException` by itself. |
-| A `categoryId` naming no category | `404`, with the id in the sentence | A check in the handler. Only it knows which id was wrong. |
-| A slug or SKU already taken | `409`, with the field named | The unique index refuses it — uniqueness cannot be checked first, since the query is stale by the time the insert runs — and `PostgresErrorTranslator` reads the `SqlState` and constraint name. |
-
-That last row is the one place a dependency rule earns its keep. Reading
-`Npgsql.PostgresException` cannot happen in `Application`, and `IExceptionHandler` cannot happen in
-`Infrastructure`, so the classification is an interface implemented on the provider's side of the
-line: `PostgresErrorTranslator` is the only file in the solution that names Npgsql types, and it
-matches index names that the EF configurations declare as constants a few files away.
-
-### Why four projects for 43 files
-
-It is more structure than 1,800 lines of behaviour needs, and the trade is deliberate. What it buys
-is that the dependency rules above are enforced by the build rather than by a comment; what it costs
-is that a route no longer shows you what it does — `MapGet` → `IDispatcher` → the handler is three
-hops for a query whose body did not change.
-
-Two things came out better than expected. **Four of the five composition files moved untouched**:
-they name `DotNetBoost.*.Core` and nothing else, so they sit in `Application/Composition/` beside
-the slices that use them, and only `AppDbContext` turned out to be infrastructure. And **a slice is
-one file**, so eleven routes are eleven files rather than the forty-odd that one-type-per-file would
-have cost.
-
-[`ARCHITECTURE-SLICES.md`](ARCHITECTURE-SLICES.md) has the long version: the design as written, and
-a section on every place it changed on contact with a compiler or a running application.
+It is more structure than 1,800 lines of behaviour needs, deliberately: the dependency rules above
+are enforced by the build, not by a comment. The cost is that a route no longer shows what it does —
+`MapGet` → `IDispatcher` → handler is three hops. [`ARCHITECTURE-SLICES.md`](ARCHITECTURE-SLICES.md)
+has the design as written and every place it changed on contact with a compiler.
 
 ---
 
 ## Layout
 
 ```
-src/DotNetBoostSample.Domain/            net8.0;net10.0 — two entities, one package
-  Catalog/Category.cs                    [MultiLingual] — Name and Description are not columns
-  Catalog/Product.cs
-
-src/DotNetBoostSample.Application/       net8.0;net10.0 — the slices and the composition
-  Abstractions/Cqrs/Dispatcher.cs        IRequest, IQuery, ICommand, IRequestHandler,
-                                         IPipelineBehavior, IDispatcher, Dispatcher —
-                                         ~70 lines, and why it is not MediatR. Cqrs rather
-                                         than Messaging: nothing here crosses a process
-                                         boundary, and a broker would want that name
-  Abstractions/Cqrs/ValidationBehavior.cs   FluentValidation on every request, once
-  Abstractions/Cqrs/ValidationExceptionHandler.cs  and the 400 that follows from it
-  Abstractions/Persistence/IAppDbContext.cs      two DbSets and SaveChangesAsync
-  Abstractions/Persistence/IDatabaseErrorTranslator.cs  what a refused constraint
-                                         means — implemented where the provider is known
-  Abstractions/Persistence/DbUpdateExceptionHandler.cs  so a duplicate slug is a 409
-  Abstractions/Endpoints/                IEndpoint, and the scan that maps them all
-  Abstractions/Results/                  Result<T>, Error — and the one method that turns
-                                         either into a localized RFC 7807 response
-  Catalog/Categories/                    List, Get, Create, Update, Delete — one file each,
-                                         query + response + bounds + handler + route
-  Catalog/Products/                      List, Get, Create, Update, UploadImage, Delete
-  Catalog/Shared/AttachedFiles.cs        one owner's files, with roles and alt text
-  Catalog/Shared/TranslatedText.cs       one entity's text in every language, read and
-                                         written — the counterpart to Composition/MediaText.cs,
-                                         and the only file that knows what a base language is
-  Composition/MediaText.cs               Media × MultiLingual  ← the composition
-  Composition/MediaTextCleanup.cs        removes a file's text when the file goes
-  Composition/MultiLingualSchemaContributor.cs  Settings × MultiLingual — publishes
-                                         `translated` on a [MultiLingual] property
-  Settings/BrandingSettings.cs           the group, its validator, and the projector
-                                         behind GET /api/settings/branding
-  Settings/CatalogSettings.cs            the second group, with its validator
-  DependencyInjection.cs                 AddApplication() — handlers, behaviors, validators
-
-src/DotNetBoostSample.Infrastructure/    net8.0;net10.0 — where the data goes
-  Persistence/AppDbContext.cs            one database, three Apply* calls
-  Persistence/Configurations/            one IEntityTypeConfiguration per entity, each
-                                         naming its unique index as a constant
-  Persistence/PostgresErrorTranslator.cs the only file that reads PostgresException —
-                                         SqlState and constraint name into an Error
-  Persistence/DatabaseInitialiser.cs     schema + languages + catalogue on first run
-  Persistence/MultiLingualModelCacheKeyFactory.cs  the model depends on BaseLanguage, so
-                                         EF's cache key has to as well
-  DependencyInjection.cs                 AddInfrastructure() — three independent
-                                         registrations, in three blocks, in any order
-
-src/DotNetBoostSample.Api/               net10.0 — the host, and nothing else
-  Program.cs                             read configuration, then say in what order the
-                                         pieces go together
-  Resources/{en,ar,fr}.json              the API's own messages, one file per language
-
-aspire/DotNetBoostSample.AppHost/        postgres + api + dashboard
-aspire/DotNetBoostSample.ServiceDefaults/ telemetry, health, discovery
-clients/dashboard/                       Nuxt 4 + Nuxt UI, sidebar shell, RTL-aware
-  test/nuxt/                             Vitest over the composables — `npm test`
-  i18n/locales/{en,ar,fr}.json           the dashboard's own labels, one file per locale
-  i18n/i18n.config.ts                    CLDR plural rules for Arabic and French
+src/DotNetBoostSample.Domain/            Category and Product
+src/DotNetBoostSample.Application/
+  Abstractions/Cqrs/                     the dispatcher, ValidationBehavior, and its 400
+  Abstractions/Persistence/              IAppDbContext, and the 409 for a refused constraint
+  Abstractions/Endpoints/                IEndpoint, and the scan that maps them
+  Abstractions/Results/                  Result<T>, Error, and the RFC 7807 response
+  Catalog/Categories/, Catalog/Products/ the eleven slices
+  Catalog/Shared/TranslatedText.cs       an entity's text in every language, in either mode
+  Catalog/Shared/AttachedFiles.cs        an owner's files, with roles and alt text
+  Composition/                           MediaText, MediaTextCleanup, MultiLingualSchemaContributor
+  Settings/                              Branding, Catalog and Auditing settings groups
+src/DotNetBoostSample.Infrastructure/
+  Persistence/AppDbContext.cs            one database, four Apply* calls
+  Persistence/Configurations/            one per entity: unique indexes and HiLo keys
+  Persistence/DatabaseInitialiser.cs     schema and seed on first run, and upgrades for old volumes
+  Persistence/SettingGroupAuditObserver.cs
+  Persistence/PostgresErrorTranslator.cs
+  DependencyInjection.cs                 AddInfrastructure(): four independent blocks
+src/DotNetBoostSample.Api/
+  Program.cs                             the host
+  Authentication/                        the header-trusting stand-in scheme
+  Auditing/AuditRetentionService.cs      prunes the trail as the auditing group says
+  Resources/{en,ar,fr}.json              the API's own messages
+aspire/                                  AppHost (postgres + api + dashboard), ServiceDefaults
+clients/dashboard/                       Nuxt 4 + shadcn-vue
+  app/pages/                             overview, catalog, media, languages, audit, settings
   app/plugins/ui-language.ts             moves the UI locale with the reading language
-  app/plugins/reading-language.ts        restores the remembered language before the first paint
-  app/composables/useShellLocale.ts      direction and Nuxt UI's strings, from the API's answer
-  app/utils/locale.ts                    the locale, for helpers that cannot call useI18n()
-  app/utils/rememberedLanguage.ts        the choice, and its direction, across visits
-  app/pages/settings.vue                 tabbed shell — one tab per settings group
-  app/pages/settings/index.vue           no content of its own — redirects to the first
-                                         group the API reports
-  app/pages/settings/[route].vue         every group, whatever it has: the form, and —
-                                         when the group's own response says so — its text
-                                         in other languages and its media. branding.vue
-                                         used to be this with the route and the owner
-                                         address written in
-  app/components/settings/GroupForm.vue  form generated from the group's own schema, plus
-                                         the two cards a projector can add to it
-  app/components/settings/GroupText.vue  the group's `[MultiLingual]` properties, one
-                                         field per language, for any group that has them
-  app/composables/useSettingsGroup.ts    conditional save: ETag in, If-Match out, 412 merge
-  app/composables/useCatalogSettings.ts  the same group, read-only, for the screens it drives
-  app/utils/settings.ts                  one icon per route, and the label lookups —
-                                         the group list itself comes from the API
-  app/pages/languages.vue                MultiLingual's own languages table
-  app/components/languages/FormModal.vue add or edit a language
-  app/composables/useLanguages.ts        create, update, set-default, delete, purge
-  app/composables/useLanguageList.ts     the content languages, read once under one key —
-                                         so a language added here reaches the header
-                                         selector, the editors and the counts at once
-  app/pages/catalog.vue                  Categories | Products tabs — list, edit, delete
-  app/components/CategoryEditor.vue      slug + per-language text + banner picker
-  app/components/ProductEditor.vue       columns + per-language text + primary & gallery
-  app/components/TranslationEditor.vue   a button per language, fields for the selected one
-  app/components/media/PickerModal.vue   pick an existing file from the library, or upload
-  app/utils/format.ts                    sizes, dates and prices through Intl in the UI locale
-tests/DotNetBoostSample.Tests/           the claim, as tests
-  Integration/SampleApp.cs               the real Program.cs on a throwaway PostgreSQL —
-                                         subclassed once to boot it in base-language mode, which
-                                         is what makes every class below run in both
-  Integration/RequiresDockerFactAttribute.cs  skips, rather than fails, with no container runtime
-  Integration/BaseLanguageTests.cs       the same application with BaseLanguage = "en",
-                                         asserting that nothing a caller sees moved
-media/                                   file bytes at runtime (gitignored)
+  app/composables/                       one per screen's data, plus useShellLocale for direction
+  i18n/locales/{en,ar,fr}.json           the dashboard's own labels
+  test/nuxt/                             Vitest over the composables
+  test/e2e/                              Playwright smoke test, against a stubbed API
+tests/DotNetBoostSample.Tests/           the claims, as tests; Integration/ boots the real host
 docs/screenshots/                        the images above, and how to retake them
+media/                                   uploaded bytes at runtime (gitignored)
 ```
 
 ---
 
 ## Endpoints
 
-Each library maps its own, with no coordination between them:
+Each library maps its own, with no coordination:
 
 | From | Route |
 |---|---|
 | `DotNetBoost.Settings.API` | `GET /api/settings`, `GET/POST /api/settings/{group}`, `GET /api/settings/{group}/schema` |
-| `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url` |
+| `DotNetBoost.Media.API` | `/api/media`, `/api/media/{id}/content`, `/api/media/{id}/url`, attachments and roles |
 | `DotNetBoost.MultiLingual.API` | `/api/languages`, `/api/translations/{entityName}/{entityId}` |
+| `DotNetBoost.Auditing.API` | `GET /api/audit`, `GET /api/audit/{id}`, `GET /api/audit/entities[/{entityName}]` — **authorized** |
 | This application | `/api/categories`, `/api/products` |
 
-`GET /api/products` takes `page` and `pageSize` and answers `{ items, total, skip, take }` — the
-shape DotNetBoost.Media answers its own listings with, so the dashboard pages a catalogue the way
-it already pages the media library. Both parameters are optional: with no `pageSize` the API uses
-`CatalogSettings.PageSize`, which is how that setting reaches a screen at all, and `take` in the
-response says what it settled on. `MaxPageSize` caps whatever is asked for, because a page size is
-a caller's suggestion and an unbounded one is how a listing endpoint becomes a way to exhaust
-memory.
+The audit routes are the only authorized ones, and that is the library's default: a trail is a map
+of who did what. `MapAuditEndpoints()` is called bare, keeping it. Its erasure and prune endpoints
+are **not mapped** — nothing in a sample should destroy history over HTTP.
 
-**A file and a file-in-a-role are different shapes, and the API sends different ones.** A listing
-or a thumbnail — `images` and `primary` on `/api/products`, `banner` on `/api/categories`, `logo`
-on `/api/settings/branding` — carries the file and its text, and no role: a role belongs to an attachment,
-and the media library lets one file be attached several times over, so there is no single role to
-report. The detail endpoints carry `role` and `sortOrder`, because a role box is asking about links
-rather than files. It is the library's own distinction — `ListAsync` answers "what files does this
-entity use" and returns each once; `ListWithRolesAsync` answers per link and returns a file once
-per role — and the two shapes exist so that each endpoint can use the right one. A product using
-one image as both its `primary` and its `gallery` picture therefore counts as **one** image in the
-list and fills **two** boxes in the editor, which is correct in both places.
+`GET /api/products` takes `categoryId`, `search`, `page` and `pageSize` and answers
+`{ items, total, skip, take }`, the shape Media's own listings use. With no `pageSize` the API uses
+`CatalogSettings.PageSize` and reports it in `take`; any size is clamped to `MaxPageSize`. `search`
+matches name and description **in the request's language** — the handler filters `p.Name` as if it
+were a column and MultiLingual's interceptor rewrites it — so "مكتب" finds the writing desk under
+`Accept-Language: ar`.
 
-Attachments are the media library's: `POST /api/media/{id}/attachments`,
-`DELETE /api/media/{id}/attachments/{attachmentId}`, `PUT /api/media/attachments/order` and
-`GET /api/media/roles/{entityName}`. The roles themselves are declared once, in
-`Infrastructure/DependencyInjection.cs`:
+**A file and a file-in-a-role are different shapes.** Listings (`images`, `primary`, `banner`,
+`logo`) carry a file and its text with no role, because one file can be attached under several
+roles. Detail endpoints carry `role` and `sortOrder`, because a role box asks about links. So a
+product using one image as both `primary` and `gallery` is **one** image in the list and fills
+**two** boxes in the editor. No shape carries a URL: the dashboard builds every image URL from the
+file id, because Media's `url` is a signed link that is null on the file-system backend.
+
+Roles are declared once, and the editor grows a box for each:
 
 ```csharp
 .DeclareRoles("Product",  roles => roles.One("primary").Many("gallery"))
@@ -1087,37 +853,14 @@ Attachments are the media library's: `POST /api/media/{id}/attachments`,
 .DeclareRoles<BrandingSettings>()   // reads [MediaRole] off the class
 ```
 
-Add a role there — or one more `[MediaRole]` attribute — and the editor grows a box for it, with no
-change to the dashboard. `DeclareRolesFrom(assembly)` scans a whole assembly if you would rather
-every entity carried its own.
-
 Full reference at `/scalar` on the API.
 
 ### What a catalogue write answers with
 
-`GET /api/products` comes back translated without anything asking it to, because MultiLingual's EF
-Core interceptors did it. The **API's own sentences** are a separate question: a 404, a 409, and
-"the category was saved" are not entity content, so no interceptor touches them.
-
-They are localized anyway — `src/DotNetBoostSample.Application/Localization/ApiMessages.cs` is the marker
-type they are injected under, and `Resources/{en,ar,fr}.json` beside it holds the words. What makes
-this different from `AddLocalization()` is which language it reads — registered in
-`Infrastructure/DependencyInjection.cs`, with the rest of the MultiLingual block:
-
-```csharp
-services
-    .AddMultiLingual()
-    .UseEntityFrameworkCore<AppDbContext>()
-    .AddJsonLocalization()      // the API's own messages, same registration chain
-    .Build();
-```
-
-The standard localizer answers in `CultureInfo.CurrentUICulture`. This one answers in
-`IMultiLingualManager.CurrentLanguage` — the same language the interceptors just translated the row
-with, resolved from the same `Accept-Language` and falling back the same way. So a refusal and the
-content it was about cannot disagree about what language the caller reads.
-
-Every write says what it did, not only what it refused:
+Entity content is translated by MultiLingual's interceptors; the API's **own sentences** — "the
+category was saved", a 404, a 409 — are not entity content. They come from `Resources/{en,ar,fr}.json`
+through `.AddJsonLocalization()`, which answers in `IMultiLingualManager.CurrentLanguage` rather than
+`CurrentUICulture`, so a refusal and the content it is about cannot disagree about the language.
 
 | | Answers | Body |
 |---|---|---|
@@ -1126,22 +869,15 @@ Every write says what it did, not only what it refused:
 | `DELETE /api/categories/{id}`, `DELETE /api/products/{id}` | `200` | `{ message }` |
 | `POST /api/products/{id}/images` | `200` | `{ id, fileName, size, message }` |
 
-The updates and deletes answer `200` rather than `204` for the obvious reason: a `204` is defined to
-have no body, so there is nowhere to put the sentence. Refusals carry the same words in the `detail`
-of RFC 7807 problem details, which is what MultiLingual's own endpoint filter already produces —
-through the very same localizer — so the dashboard reads one shape whether the application refused
-or the library did.
+`200` rather than `204`, because a `204` has nowhere to put the sentence. Refusals carry their
+sentence in RFC 7807's `detail`, the same shape MultiLingual's own endpoints produce:
 
-And every refusal is one of four, each decided somewhere different:
-
-| | Answers | Where it is decided |
+| | Answers | Decided by |
 |---|---|---|
-| A field is the wrong shape — empty slug or SKU, negative price | `400` + `errors` | the slice's `Validator`, run by `ValidationBehavior` |
-| The id in the route names nothing | `404` | the handler, returning `Error.NotFound` |
-| A `categoryId` in the body names nothing | `404` | the handler, which is the only code that knows *which* id was wrong |
-| A category still has products; a slug or SKU is taken | `409` | the handler for the first, and the unique index for the second — read back by `PostgresErrorTranslator` |
-
-All four are localized, and `CatalogRefusalTests` asserts each one. Three of them used to be `500`.
+| A field of the wrong shape — empty slug or SKU, negative price | `400` + `errors` | the slice's `Validator`, run by `ValidationBehavior` |
+| An id in the route, or a `categoryId` in the body, naming nothing | `404` | the handler — the only code that knows *which* id was wrong |
+| A category that still has products | `409` | the handler |
+| A slug or SKU already taken | `409` | the unique index, read back by `PostgresErrorTranslator` |
 
 ```console
 $ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
@@ -1149,56 +885,23 @@ $ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
 
 $ curl -X DELETE /api/products/4 -H 'Accept-Language: fr'
 200  {"message":"Le produit CASE-002 a été supprimé."}
-
-$ curl -X DELETE /api/categories/3 -H 'Accept-Language: ar'
-200  {"message":"تم حذف التصنيف coques-telephone."}
 ```
 
-The message names the row by its **slug or SKU**, not by the id the request addressed it with —
-`"Category phone-cases was saved."` confirms the edit landed on the row the editor meant, where
-`"Category 7 was saved."` sends them to go and check. A 404 keeps using the id —
-`"La catégorie 3 est introuvable."` — because there the id is the only handle the caller has.
-
-The dashboard splits the toast accordingly: the **title** is its own i18n bundle, because a short
-label that is the same every time is what makes a toast scannable, and the **description** is the
-API's sentence, because it names the row and the API is the side that knows which row it turned out
-to be. Which is already how a refusal is shown — the same split, from `problemMessage(error)`.
-
-> **Two gaps this sample surfaced — and both are closed.**
->
-> `DotNetBoost.MultiLingual.API` shipped `MapLanguageEndpoints` and no way to write a translation
-> over HTTP, so this application hand-wrote that CRUD as `/api/media-text` and
-> `/api/branding/text`. It ships `MapTranslationEndpoints` now, opted into per entity name with
-> `.ExposeOverHttp(...)`, and both of those files are gone.
->
-> `IMediaAccessor` answered about one owner at a time, with no bulk form of any of its questions,
-> so a listing cost a query per row — and `ListWithRolesAsync` cost two, reading the attachment
-> rows and then the files they point at. `GET /api/categories` measured N + 3 and
-> `GET /api/products` 2N + 3. `IMediaManager.ForMany(...)` answers about a page of owners in one
-> read, and both listings are now four queries whatever the page holds.
->
-> `DotNetBoost.Media.API`'s list endpoint returns `url` as a *signed, expiring* link, which is
-> null on the FileSystem backend. The dashboard therefore derives every URL from the file's id
-> (`contentUrl` in `app/utils/format.ts`) rather than reading the field — which also means
-> switching to Azure or S3 changes no client code.
->
-> This application's own image shapes carry no `url` at all, for the same reason. They used to
-> build `/api/media/{id}/content` server-side, which nothing read: every image on screen is
-> rendered from the id regardless, because the field that does exist cannot be trusted to. One
-> rule, one home.
+A success names the row by its **slug or SKU**, which confirms the edit landed where it was meant; a
+404 names the id, the only handle the caller has. The dashboard's toast takes its title from its own
+bundle and its description from the API's sentence.
 
 ---
 
 ## Configuration
 
-`MultiLingual:BaseLanguage` is empty, which is the mode everything above describes: every language
-is a translation row. Set it — in `appsettings.json`, or as `MultiLingual__BaseLanguage=en` — and
-that language lives in each entity's own columns instead. It is a schema decision, so it wants a
-fresh database; [Two places a language can live](#two-places-a-language-can-live) is the long
-version, including why no response and no line of the dashboard changes with it.
+**`MultiLingual:BaseLanguage`** is empty by default, so every language is a translation row. Set it
+(`MultiLingual__BaseLanguage=en`) against a fresh database to keep one language in the entities' own
+columns — see [Two places a language can live](#two-places-a-language-can-live).
 
-`MEDIA` bytes go to `./media` on local disk, which needs no container and no credentials. To switch
-to Azure Blob Storage or S3, change one line in `Infrastructure/DependencyInjection.cs`:
+**Media** bytes go to `./media` on local disk. Azure Blob Storage or S3 is one line in
+`Infrastructure/DependencyInjection.cs`, and files uploaded before a switch keep working, because
+each row records which backend wrote it:
 
 ```csharp
 .UseFileSystem(mediaRoot, isDefault: true)     // this sample
@@ -1206,7 +909,17 @@ to Azure Blob Storage or S3, change one line in `Infrastructure/DependencyInject
 // .UseAmazonS3(…)
 ```
 
-Files uploaded before the switch keep working, because every row records which backend wrote it.
+**`X-Sample-Actor`** is the sample's stand-in for authentication: whoever it names is the actor on
+the audit entries a request produces, and a request without it is signed in as
+`sample.user@example.com`. It verifies nothing. Replacing
+`Authentication/SampleActorAuthentication.cs` with a real scheme is the whole change, since the
+engine only asks `HttpContext.User`.
+
+**Retention is a settings group, off until you turn it on.** The **Audit trail** group holds whether
+old entries are deleted, after how many days (365 by default), and how often to check (every 24
+hours by default). `AuditRetentionService` reads it every minute, so an edit applies without a
+restart. Retention is the only Auditing option exposed this way because it is the only one that can
+follow an edit; the rest are read once, at `Build()`.
 
 ## License
 

@@ -8,14 +8,14 @@ namespace DotNetBoostSample.Tests.Integration;
 ///
 /// <para><b>Why they are collected rather than distributed.</b> They were found by listing the
 /// generated OpenAPI document and crossing it against what the tests actually request — six of
-/// forty-one, each one reachable from the dashboard or from a client reading the document, and none
-/// of them asserted anywhere. A test per route is worth more than a tidy home for it, and together
+/// forty-five, each one reachable from the dashboard or from a client reading the document, and
+/// none of them asserted anywhere. A test per route is worth more than a tidy home for it, and together
 /// they are the difference between "the suite is green" and "every published route has been
 /// called".</para>
 ///
-/// <para><b>And the forty-one is pinned rather than remembered.</b> A cross-check done by hand
-/// holds only until the next route is mapped — by this application or by the next version of a
-/// library whose endpoints it publishes. <c>OpenApiShapeTests</c> asserts the inventory by name, so
+/// <para><b>And the inventory is pinned rather than remembered</b> — forty-eight routes now. A
+/// cross-check done by hand holds only until the next route is mapped — by this application or by
+/// the next version of a library whose endpoints it publishes. <c>OpenApiShapeTests</c> asserts the inventory by name, so
 /// a new route arrives as a failing test with that route in the message, which is the prompt to
 /// call it here.</para>
 ///

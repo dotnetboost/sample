@@ -1,8 +1,5 @@
-import { ar, en, fr } from '@nuxt/ui/locale'
-
 /**
- * What the shell needs to know about the language it is being read in: which way it reads, and
- * which of Nuxt UI's own string bundles to hand the component library.
+ * What the shell needs to know about the language it is being read in: which way it reads.
  *
  * **Direction is the API's answer.** `GET api/languages` stores it per language, so adding `he` on
  * the Languages page comes back right-to-left without this file being told, and there is no
@@ -15,16 +12,8 @@ import { ar, en, fr } from '@nuxt/ui/locale'
  * single thing for a write on the Languages page to refresh.
  */
 
-/**
- * Nuxt UI's own labels — the pagination buttons, a dialog's close button, the file dropzone — for
- * the locales this dashboard ships. Imported one by one rather than as the whole barrel, which
- * would pull some fifty bundles into the client to use three.
- */
-const componentLocales = { en, ar, fr }
-
 export function useShellLocale() {
   const language = useLanguage()
-  const { locale } = useI18n()
 
   const { languages, loaded } = useLanguageList()
 
@@ -45,11 +34,5 @@ export function useShellLocale() {
     return remembered?.code === language.value ? remembered.direction : 'ltr'
   })
 
-  // Keyed off the UI locale rather than the reading language, so the fallback for a language with
-  // no bundle is decided in exactly one place — `plugins/ui-language.ts` — and Nuxt UI's strings
-  // cannot end up in a different language from the dashboard's own.
-  const componentLocale = computed(() =>
-    componentLocales[locale.value as keyof typeof componentLocales] ?? componentLocales.en)
-
-  return { languages, loaded, direction, componentLocale }
+  return { languages, loaded, direction }
 }

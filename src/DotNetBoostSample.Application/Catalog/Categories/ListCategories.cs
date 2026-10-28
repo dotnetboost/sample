@@ -16,8 +16,7 @@ namespace DotNetBoostSample.Application.Catalog.Categories;
 ///
 /// <para>Nothing here reads a translation explicitly: <c>db.Categories.ToListAsync()</c> comes
 /// back with <c>Name</c> and <c>Description</c> already filled, because MultiLingual's EF Core
-/// interceptors did it. Moving this into a handler changed nothing about that — the interceptors
-/// act on the query, not on who is asking.</para>
+/// interceptors did it.</para>
 /// </summary>
 public static class ListCategories
 {
@@ -50,17 +49,11 @@ public static class ListCategories
                 .Select(group => new { CategoryId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(row => row.CategoryId, row => row.Count, ct);
 
-            // Every banner in ONE query. Through media.For(category) this was a GetByRoleAsync per
-            // row — the library addressed one owner at a time and had no bulk form of the question,
-            // so the cost was paid here in the open and documented as the price of having no
-            // integration package. ForMany is the bulk form, and the price is gone.
-            //
-            // Measured with EF command logging on: this listing is 4 queries whatever it holds —
-            // the categories, the grouped product counts, the banners, and one translations read.
-            // It was N + 3.
+            // Every banner in one query rather than one per row. With the categories, the counts
+            // and one translations read, this listing is 4 queries whatever it holds.
             var banners = await media.ForMany(rows).GetByRoleAsync(CatalogRoles.Banner, ct);
 
-            // One query for every banner's alt text, for the same reason.
+            // And one for every banner's alt text.
             var altText = await mediaText.GetManyAsync(
                 [.. banners.Values.Where(b => b is not null).Select(b => b!.Id)], ct);
 
@@ -86,9 +79,8 @@ public static class ListCategories
     {
         /// <inheritdoc/>
         public void Map(IEndpointRouteBuilder app) =>
-            // Returns the list rather than Results.Ok(list), which is what lets the generated
-            // OpenAPI document describe the 200 as CategoryListItem[]. Wrapped in an IResult the
-            // document can only say "OK" — the shape is there, and nothing can see it.
+            // Returns the list rather than Results.Ok(list), so the OpenAPI document can describe
+            // the 200 as CategoryListItem[]; an IResult only says "OK".
             app.MapGet("/api/categories", (IDispatcher dispatcher, CancellationToken ct) =>
                    dispatcher.SendAsync(new Query(), ct))
                .WithTags("Categories")

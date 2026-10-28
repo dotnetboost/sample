@@ -5,7 +5,7 @@ the two disagreed the code won — §10 lists what changed on contact with the c
 written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
 whether to merge it; §11.3 says how that ended.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 121 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 160 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 
@@ -46,7 +46,7 @@ Three reasons specific to this repo, not general taste:
 
 **And a caveat on multi-targeting.** The *libraries* below can target `net8.0;net10.0`. The **host
 cannot today**: `Microsoft.EntityFrameworkCore` / `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3 and
-Aspire 13.5.3 all require `net10.0`. §7 has the conditional-version pattern if you want the host on
+Aspire 13.6.4 all require `net10.0`. §7 has the conditional-version pattern if you want the host on
 both too; the value is mostly in the class libraries, where multi-targeting proves the slices
 compile against DotNetBoost's own `net8.0` TFM.
 
@@ -55,7 +55,12 @@ compile against DotNetBoost's own `net8.0` TFM.
 ## 1. One concern, stated once
 
 This repo was **1,788 lines of C# in 13 files** when this was written, and the README's thesis is
-that the integration between three independent libraries is *five files, none of them large*.
+that the integration between three independent libraries is *five files, none of them large*. A
+fourth library has since been installed, and that count is now nine files — see the README; the
+reasoning below is unaffected. The one new file it would have changed its mind about,
+`Composition/CreationTrail.cs` — a creation's audit entry, written by hand in a scope of its own —
+is gone again: DotNetBoost.Auditing 1.0.0-preview.2 added `IgnoreEntity<T>()`, its capture is now
+attached to the context, and its place on the list is one line of `Infrastructure/DependencyInjection.cs`.
 Clean architecture plus vertical slices turns one project into four and moves the composition
 behind a dispatcher. The behaviour does not change. For a monolith heading to a hundred endpoints
 that is the right trade; for a sample whose job is to make a composition claim visible in one
@@ -190,9 +195,10 @@ src/DotNetBoostSample.Api/
   appsettings*.json
 ```
 
-Eleven slices, each one file. The three library endpoint sets (`/api/settings`, `/api/media`,
-`/api/languages`, `/api/translations`) are untouched — they are still four `Map*Endpoints()` calls
-in `Program.cs`, and this architecture does not reach them.
+Eleven slices, each one file. The library endpoint sets (`/api/settings`, `/api/media`,
+`/api/languages`, `/api/translations`, and `/api/audit` since a fourth library was installed) are
+untouched — they are still one `Map*Endpoints()` call each in `Program.cs`, five of them now, and
+this architecture does not reach them.
 
 ---
 
@@ -435,11 +441,12 @@ public static class ListProducts
         public void Map(IEndpointRouteBuilder app) =>
             app.MapGet("/api/products", async (
                     int? categoryId,
+                    string? search,
                     int? page,
                     int? pageSize,
                     IDispatcher dispatcher,
                     CancellationToken ct) =>
-                await dispatcher.SendAsync(new Query(categoryId, page, pageSize), ct))
+                await dispatcher.SendAsync(new Query(categoryId, search, page, pageSize), ct))
                .WithTags("Products")
                .WithSummary("One page of products, translated, with per-language image alt text");
     }
@@ -660,7 +667,7 @@ about four queries per page could be a unit test rather than a comment.
 | **Projects and files** | 1 → 4 projects, and 13 → 42 C# files in `src/`. The eleven slices account for eleven of the twenty-nine new ones; the rest is the dispatcher, the result type, the endpoint scan, four shared records, two EF configurations, and the refusal handling §10a added after this table was first written — the validation and `DbUpdate` handlers, the error-translator interface and its Postgres implementation. Nothing it does is new. |
 | **Indirection** | A route no longer shows you what it does. `MapGet → IDispatcher → Wrapper<,> → behaviors → Handler` is four hops for a query whose body is unchanged, and the stack trace in a debugger gets a reflection frame in the middle. |
 | **Reflection** | Handler scanning and `MakeGenericType` at first dispatch. Fine for a server; a blocker under native AOT, where the answer is a source-generated dispatcher. |
-| **Reach** | Covers 11 of the application's routes. The three libraries' own endpoints are not slices and will never be — so the dashboard talks to two different architectures, which is honest but worth knowing. |
+| **Reach** | Covers 11 of the application's routes. The libraries' own endpoints are not slices and will never be — so the dashboard talks to two different architectures, which is honest but worth knowing. |
 | **Multi-targeting** | Two compiles, two analyzer passes, a CI matrix, and conditional EF versions. Buys you proof that the slices build against DotNetBoost's `net8.0` TFM. |
 | **The thesis** | The README's claim is "five files, none of them large." It is still true after this, and `Composition/` makes it more visible — but a reader now meets a dispatcher, a result type and four projects on the way to it. |
 
@@ -692,7 +699,7 @@ that the package layout made the layering mistake unbuildable rather than merely
 
 **`AddInfrastructure` takes strings, not `IConfiguration`.** Reading configuration is the host's
 job, so `Program.cs` resolves the connection string and the media root and passes both. That keeps
-Infrastructure's package list to EF Core, the three libraries' stores and the Npgsql provider — no
+Infrastructure's package list to EF Core, the libraries' stores and the Npgsql provider — no
 `Microsoft.Extensions.Configuration`, no `Hosting` — and it means the "run the AppHost" message for
 a missing connection string is raised where it can say something useful.
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Info } from '@lucide/vue'
 import type { EntityImage, Language, Translations } from '~/types'
 
 /**
@@ -91,77 +92,71 @@ async function save() {
 </script>
 
 <template>
-  <USlideover
+  <EditorSheet
     v-model:open="open"
     :title="categoryId === null ? $t('categoryEditor.titleNew') : $t('categoryEditor.titleEdit')"
     :description="$t('categoryEditor.description')"
-    :ui="{ content: 'max-w-xl' }"
   >
-    <template #body>
-      <div v-if="loading" class="py-10 text-center text-muted">
-        {{ $t('common.loading') }}
-      </div>
+    <div v-if="loading" class="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+      <Spinner />
+      {{ $t('common.loading') }}
+    </div>
 
-      <div v-else class="space-y-6">
-        <UFormField
-          :label="$t('categoryEditor.slug.label')"
-          :help="$t('categoryEditor.slug.help')"
-        >
-          <UInput
-            v-model="slug"
-            dir="ltr"
-            :placeholder="$t('categoryEditor.slug.placeholder')"
-            class="w-full"
-          />
-        </UFormField>
-
-        <div>
-          <p class="mb-2 text-sm font-medium">
-            {{ $t('categoryEditor.textPerLanguage') }}
-          </p>
-          <TranslationEditor
-            v-model="translations"
-            :languages="languages"
-            :fields="[
-              { name: 'Name', label: $t('translationFields.name') },
-              { name: 'Description', label: $t('translationFields.description'), textarea: true }
-            ]"
-          />
-        </div>
-
-        <div v-if="categoryId !== null">
-          <p class="mb-2 text-sm font-medium">
-            {{ $t('categoryEditor.media') }}
-          </p>
-          <EntityAttachments
-            entity-name="Category"
-            :entity-id="String(categoryId)"
-            :images="images"
-            @changed="refreshImages"
-          />
-        </div>
-
-        <UAlert
-          v-else
-          icon="i-lucide-info"
-          variant="subtle"
-          color="neutral"
-          :title="$t('categoryEditor.saveFirst.title')"
-          :description="$t('categoryEditor.saveFirst.description')"
+    <FieldGroup v-else>
+      <Field>
+        <FieldLabel for="category-slug">
+          {{ $t('categoryEditor.slug.label') }}
+        </FieldLabel>
+        <Input
+          id="category-slug"
+          v-model="slug"
+          dir="ltr"
+          :placeholder="$t('categoryEditor.slug.placeholder')"
         />
-      </div>
-    </template>
+        <FieldDescription>{{ $t('categoryEditor.slug.help') }}</FieldDescription>
+      </Field>
+
+      <Field>
+        <FieldTitle>
+          {{ $t('categoryEditor.textPerLanguage') }}
+        </FieldTitle>
+        <TranslationEditor
+          v-model="translations"
+          :languages="languages"
+          :fields="[
+            { name: 'Name', label: $t('translationFields.name') },
+            { name: 'Description', label: $t('translationFields.description'), textarea: true }
+          ]"
+        />
+      </Field>
+
+      <Field v-if="categoryId !== null">
+        <FieldTitle>
+          {{ $t('categoryEditor.media') }}
+        </FieldTitle>
+        <EntityAttachments
+          entity-name="Category"
+          :entity-id="String(categoryId)"
+          :images="images"
+          @changed="refreshImages"
+        />
+      </Field>
+
+      <Alert v-else>
+        <Info />
+        <AlertTitle>{{ $t('categoryEditor.saveFirst.title') }}</AlertTitle>
+        <AlertDescription>{{ $t('categoryEditor.saveFirst.description') }}</AlertDescription>
+      </Alert>
+    </FieldGroup>
 
     <template #footer>
-      <div class="flex w-full justify-end gap-2">
-        <UButton
-          :label="$t('common.cancel')"
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        />
-        <UButton :loading="saving" :label="$t('common.save')" @click="save" />
-      </div>
+      <Button variant="ghost" @click="open = false">
+        {{ $t('common.cancel') }}
+      </Button>
+      <Button :disabled="saving" @click="save">
+        <Spinner v-if="saving" />
+        {{ $t('common.save') }}
+      </Button>
     </template>
-  </USlideover>
+  </EditorSheet>
 </template>

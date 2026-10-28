@@ -190,6 +190,66 @@ public abstract class CatalogCompositionTests(SampleApp app)
             Assert.Equal(0, await TranslationCountAsync(db, fileId)));
     }
 
+    /// <summary>
+    /// <c>?search=</c> matches what the caller reads. Name and Description have no column in the
+    /// default mode, and the handler filters on them as if they did: MultiLingual rewrites the
+    /// read in the <c>Where</c> into the request's language. So the same word finds different rows
+    /// in different languages, and a translated word finds nothing in a language it is not in.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Search_matches_the_name_in_the_requests_language()
+    {
+        var client = app.Client;
+
+        async Task<HashSet<string>> SkusFor(string query, string language) =>
+            [.. (await client.GetJsonAsync($"/api/products?{query}", language))
+                .GetProperty("items").EnumerateArray().Select(p => p.Str("sku"))];
+
+        // "Oak writing desk" and "Brass desk lamp", not the "Walnut chair" — and the case is ignored.
+        var english = await SkusFor("search=DESK", "en");
+        Assert.Contains("DESK-001", english);
+        Assert.Contains("LAMP-001", english);
+        Assert.DoesNotContain("CHAIR-001", english);
+
+        // The same two in Arabic, by the Arabic word: "مكتب كتابة من البلوط", "مصباح مكتب نحاسي".
+        var arabic = await SkusFor($"search={Uri.EscapeDataString("مكتب")}", "ar");
+        Assert.Contains("DESK-001", arabic);
+        Assert.Contains("LAMP-001", arabic);
+        Assert.DoesNotContain("CHAIR-001", arabic);
+
+        // The French word finds only the desk, and only in French.
+        var chene = Uri.EscapeDataString("chêne");
+        Assert.Equal(["DESK-001"], await SkusFor($"search={chene}", "fr"));
+        Assert.Empty(await SkusFor($"search={chene}", "en"));
+    }
+
+    /// <summary>
+    /// The SKU is a column in every mode, and searched the same way; the category filter that was
+    /// already there narrows a search rather than replacing it; and a search that matches nothing
+    /// says so with a total of zero, which is what lets the dashboard tell "no products" from "no
+    /// matches".
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Search_covers_the_sku_and_combines_with_the_category()
+    {
+        var client = app.Client;
+
+        var furniture = (await client.GetJsonAsync("/api/categories")).EnumerateArray()
+            .First(c => c.Str("slug") == "furniture").Int("id");
+
+        var bySku = await client.GetJsonAsync("/api/products?search=lamp-001", "en");
+        Assert.Equal(["LAMP-001"], bySku.GetProperty("items").EnumerateArray().Select(p => p.Str("sku")));
+
+        // "desk" alone finds the desk and the lamp; in Furniture, only the desk.
+        var inFurniture = await client.GetJsonAsync($"/api/products?search=desk&categoryId={furniture}", "en");
+        Assert.Equal(["DESK-001"], inFurniture.GetProperty("items").EnumerateArray().Select(p => p.Str("sku")));
+        Assert.Equal(1, inFurniture.Int("total"));
+
+        var none = await client.GetJsonAsync("/api/products?search=no-such-product", "en");
+        Assert.Equal(0, none.Int("total"));
+        Assert.Equal(0, none.GetProperty("items").GetArrayLength());
+    }
+
     private static async Task<int> TranslationCountAsync(AppDbContext db, Guid fileId)
     {
         var key = fileId.ToString("D");

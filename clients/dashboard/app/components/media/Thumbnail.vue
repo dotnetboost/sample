@@ -24,7 +24,7 @@ watch(() => props.file.id, () => failed.value = false)
 </script>
 
 <template>
-  <div class="flex items-center justify-center overflow-hidden bg-elevated/50">
+  <div class="flex items-center justify-center overflow-hidden bg-muted/50">
     <img
       v-if="showImage"
       :src="contentUrl(file.id)"
@@ -34,10 +34,10 @@ watch(() => props.file.id, () => failed.value = false)
       class="size-full object-cover"
       @error="failed = true"
     >
-    <UIcon
+    <component
+      :is="iconFor(file.contentType)"
       v-else
-      :name="iconFor(file.contentType)"
-      :class="[iconSize, 'text-dimmed']"
+      :class="[iconSize, 'text-muted-foreground/70']"
     />
   </div>
 </template>

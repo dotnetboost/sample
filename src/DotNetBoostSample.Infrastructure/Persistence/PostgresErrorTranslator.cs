@@ -46,7 +46,7 @@ public sealed class PostgresErrorTranslator : IDatabaseErrorTranslator
                     CategoryConfiguration.SlugIndex => Error.Conflict("Catalog.SlugTaken"),
                     ProductConfiguration.SkuIndex   => Error.Conflict("Catalog.SkuTaken"),
 
-                    // Some other unique index — one of the three libraries' own, or one added
+                    // Some other unique index — one of the four libraries' own, or one added
                     // without coming back here. Still a 409 and still not a 500, because the
                     // shape of the answer does not depend on knowing which field it was.
                     _ => Error.Conflict("Database.ValueTaken")

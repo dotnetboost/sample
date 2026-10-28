@@ -16,7 +16,7 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="py-8 text-center text-sm text-muted">
+  <div class="py-8 text-center text-sm text-muted-foreground">
     <!-- Only ever seen when the API reports no settings groups at all. -->
     {{ first ? '' : $t('settings.noGroups') }}
   </div>

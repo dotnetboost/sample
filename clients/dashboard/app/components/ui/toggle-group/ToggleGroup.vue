@@ -1,0 +1,54 @@
+<script setup lang="ts">
+import type { VariantProps } from 'class-variance-authority'
+import type { ToggleGroupRootEmits, ToggleGroupRootProps } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+import type { toggleVariants } from '@/components/ui/toggle'
+import { reactiveOmit } from '@vueuse/core'
+import { cn } from 'cn'
+import { ToggleGroupRoot, useForwardPropsEmits } from 'reka-ui'
+import { provide } from 'vue'
+
+type ToggleGroupVariants = VariantProps<typeof toggleVariants>
+
+const props = withDefaults(defineProps<ToggleGroupRootProps & {
+  class?: HTMLAttributes['class']
+  variant?: ToggleGroupVariants['variant']
+  size?: ToggleGroupVariants['size']
+  spacing?: number
+}>(), {
+  spacing: 0,
+  // Local to this project: horizontal unless told otherwise. reka-ui writes `data-orientation`
+  // only when `orientation` is given, and the items' joined-group corners and borders
+  // (`group-data-horizontal/toggle-group:…`) never applied without it — every button in a joined
+  // group came out square at both ends. It also makes the arrow keys move along the row.
+  orientation: 'horizontal'
+})
+
+const emits = defineEmits<ToggleGroupRootEmits>()
+
+provide('toggleGroup', {
+  variant: props.variant,
+  size: props.size,
+  spacing: props.spacing
+})
+
+const delegatedProps = reactiveOmit(props, 'class', 'size', 'variant')
+const forwarded = useForwardPropsEmits(delegatedProps, emits)
+</script>
+
+<template>
+  <ToggleGroupRoot
+    v-slot="slotProps"
+    data-slot="toggle-group"
+    :data-size="size"
+    :data-variant="variant"
+    :data-spacing="spacing"
+    :style="{
+      '--gap': spacing
+    }"
+    v-bind="forwarded"
+    :class="cn('rounded-md data-[spacing=0]:data-[variant=outline]:shadow-xs group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] data-vertical:flex-col data-vertical:items-stretch', props.class)"
+  >
+    <slot v-bind="slotProps" />
+  </ToggleGroupRoot>
+</template>

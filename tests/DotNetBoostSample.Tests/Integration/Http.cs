@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using DotNetBoostSample.Api.Authentication;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -17,6 +18,31 @@ namespace DotNetBoostSample.Tests.Integration;
 internal static class Http
 {
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// The default caller, for the one endpoint set in this application that requires one.
+    ///
+    /// <para>A name rather than a credential: the sample's authentication scheme trusts a header,
+    /// which is all the audit engine needs to record who acted. See
+    /// <c>Api/Authentication/SampleActorAuthentication.cs</c> — it verifies nothing, and says so
+    /// at length.</para>
+    /// </summary>
+    public const string DefaultActor = "alice@example.com";
+
+    /// <summary>
+    /// The same client, naming who is asking — so a write is attributed and the trail is readable.
+    ///
+    /// <para>Set as a default header rather than per request because every call a test makes after
+    /// this is the same person acting. <c>SampleApp.Client</c> hands out a fresh client each time,
+    /// so this cannot leak into another test.</para>
+    /// </summary>
+    public static HttpClient AsActor(this HttpClient client, string actor = DefaultActor)
+    {
+        client.DefaultRequestHeaders.Remove(SampleActorAuthenticationHandler.ActorHeader);
+        client.DefaultRequestHeaders.Add(SampleActorAuthenticationHandler.ActorHeader, actor);
+
+        return client;
+    }
 
     /// <summary>A GET, read in <paramref name="language"/> — the header the whole sample turns on.</summary>
     public static Task<HttpResponseMessage> GetAsync(

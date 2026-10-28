@@ -1,10 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import tailwindcss from '@tailwindcss/vite'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
-    '@nuxt/ui',
+    '@nuxt/fonts',
+    '@nuxtjs/color-mode',
     '@nuxtjs/i18n',
-    '@vueuse/nuxt'
+    '@vueuse/nuxt',
+    'shadcn-nuxt'
   ],
 
   // Client-rendered single-page app. Nitro is still used, but only to proxy the
@@ -30,7 +34,14 @@ export default defineNuxtConfig({
     }
   },
 
-  css: ['~/assets/css/main.css'],
+  // vue-sonner 2 no longer injects its own styles: without its stylesheet the `<Toaster>` in
+  // app.vue mounts, and every toast is drawn into an unpositioned list nobody sees.
+  css: ['vue-sonner/style.css', '~/assets/css/main.css'],
+
+  // shadcn-vue's dark theme hangs off a bare `.dark` class on `<html>`, not `.dark-mode`.
+  colorMode: {
+    classSuffix: ''
+  },
 
   runtimeConfig: {
     // Base address of the sample API: three libraries' endpoints plus the app's own.
@@ -57,6 +68,39 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-06-30',
 
+  vite: {
+    plugins: [tailwindcss()],
+
+    // Pre-bundled when the dev server starts, rather than discovered on the first page that imports
+    // them. Discovered late, each one re-bundles the lot and reloads the browser mid-page — a
+    // flicker in development, and a `504 (Outdated Optimize Dep)` with a failed import in the
+    // browser smoke test (`npm run test:e2e`), which runs against the dev server and starts cold.
+    // The list is the one `nuxt dev` prints when it finds them; a new dependency imported from a
+    // page belongs here too, and the smoke test is what says so.
+    optimizeDeps: {
+      include: [
+        '@internationalized/date',
+        '@lucide/vue',
+        '@tanstack/vue-table',
+        '@unovis/vue',
+        '@vue/devtools-core',
+        'class-variance-authority',
+        'cn',
+        'reka-ui',
+        'vue-sonner'
+      ]
+    }
+  },
+
+  // The browser smoke test is Node code — Playwright's runner and its stubs — so it is typechecked
+  // in the Node context, beside this file. Nothing else would include it: Nuxt's generated configs
+  // cover `test/nuxt/` and not `test/e2e/`.
+  typescript: {
+    nodeTsConfig: {
+      include: ['../playwright.config.ts', '../test/e2e/**/*']
+    }
+  },
+
   eslint: {
     config: {
       stylistic: {
@@ -66,10 +110,11 @@ export default defineNuxtConfig({
     }
   },
 
-  // Tajawal, which sets the Arabic — see `--font-sans` in app/assets/css/main.css for how it and
-  // Public Sans divide the scripts between them.
+  // Geist, the face shadcn-vue's blocks use, and Tajawal, which sets the Arabic —
+  // see `--font-sans` in app/assets/css/main.css for how it and Geist divide the scripts between
+  // them.
   //
-  // `@nuxt/fonts` comes with @nuxt/ui and already self-hosts whatever the CSS asks for: it fetches
+  // `@nuxt/fonts` self-hosts whatever the CSS asks for: it fetches
   // the files at build time and serves them from this origin, which is why no <link> to
   // fonts.googleapis.com appears anywhere in this app. Adding one would fetch the same typeface a
   // second time, from a third party, on the critical path.
@@ -83,7 +128,7 @@ export default defineNuxtConfig({
   //     them. Without it the Arabic UI renders in a system fallback while the Latin one does not,
   //     which looks like a styling bug and is actually a missing download.
   //
-  // `arabic` ALONE, and not because the Latin is unwanted: Public Sans is ahead of Tajawal in the
+  // `arabic` ALONE, and not because the Latin is unwanted: Geist is ahead of Tajawal in the
   // stack, so Tajawal's Latin faces could never be reached. Asking for them would put seven files
   // in the build that no browser can ever request.
   //
@@ -94,25 +139,26 @@ export default defineNuxtConfig({
   // emits its @font-face rules anyway; `unicode-range` still keeps the files off the wire until
   // Arabic is actually on screen.
   //
-  // `fallbacks: []` on Public Sans is the other half, and it is just as load-bearing. By default
+  // `fallbacks: []` on Geist is the other half, and it is just as load-bearing. By default
   // @nuxt/fonts rewrites the declaration to insert metric-matched local faces straight after the
   // FIRST family, so the stack the browser actually gets reads
   //
-  //   Public Sans, …Fallback: BlinkMacSystemFont, …Segoe UI, …Helvetica Neue, …Arial, …Noto Sans,
+  //   Geist, …Fallback: BlinkMacSystemFont, …Segoe UI, …Helvetica Neue, …Arial, …Noto Sans,
   //   Tajawal, sans-serif
   //
   // Those are whole system fonts, and Arial carries Arabic. Arabic therefore matched Arial and
   // never reached Tajawal — the font looked like it had simply not been applied. Emptying the list
-  // stops the rewrite, which costs the no-layout-shift overrides while Public Sans loads and buys
+  // stops the rewrite, which costs the no-layout-shift overrides while Geist loads and buys
   // back the only thing that makes two scripts in one stack work.
   //
-  // Public Sans is listed for that one setting. Everything else about it stays default: it is
-  // first in the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering
-  // the 400–700 the dashboard draws.
+  // Geist is listed for that one setting. Everything else about it stays default: it is first in
+  // the stack, so @nuxt/fonts finds it in the CSS and fetches the variable face covering the
+  // 400–700 the dashboard draws.
+
   fonts: {
     families: [
       {
-        name: 'Public Sans',
+        name: 'Geist',
         provider: 'google',
         fallbacks: []
       },
@@ -156,5 +202,14 @@ export default defineNuxtConfig({
       // rendering its own name on the page.
       typedOptionsAndMessages: 'default'
     }
+  },
+
+  // The components under `components/ui` are shadcn-vue's, copied into this repository by its CLI
+  // (`npx shadcn-vue@latest add <name>`) rather than installed as a package — they are ours to read
+  // and change. No prefix, so they are `<Button>` and `<Card>`, the names the shadcn-vue docs and
+  // blocks use, and a block pasted from there works without a rename.
+  shadcn: {
+    prefix: '',
+    componentDir: '@/components/ui'
   }
 })

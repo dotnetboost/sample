@@ -22,7 +22,7 @@ const group = computed(() =>
 <template>
   <SettingsGroupForm v-if="group" :group="group" />
 
-  <div v-else class="py-8 text-center text-sm text-muted">
+  <div v-else class="py-8 text-center text-sm text-muted-foreground">
     {{ $t('settings.unknownGroup', { route: route.params.route }) }}
   </div>
 </template>

@@ -1,3 +1,4 @@
+import { Palette } from '@lucide/vue'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { defineEventHandler, setResponseHeader } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,10 +16,10 @@ import type { SettingGroup, SettingValues } from '~/types'
  * hold at once.
  */
 
-// The composable reaches for four app-wide composables on the way to doing its job. None of them
-// is what is under test, and all four need a provider a bare runtime does not have — so they are
-// stubbed down to the shape it actually uses.
-mockNuxtImport('useToast', () => () => ({ add: vi.fn() }))
+// The composable reaches for three app-wide composables on the way to doing its job. None of them
+// is what is under test, and all three need a provider a bare runtime does not have — so they are
+// stubbed down to the shape it actually uses. (Its one direct toast, the save conflict, is
+// vue-sonner's `toast`, which needs no provider: with no `<Toaster>` mounted it is simply unseen.)
 mockNuxtImport('useNotify', () => () => ({
   notifySuccess: vi.fn(), notifyFailure: vi.fn(), notifyProblem: vi.fn()
 }))
@@ -30,7 +31,7 @@ const group: SettingGroup = {
   name: 'BrandingSettings',
   requiresAuthorization: false,
   // Not from the API — the dashboard's own, which is why the type carries it.
-  icon: 'i-lucide-palette'
+  icon: Palette
 }
 
 /** The properties the schema reports, which is what the form draws boxes for. */

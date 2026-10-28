@@ -27,15 +27,9 @@ public static class CreateProduct
     public sealed record ProductCreated(int Id, string Sku);
 
     /// <summary>
-    /// The column shapes, and a price that cannot be negative.
-    ///
-    /// <para><c>HasPrecision(18, 2)</c> bounds how a price is STORED; nothing bounded its sign, so
-    /// a product at −349.00 was accepted and shown.</para>
-    ///
-    /// <para><b>The category id is not here</b>, because a validator cannot ask the database
-    /// anything — it is handed the request and nothing else. The handler checks it, and the
-    /// comment there explains why that is worth doing even though the foreign key would also
-    /// catch it.</para>
+    /// The column shapes, and a price that cannot be negative — <c>HasPrecision(18, 2)</c> bounds
+    /// how a price is stored, not its sign. The category id is checked by the handler, because a
+    /// validator cannot ask the database.
     /// </summary>
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -53,22 +47,11 @@ public static class CreateProduct
         /// <inheritdoc/>
         public async Task<Result<ProductCreated>> HandleAsync(Command request, CancellationToken ct)
         {
-            // The category has to exist, and the foreign key is not a good enough answer on its
-            // own. OnDelete(Restrict) does stop an orphan being written — but it reports it as a
-            // DbUpdateException wrapping Npgsql's 23503, which reached the caller as
-            // "500 An error occurred while processing your request" for the ordinary mistake of
-            // sending a categoryId that is not there.
-            //
-            // Asked here rather than translated from the exception because only this code knows
-            // WHICH id was wrong: the answer names it, in the caller's language, through the same
-            // key GET /api/categories/{id} already answers 404 with. An exception handler sees the
-            // violation but not the request, so the best it could say is "some category".
-            //
-            // The check is not a guarantee and is not meant to be. A category deleted between
-            // this query and the insert below still ends in the foreign key's refusal — the race
-            // the slug's uniqueness comment describes, narrow here because DeleteCategory refuses
-            // to remove a category that has products. The constraint stays the thing that decides;
-            // this only makes the common case answer properly.
+            // Asked here rather than left to the foreign key, because only this code knows WHICH id
+            // was wrong, so the 404 can name it. Not a guarantee: a category deleted between this
+            // query and the insert still ends in the foreign key's refusal, which
+            // DbUpdateExceptionHandler answers. The constraint decides; this makes the common case
+            // answer properly.
             if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct))
                 return Error.NotFound("Catalog.CategoryNotFound", request.CategoryId);
 
@@ -79,8 +62,10 @@ public static class CreateProduct
                 CategoryId = request.CategoryId
             };
 
-            db.Products.Add(product);
+            // AddAsync, because adding is what assigns the HiLo id — see ProductConfiguration.
+            await db.Products.AddAsync(product, ct);
 
+            // One SaveChanges for the row, every language's text and its audit entry.
             await translatedText.SaveAsync(db, product, request.Translations, ct);
 
             return new ProductCreated(product.Id, product.Sku);

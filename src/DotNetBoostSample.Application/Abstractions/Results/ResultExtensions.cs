@@ -17,7 +17,7 @@ namespace DotNetBoostSample.Application.Abstractions.Results;
 /// <c>Wrote(messages, key, subject)</c>, and every handler in the file took
 /// <see cref="IStringLocalizer{ApiMessages}"/> in order to call them. The shape they produced is
 /// unchanged here — RFC 7807 problem details, so a refusal from this application looks like one
-/// from any of the three libraries and the dashboard needs no special case — but the rule now
+/// from any of the four libraries and the dashboard needs no special case — but the rule now
 /// lives once.</para>
 ///
 /// <para><b>Why the status code is derived and not passed.</b> A handler knows what went wrong;

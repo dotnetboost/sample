@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TriangleAlert } from '@lucide/vue'
 import type { EntityImage, MediaFile, MediaRole } from '~/types'
 
 /**
@@ -153,10 +154,10 @@ function onMove(role: string, image: EntityImage, delta: -1 | 1) {
         <p dir="ltr" class="text-sm font-medium capitalize">
           {{ row.name }}
         </p>
-        <UBadge color="neutral" variant="subtle" size="sm">
+        <Badge variant="secondary">
           {{ row.multiple ? $t('entity.attachments.many') : $t('entity.attachments.one') }}
-        </UBadge>
-        <span v-if="row.images.length" class="text-xs text-muted">
+        </Badge>
+        <span v-if="row.images.length" class="text-xs text-muted-foreground">
           {{ $t('entity.attachments.fileCount', row.images.length) }}
         </span>
       </div>
@@ -187,13 +188,13 @@ function onMove(role: string, image: EntityImage, delta: -1 | 1) {
         />
       </div>
 
-      <p v-if="row.images.some(i => !i.altText)" class="text-xs text-warning">
-        <UIcon name="i-lucide-triangle-alert" class="size-3.5" />
+      <p v-if="row.images.some(i => !i.altText)" class="flex items-center gap-1 text-xs text-warning">
+        <TriangleAlert class="size-3.5" />
         {{ $t('entity.attachments.missingAltText') }}
       </p>
     </div>
 
-    <p v-if="!rows.length" class="text-sm text-muted">
+    <p v-if="!rows.length" class="text-sm text-muted-foreground">
       {{ $t('entity.attachments.noRoles') }}
     </p>
 

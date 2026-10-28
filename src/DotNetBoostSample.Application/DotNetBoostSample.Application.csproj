@@ -18,6 +18,9 @@
     <PackageReference Include="DotNetBoost.Settings.Core" />
     <PackageReference Include="DotNetBoost.Media.Core" />
     <PackageReference Include="DotNetBoost.MultiLingual.Core" />
+    <!-- No DotNetBoost.Auditing here: the write slices do not record their own changes, because
+         the change-tracker capture attached to the DbContext in Infrastructure does it for them.
+         The [AuditIgnore] attributes on the two entities come with Domain. -->
   </ItemGroup>
 
   <ItemGroup Label="Querying">

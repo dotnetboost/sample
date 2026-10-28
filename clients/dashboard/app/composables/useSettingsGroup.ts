@@ -1,3 +1,4 @@
+import { toast } from 'vue-sonner'
 import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
 
 /**
@@ -13,7 +14,6 @@ import type { ProblemDetails, SettingGroup, SettingValues } from '~/types'
  * silently revert the other person's edit.
  */
 export function useSettingsGroup(group: SettingGroup, propertyNames: Ref<string[]>) {
-  const toast = useToast()
   const { notifySuccess, notifyProblem } = useNotify()
   const { t } = useI18n()
   const language = useLanguage()
@@ -124,11 +124,8 @@ export function useSettingsGroup(group: SettingGroup, propertyNames: Ref<string[
         conflict.value = true
         problem.value = t('settings.form.toast.conflictProblem')
 
-        toast.add({
-          title: t('settings.form.toast.conflictTitle'),
-          description: t('settings.form.toast.conflictDescription'),
-          icon: 'i-lucide-git-merge',
-          color: 'warning'
+        toast.warning(t('settings.form.toast.conflictTitle'), {
+          description: t('settings.form.toast.conflictDescription')
         })
       } else {
         applyProblem(error)

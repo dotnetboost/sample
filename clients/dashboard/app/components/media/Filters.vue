@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUpDown, Filter, FilterX, Folder, Search, Tag, X } from '@lucide/vue'
 import { watchDebounced } from '@vueuse/core'
 import type { MediaQuery, MediaSortBy } from '~/types'
 
@@ -44,8 +45,8 @@ watch(() => props.query.search, (value) => {
 })
 
 /**
- * "No filter" is a sentinel rather than an empty string: a `USelect` item with an empty value is
- * refused outright, because the component reserves that for clearing the selection.
+ * "No filter" is a sentinel rather than an empty string: a reka-ui select item with an empty value
+ * is refused outright, because the component reserves that for clearing the selection.
  */
 const ANY = 'any'
 
@@ -87,80 +88,82 @@ function onSort(value: SortValue) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+  <!--
+    One row from `md` up, the full width of the page, every control sharing it equally — as the
+    Audit filters do, so the two pages read alike and nothing is left on a line of its own when a
+    button appears beside the row. Below `md` each control takes the full width.
+  -->
+  <div class="flex flex-col gap-2 md:flex-row md:items-center">
     <!-- `dir="auto"` on the value boxes: see SettingsGroupForm for why. -->
-    <UInput
-      v-model="search"
-      dir="auto"
-      icon="i-lucide-search"
-      :placeholder="$t('media.filters.search')"
-      :loading="pending"
-      class="w-full sm:min-w-48 sm:flex-1"
-      :ui="{ trailing: 'pe-1' }"
-    >
-      <template v-if="search" #trailing>
-        <UButton
-          icon="i-lucide-x"
-          color="neutral"
-          variant="link"
-          size="sm"
+    <InputGroup class="w-full md:min-w-0 md:flex-1">
+      <InputGroupAddon>
+        <Spinner v-if="pending" />
+        <Search v-else />
+      </InputGroupAddon>
+      <InputGroupInput v-model="search" dir="auto" :placeholder="$t('media.filters.search')" />
+      <InputGroupAddon v-if="search" align="inline-end">
+        <InputGroupButton
+          size="icon-xs"
           :aria-label="$t('media.filters.clearSearch')"
           @click="search = ''"
-        />
-      </template>
-    </UInput>
+        >
+          <X />
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
 
-    <!-- Comboboxes rather than selects: the options are the values seen on the pages loaded so
-         far, so a category or tag that has not appeared yet can still be typed. -->
-    <UInputMenu
+    <!-- Free text with suggestions rather than selects: the options are the values seen on the
+         pages loaded so far, so a category or tag that has not appeared yet can still be typed. -->
+    <SuggestInput
       :model-value="query.category"
-      :items="categoryOptions"
-      create-item
-      dir="auto"
+      :options="categoryOptions"
+      :icon="Folder"
       :placeholder="$t('media.filters.anyCategory')"
-      icon="i-lucide-folder"
-      class="w-full sm:w-44"
-      @update:model-value="emit('update', { category: $event ?? '' })"
-      @create="emit('update', { category: $event })"
+      class="w-full md:min-w-0 md:flex-1"
+      @update:model-value="emit('update', { category: $event })"
     />
 
-    <UInputMenu
+    <SuggestInput
       :model-value="query.tag"
-      :items="tagOptions"
-      create-item
-      dir="auto"
+      :options="tagOptions"
+      :icon="Tag"
       :placeholder="$t('media.filters.anyTag')"
-      icon="i-lucide-tag"
-      class="w-full sm:w-40"
-      @update:model-value="emit('update', { tag: $event ?? '' })"
-      @create="emit('update', { tag: $event })"
+      class="w-full md:min-w-0 md:flex-1"
+      @update:model-value="emit('update', { tag: $event })"
     />
 
-    <USelect
-      v-if="!compact"
-      :model-value="kind"
-      :items="kinds"
-      icon="i-lucide-filter"
-      class="w-full sm:w-36"
-      @update:model-value="onKind"
-    />
+    <Select v-if="!compact" :model-value="kind" @update:model-value="onKind(String($event))">
+      <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
+        <Filter class="text-muted-foreground" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem v-for="item in kinds" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </SelectItem>
+      </SelectContent>
+    </Select>
 
-    <USelect
-      :model-value="sort"
-      :items="sorts"
-      icon="i-lucide-arrow-up-down"
-      class="w-full sm:w-40"
-      @update:model-value="onSort"
-    />
+    <Select :model-value="sort" @update:model-value="onSort($event as SortValue)">
+      <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
+        <ArrowUpDown class="text-muted-foreground" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem v-for="item in sorts" :key="item.value" :value="item.value">
+          {{ item.label }}
+        </SelectItem>
+      </SelectContent>
+    </Select>
 
-    <UButton
+    <Button
       v-if="isFiltered"
-      icon="i-lucide-filter-x"
-      color="neutral"
       variant="ghost"
-      :label="$t('common.clear')"
-      class="self-start"
+      class="shrink-0 self-start md:self-auto"
       @click="emit('reset')"
-    />
+    >
+      <FilterX />
+      {{ $t('common.clear') }}
+    </Button>
   </div>
 </template>

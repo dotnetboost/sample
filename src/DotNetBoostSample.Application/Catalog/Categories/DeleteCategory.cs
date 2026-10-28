@@ -29,9 +29,6 @@ public static class DeleteCategory
 
             if (category is null) return Error.NotFound("Catalog.CategoryNotFound", request.Id);
 
-            // Was an English literal in an ad-hoc `{ message }` shape, which the dashboard's
-            // problem-details reader could not see at all. Now a key like every other refusal, and
-            // RFC 7807 by the time it reaches the wire.
             if (await db.Products.AnyAsync(p => p.CategoryId == request.Id, ct))
                 return Error.Conflict("Catalog.CategoryHasProducts");
 
@@ -40,10 +37,11 @@ public static class DeleteCategory
             // delete.
             await media.For(category).DetachAllAsync(ct);
 
-            // Read before the row goes: naming the deleted thing is the whole point of the message,
-            // and `category.Slug` is only reliable while the entity is still there to read it from.
+            // Read before the row goes; the message names it.
             var slug = category.Slug;
 
+            // Auditing's interceptor records the delete with the row's final values, and the entry
+            // outlives the row: afterwards it is the only record of what this category said.
             db.Categories.Remove(category);
             await db.SaveChangesAsync(ct);
 
