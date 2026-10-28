@@ -10,18 +10,25 @@ The images the root `README.md` embeds. How they were taken, so regenerating the
   being tested that day into the repository.
 - **Placeholder imagery**, generated rather than photographed, attached as the products' `primary`
   and `gallery`, the categories' `banner` and branding's `logo`, with alt text written in English,
-  Arabic and French — so the pages show the composition rather than empty slots.
+  Arabic and French — so the pages show the composition rather than empty slots. Branding's store
+  name is given an Arabic and a French translation too, so its card reads "every language covered".
 - **1400px wide, captured at 2× and resized to 1800px**, which is about twice GitHub's content
-  column and therefore still sharp on the displays most people read a README on.
+  column and therefore still sharp on the displays most people read a README on. A 1400×760
+  viewport in the light theme; `overview.png`, `settings.png` and `audit.png` are the full page,
+  the other three the viewport. Playwright's Chromium with `deviceScaleFactor: 2`, then
+  `sips --resampleWidth 1800`.
+- **In this order**: the imagery, then every image except `audit.png`, then the writes below, then
+  `audit.png`. The writes delete the lamp and add a bookshelf, so photographing the catalogue after
+  them would show neither the seeded three nor their images.
 
 `catalog.png` and `catalog-rtl.png` are the same page and the same data, read in `en` and in `ar`.
 That pair is the point of the sample, so it is worth keeping them in step if either is replaced.
 
 ## `audit.png` also needs a trail
 
-A freshly seeded database has none. `DatabaseInitialiser` writes the catalogue without going
-through the six slices that record, so the Audit page is honestly empty until something changes —
-and an empty trail is a photograph of nothing.
+A freshly seeded database has only the seed's own: `DatabaseInitialiser` saves through the audited
+`DbContext`, so the trail opens with a `Created` entry per row and no actor — "unknown" on the page.
+That is honest and says nothing about who changed what, which is what the page is for.
 
 These six writes are what it shows. They are deliberate rather than whatever was being tested that
 day, for the same reason the database is a seeded one, and they are run against it with the API up:
@@ -90,5 +97,5 @@ It is **taller than the others**, because the rules card and an opened entry do 
 height. 1400px wide at 2× is the part that is fixed; the height is whatever the page needs with
 nothing left to scroll to.
 
-It needs no placeholder imagery either: no media is drawn on that page, and attaching a file would
-not show up in the trail anyway — `MediaFile` is not one of the two audited entities here.
+It needs no imagery of its own: no media is drawn on that page, and the filter keeps the uploads'
+own entries out of the picture.
