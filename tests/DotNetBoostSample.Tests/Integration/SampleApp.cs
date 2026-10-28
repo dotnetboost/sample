@@ -145,10 +145,17 @@ public class SampleApp : IAsyncLifetime
     /// is in the tables rather than what the API answers — the translation rows a delete should
     /// have taken with it, for one.
     /// </summary>
-    public async Task WithDbAsync(Func<AppDbContext, Task> work)
+    public Task WithDbAsync(Func<AppDbContext, Task> work) =>
+        WithScopeAsync(services => work(services.GetRequiredService<AppDbContext>()));
+
+    /// <summary>
+    /// One DI scope of the running application, for an assertion about what two services resolved
+    /// in the same scope share — the request's context and a library writing through it.
+    /// </summary>
+    public async Task WithScopeAsync(Func<IServiceProvider, Task> work)
     {
         using var scope = _factory!.Services.CreateScope();
-        await work(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+        await work(scope.ServiceProvider);
     }
 
     /// <summary>

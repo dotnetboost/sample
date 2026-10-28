@@ -487,7 +487,8 @@ already knows where an edit begins and ends, and reports it through `ISettingWri
 The observer records the group's whole diff as one `Setting` entry addressed by the group's name.
 The write carries the group's class as its type, so the ignore — checked by type — does not drop it,
 and `[AuditIgnore]` and `[AuditRedact]` on a group's properties apply. A `[Sensitive]` property is
-marked redacted, so the trail does not read "changed from nothing to nothing".
+marked redacted, so the trail does not read "changed from nothing to nothing". The entry is saved
+through a context of its own, so a failure leaves nothing behind on the request's.
 
 **The cost:** this is the one entry that does not commit with its change. The observer runs after
 the settings save, and DotNetBoost.Settings logs and swallows its failures, so a failed record leaves
@@ -553,7 +554,7 @@ as `""` where the default mode answers `null`, because the column is a non-nulla
 
 `dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: fifty-six tests against each, the same
+**The whole integration suite runs in both modes**: fifty-seven tests against each, the same
 assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
 `OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
 library version fails the suite rather than going uncalled.
@@ -643,10 +644,10 @@ abstract class holds the assertions and two sealed subclasses bind it to each fi
   `AuditRetentionService` deletes old entries and keeps new ones.
 - **`SchemaUpgradeTests`** — a database from before the HiLo keys still boots and creates rows.
 - **`BaseLanguageTests`** — what only base-language mode can be asked.
-  Fifteen tests, beside the fifty-six the suite runs in each mode.
+  Fifteen tests, beside the fifty-seven the suite runs in each mode.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 128 as skipped, with the reason.
+tests and reports the other 130 as skipped, with the reason.
 
 ### And the dashboard's own
 

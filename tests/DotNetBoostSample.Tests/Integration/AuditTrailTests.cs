@@ -1,7 +1,10 @@
+using DotNetBoost.Auditing.Core.Models;
+using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Api.Authentication;
 using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Domain.Catalog;
 using DotNetBoostSample.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Text.Json;
 using Xunit;
@@ -251,6 +254,43 @@ public abstract class AuditTrailTests(SampleApp app)
             // And the rows behind it are not in the trail at all — not from these saves, and not
             // from the seed's: every Setting entry there is is a group's.
             Assert.Equal("0", await app.ScalarAsync(settingRows));
+        }
+        finally
+        {
+            await app.ResetCatalogSettingsAsync();
+        }
+    }
+
+    /// <summary>
+    /// A settings group's entry is saved through a context of its own, not the caller's.
+    ///
+    /// <para>The settings rows are saved through the caller's <see cref="AppDbContext"/>, and the
+    /// observer runs once they have committed. Recording on that same context left the entry tracked
+    /// there afterwards — and, had its save failed, still pending for whatever saved next. Asked of
+    /// the caller's change tracker, because a save that fails is not one a test can cause on
+    /// demand.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_settings_entry_is_saved_on_a_context_of_its_own()
+    {
+        try
+        {
+            await app.WithScopeAsync(async services =>
+            {
+                var db = services.GetRequiredService<AppDbContext>();
+
+                await services.GetRequiredService<ISettingManager>()
+                    .For<CatalogSettings>()
+                    .SetAsync(new CatalogSettings { PageSize = 19, CurrencySymbol = "¥" });
+
+                // The caller's context saved the rows, and holds nothing of the trail.
+                Assert.Empty(db.ChangeTracker.Entries<AuditEntry>());
+            });
+
+            // And the entry is in the trail all the same.
+            var newest = (await GroupTrail(app.Client.AsActor()))[0];
+
+            Assert.Equal("19", Changes(newest)["PageSize"].Str("newValue"));
         }
         finally
         {

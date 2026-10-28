@@ -3,6 +3,7 @@ using DotNetBoost.Auditing.Core.Models;
 using DotNetBoost.Settings.Core.Attributes;
 using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Application.Settings;
+using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
 namespace DotNetBoostSample.Infrastructure.Persistence;
@@ -30,13 +31,19 @@ namespace DotNetBoostSample.Infrastructure.Persistence;
 /// <c>SaveChanges</c> — does not hold here. The observer runs after the settings write has
 /// committed, and DotNetBoost.Settings logs and swallows anything it throws, so a failure to record
 /// leaves the change standing without an entry. For configuration edited through a dashboard that
-/// is the right trade for a readable trail; for anything stricter, it is not.</para>
+/// is the right trade for a readable trail; for anything stricter, it is not. Closing that gap
+/// needs a hook inside the settings store's own save, which DotNetBoost.Settings does not have.</para>
+///
+/// <para><b>Why a scope of its own.</b> The settings rows were saved through the request's
+/// context. Recording on that one would leave the entry tracked there — and, if its save failed,
+/// still pending for whatever saved next. A fresh scope's context holds the entry and nothing else,
+/// and a failure discards it with the scope.</para>
 ///
 /// <para><b>Secrets.</b> DotNetBoost.Settings has already withheld the values of every
 /// <c>[Sensitive]</c> property, and this marks those changes redacted on the entry, so the trail
 /// says "changed, value withheld" rather than "changed from nothing to nothing".</para>
 /// </summary>
-public sealed class SettingGroupAuditObserver(IAuditManager audit, AppDbContext db) : ISettingWriteObserver
+public sealed class SettingGroupAuditObserver(IServiceScopeFactory scopes) : ISettingWriteObserver
 {
     /// <summary>The entity name a settings group's entries are stored under.</summary>
     public const string EntityName = "Setting";
@@ -63,6 +70,12 @@ public sealed class SettingGroupAuditObserver(IAuditManager audit, AppDbContext 
                 $"Settings group '{write.GroupName}' has no [SettingGroup] class in "
                 + $"{typeof(BrandingSettings).Assembly.GetName().Name}, so its save cannot be audited.");
 
+        // The manager and the context from one scope, so the EF Core store tracks the entry on the
+        // very context saved below.
+        await using var scope = scopes.CreateAsyncScope();
+        var audit = scope.ServiceProvider.GetRequiredService<IAuditManager>();
+        var db    = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         var entry = await audit.RecordAsync(new AuditWrite
         {
             EntityName    = EntityName,
@@ -70,7 +83,9 @@ public sealed class SettingGroupAuditObserver(IAuditManager audit, AppDbContext 
             EntityType    = groupType,
             Action        = write.Kind == SettingWriteKind.Cleared ? AuditAction.Deleted : AuditAction.Updated,
             Changes       = [.. write.Changes.Select(c => new AuditChange(c.PropertyName, c.OldValue, c.NewValue))],
-            // The settings library's id for the save, so the entry joins the request it came from.
+            // Who and which edit, from the write itself rather than from whatever the new scope can
+            // reach. A null actor still falls back to the request's caller, as it did before.
+            Actor         = write.Actor,
             CorrelationId = write.CorrelationId,
         }, cancellationToken);
 
@@ -81,7 +96,8 @@ public sealed class SettingGroupAuditObserver(IAuditManager audit, AppDbContext 
             change.IsRedacted = true;
 
         // The EF Core store tracks the entry rather than saving it, and the save it would normally
-        // ride along with has already happened — so this one is the entry's own.
+        // ride along with has already happened — so this one is the entry's own, and it is all
+        // this context holds.
         await db.SaveChangesAsync(cancellationToken);
     }
 }
