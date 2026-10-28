@@ -664,6 +664,9 @@ because of something `dotnet test` cannot see:
   reaches all of them. The list used to be read under four keys and frozen in each.
 - **`useAuditTrail.spec.ts`** — the page goes back to 1 whenever the filter changes, a new filter is
   not answered with the page already in flight, and the declared entities are read once.
+- **`useProductList.spec.ts`** — the products listing sends no page size and draws its pager from
+  what the API used; a search is one request once typing stops; a filter goes back to page 1, a
+  delete that empties the last page moves back one, and a language switch re-reads the rows.
 - **`uiLanguage.spec.ts`** — one reading language moves the labels, `uiText` and `Intl`; `fr-CA`
   reads in French; and Hebrew, with no bundle, gets English labels and an RTL shell.
 
