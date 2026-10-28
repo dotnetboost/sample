@@ -38,7 +38,7 @@ public static class DependencyInjection
     /// is the host's job — it is the one that knows about <c>appsettings.json</c>, Aspire's
     /// injected connection strings and its own content root. Handing this method the two values it
     /// needs keeps the infrastructure layer off <c>Microsoft.Extensions.Configuration</c> and
-    /// <c>Hosting</c> altogether, so its package list is EF Core, the three libraries' stores and
+    /// <c>Hosting</c> altogether, so its package list is EF Core, the four libraries' stores and
     /// nothing else. It also means the failure for a missing connection string is raised where it
     /// can say something useful about the AppHost, rather than here.</para>
     /// </summary>

@@ -18,8 +18,9 @@ namespace DotNetBoostSample.Tests;
 /// to a solution the other three were already in, and the assertions below did not change — no new
 /// package reference appeared between any of them, and no shared kernel arrived with it. What DID
 /// change is in <c>Infrastructure/DependencyInjection.cs</c>: independence is not free, and this
-/// installation pays for it by recording its own changes because two of these libraries cannot
-/// both watch one <c>DbContext</c>. Independence asserted here; its price written down there.
+/// installation pays for it with <c>.IgnoreEntity&lt;Translation&gt;()</c>, because an audit entry
+/// cannot address MultiLingual's four-column key and nobody here owns the type to mark it.
+/// Independence asserted here; its price written down there.
 /// </para>
 /// </summary>
 public class ZeroCouplingTests

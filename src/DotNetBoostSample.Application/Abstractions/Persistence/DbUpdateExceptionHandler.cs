@@ -21,7 +21,7 @@ namespace DotNetBoostSample.Application.Abstractions.Persistence;
 /// <para><b>Why it is an exception handler and not a catch in each slice.</b> Four writes can
 /// violate one of these constraints, and a <c>try</c> around each <c>SaveChangesAsync</c> is four
 /// places to keep in step — plus the seeder and anything added later. Registered once, this one
-/// covers every write there is, including writes made by the three libraries' own endpoints.</para>
+/// covers every write there is, including writes made by the four libraries' own endpoints.</para>
 ///
 /// <para>The classification is <see cref="IDatabaseErrorTranslator"/>'s, implemented in the
 /// infrastructure layer where Npgsql is referenced. If it declines, so does this: a

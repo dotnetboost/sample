@@ -31,7 +31,7 @@ using Scalar.AspNetCore;
 //  ADDING a library rather than by reading the ones already in — and the last two items on that
 //  list are also where the cost showed up, which is the rest of this comment.
 //
-//  What ties them together is nine files, all of them application and domain code, none of them
+//  What ties them together is nine files, all of them this application's own code, none of them
 //  large, and each one a place where this application says two libraries are talking about the
 //  same thing — except the last three, which are where it says one of them must leave the other's
 //  data alone, or take it in another shape:
@@ -85,9 +85,6 @@ using Scalar.AspNetCore;
 //  observer, which saves its entry through AppDbContext — are infrastructure, and all three are
 //  about sharing one DbContext. Joining two libraries is not a persistence concern;
 //  joining them in ONE DATABASE is.
-//
-//  The count is eight rather than a rounder number because every file joining two libraries is on
-//  the list, including the two that are there because two libraries disagree.
 //
 //  It was more. Writing alt text is not here any more — DotNetBoost.MultiLingual ships the
 //  translation endpoints now, and the dashboard's editor calls them directly — and branding was a

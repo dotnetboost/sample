@@ -34,7 +34,7 @@ costs.
 
 The application around them is a monolith in four projects, with its own routes written as vertical
 slices and dispatched as commands and queries — one file per feature, and no MediatR. [How the
-application is built](#how-the-application-is-built) has that part; the five files come first,
+application is built](#how-the-application-is-built) has that part; the nine files come first,
 because they are the point.
 
 ---
@@ -1220,9 +1220,11 @@ is that the dependency rules above are enforced by the build rather than by a co
 is that a route no longer shows you what it does — `MapGet` → `IDispatcher` → the handler is three
 hops for a query whose body did not change.
 
-Two things came out better than expected. **Four of the five composition files moved untouched**:
-they name `DotNetBoost.*.Core` and nothing else, so they sit in `Application/Composition/` beside
-the slices that use them, and only `AppDbContext` turned out to be infrastructure. And **a slice is
+Two things came out better than expected. **Four of the five composition files there were then
+moved untouched**: they name `DotNetBoost.*.Core` and nothing else, so they sit in
+`Application/Composition/` beside the slices that use them, and only `AppDbContext` turned out to be
+infrastructure. Auditing has since added four more, two of them infrastructure — [Where the
+composition happens](#where-the-composition-happens) has all nine. And **a slice is
 one file**, so eleven routes are eleven files rather than the forty-odd that one-type-per-file would
 have cost.
 

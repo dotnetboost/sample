@@ -9,7 +9,7 @@ namespace DotNetBoostSample.Application.Abstractions.Cqrs;
 //  Why not MediatR itself. It would work: 14.2.0 targets netstandard2.0 and net8.0, so it loads
 //  on net8.0 and net10.0 alike. But it changed licence at v13.0 — RPL-1.5 or commercial, with a
 //  key passed at registration — and the last Apache-2.0 release, 12.5.0, is unmaintained. This
-//  repository's pitch is that three libraries compose with no shared kernel and no integration
+//  repository's pitch is that four libraries compose with no shared kernel and no integration
 //  package, every one of them MIT, with a test that fails the build if that stops being true.
 //  Taking an RPL-1.5-or-pay dependency to dispatch eleven handlers would argue against the thing
 //  the sample is arguing for.

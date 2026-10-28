@@ -16,7 +16,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// metadata: fast, infrastructure-free, and unable to see any of what the README actually claims.
 /// That a plain <c>ToListAsync()</c> comes back translated, that alt text written through one
 /// library reads back beside a file owned by another, that a settings value changes what an
-/// endpoint answers without a restart — all of it is behaviour of three libraries wired into one
+/// endpoint answers without a restart — all of it is behaviour of four libraries wired into one
 /// <c>DbContext</c>, and none of it is provable without the database they share. The bug fixed in
 /// 9d3f782 — a translated name written into the settings cache — was invisible to every test here
 /// and would have been caught by the first one below.</para>

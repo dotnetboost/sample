@@ -30,13 +30,14 @@ namespace DotNetBoostSample.Infrastructure.Persistence;
 /// so that a creation's entry is written in the save that creates the row. That file has both.
 /// </para>
 /// <para>
-/// It is also one of only <b>two</b> of the eight composition files that are infrastructure, and
-/// the other is that one line in <c>DependencyInjection.cs</c>. The remaining six —
+/// It is also one of only <b>three</b> of the nine composition files that are infrastructure; the
+/// others are that one line in <c>DependencyInjection.cs</c> and
+/// <c>SettingGroupAuditObserver</c>, which saves its entry through this context. The remaining six —
 /// <c>MediaText</c>, <c>MediaTextCleanup</c>, <c>MultiLingualSchemaContributor</c>,
 /// <c>BrandingProjector</c> and the two entities' attributes — depend on <c>DotNetBoost.*.Core</c>
 /// and nothing else, so they live in the application and domain layers beside the code that uses
 /// them. Joining two libraries turns out not to be a persistence concern; joining them <em>in one
-/// database</em> is, and both infrastructure files are about exactly that.
+/// database</em> is, and all three infrastructure files are about exactly that.
 /// </para>
 /// <para>
 /// <see cref="IAppDbContext"/> is the application layer's view of it: the two <c>DbSet</c>s and
