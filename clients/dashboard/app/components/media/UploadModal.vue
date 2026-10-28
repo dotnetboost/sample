@@ -68,6 +68,28 @@ function clearFile() {
   if (input.value) input.value.value = ''
 }
 
+/**
+ * A preview of the chosen file, before anything is sent: the picture itself for an image, so the
+ * box shows what is about to be uploaded rather than only its name.
+ *
+ * An object URL onto the file in the browser's memory — nothing leaves the machine to draw it —
+ * and released the moment it stops being shown: a new file, a cleared one, the dialog reopening or
+ * closing for good. Left alone, each would hold its file's bytes until the tab closed.
+ *
+ * `isImage` decides, as it does for the library's own thumbnails, so an SVG gets its icon here as
+ * it does everywhere else in the dashboard.
+ */
+const previewUrl = ref<string | null>(null)
+
+watch(file, (next) => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = next && isImage(next.type) ? URL.createObjectURL(next) : null
+})
+
+onBeforeUnmount(() => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+})
+
 function submit() {
   if (!file.value || tooLarge.value) {
     return
@@ -97,29 +119,38 @@ function submit() {
         <Field>
           <FieldTitle>{{ $t('media.upload.file') }} <span class="text-destructive">*</span></FieldTitle>
 
-          <div
-            v-if="file"
-            class="flex items-center gap-3 rounded-lg border bg-muted/30 p-3"
-          >
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-background ring-1 ring-foreground/10">
-              <component :is="iconFor(file.type)" class="size-4 text-muted-foreground" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p dir="auto" class="truncate text-sm font-medium">
-                {{ file.name }}
-              </p>
-              <p class="text-xs text-muted-foreground">
-                {{ formatBytes(file.size) }}
-              </p>
+          <div v-if="file" class="overflow-hidden rounded-lg border bg-muted/30">
+            <!-- The picture, whole — `object-contain` on a muted ground, so a tall or a wide image
+                 is shown entire rather than cropped to the box. -->
+            <div v-if="previewUrl" class="flex h-48 items-center justify-center border-b bg-muted/50 p-2">
+              <img
+                :src="previewUrl"
+                :alt="file.name"
+                class="max-h-full max-w-full rounded object-contain"
+              >
             </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="$t('common.clear')"
-              @click="clearFile"
-            >
-              <X />
-            </Button>
+
+            <div class="flex items-center gap-3 p-3">
+              <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-background ring-1 ring-foreground/10">
+                <component :is="iconFor(file.type)" class="size-4 text-muted-foreground" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p dir="auto" class="truncate text-sm font-medium">
+                  {{ file.name }}
+                </p>
+                <p class="text-xs text-muted-foreground">
+                  {{ formatBytes(file.size) }}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                :aria-label="$t('common.clear')"
+                @click="clearFile"
+              >
+                <X />
+              </Button>
+            </div>
           </div>
 
           <label
