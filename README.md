@@ -1062,8 +1062,9 @@ OrbStack or Podman to run the sample at all, so this adds no prerequisite.
 cd clients/dashboard && npm test
 ```
 
-Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Three
-suites, and each exists because of a bug `dotnet test` could not have caught.
+Vitest, in Nuxt's test environment, over the composables the pages are assembled from. Four
+suites: the first three each exist because of a bug `dotnet test` could not have caught, and the
+fourth guards [the dashboard](#the-dashboard)'s claim about the language selector.
 
 The first: attaching a logo on the
 branding tab left the role box showing the file that had just been replaced. The images it draws
@@ -1099,6 +1100,13 @@ it: that `skip` is never sent at all, which the API refuses together with `after
 a filter typed while the first page is still in flight is not answered with that page — the entry is
 registered `dedupe: 'defer'` for the readers that arrive in the same tick, so every deliberate move
 refreshes with `dedupe: 'cancel'` instead.
+
+`test/nuxt/uiLanguage.spec.ts` is the fourth. It runs the app's own `plugins/ui-language.ts` and
+asserts that one reading language moves the labels, `uiText` and `Intl` with it; that `fr-CA` reads
+in `fr.json`; and that Hebrew, which has content and no bundle, gets English labels and an RTL shell.
+Each was checked by breaking the plugin: with `setLocale` removed the first two fail, and with the
+default-locale fallback removed the third does, since nuxt-i18n ignores a locale it has no bundle
+for and would leave Arabic labels around Hebrew content.
 
 The specs live under `test/nuxt/` because Nuxt's generated tsconfig includes that path, so
 `npm run typecheck` covers them. Anywhere else they run and are silently not typechecked — which
