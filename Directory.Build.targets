@@ -1,0 +1,43 @@
+<Project>
+
+  <!--
+    Local workspace switch: use the DotNetBoost libraries' source instead of the nuget.org packages.
+
+    It turns on only when ../DotNetBoost.Workspace.slnx exists, i.e. on a machine where this repo
+    sits next to the library repos (dotnetboost-settings, -media, -multilingual, -auditing). CI
+    checks out this repo alone, so there is no such file and every build there uses the
+    published packages pinned in Directory.Packages.props.
+
+    When on, each DotNetBoost.* PackageReference whose project exists in a sibling repo's src/
+    folder becomes a ProjectReference to it; any package without a local project stays a
+    PackageReference. Works the same from the IDE, dotnet build, dotnet run and dotnet test.
+
+    Build against nuget.org while the workspace exists:  dotnet build -p:UseLocalDotNetBoost=false
+    Turn it off for good: delete ../DotNetBoost.Workspace.slnx.
+  -->
+
+  <PropertyGroup>
+    <DotNetBoostWorkspaceRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))/</DotNetBoostWorkspaceRoot>
+    <UseLocalDotNetBoost Condition="'$(UseLocalDotNetBoost)' == '' and Exists('$(DotNetBoostWorkspaceRoot)DotNetBoost.Workspace.slnx')">true</UseLocalDotNetBoost>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UseLocalDotNetBoost)' == 'true'">
+    <!-- Every library project available locally. Package ids equal project names in all four repos. -->
+    <_DotNetBoostLocalProject Include="$(DotNetBoostWorkspaceRoot)dotnetboost-settings/src/DotNetBoost.*/*.csproj;
+                                       $(DotNetBoostWorkspaceRoot)dotnetboost-media/src/DotNetBoost.*/*.csproj;
+                                       $(DotNetBoostWorkspaceRoot)dotnetboost-multilingual/src/DotNetBoost.*/*.csproj;
+                                       $(DotNetBoostWorkspaceRoot)dotnetboost-auditing/src/DotNetBoost.*/*.csproj"
+                              ProjectPath="%(FullPath)" />
+    <_DotNetBoostLocalId Include="@(_DotNetBoostLocalProject->'%(Filename)')" />
+
+    <!-- Keep only the ids this project actually references: local - (local - referenced). -->
+    <_DotNetBoostUnreferenced Include="@(_DotNetBoostLocalId)" />
+    <_DotNetBoostUnreferenced Remove="@(PackageReference)" />
+    <_DotNetBoostSwapped Include="@(_DotNetBoostLocalId)" />
+    <_DotNetBoostSwapped Remove="@(_DotNetBoostUnreferenced)" />
+
+    <PackageReference Remove="@(_DotNetBoostSwapped)" />
+    <ProjectReference Include="@(_DotNetBoostSwapped->'%(ProjectPath)')" />
+  </ItemGroup>
+
+</Project>
