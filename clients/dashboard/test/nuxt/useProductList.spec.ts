@@ -112,7 +112,7 @@ describe('useProductList', () => {
     const list = await mountList()
 
     list.page.value = 2
-    await vi.waitFor(() => expect(reads.at(-1)?.page).toBe('2'))
+    await vi.waitFor(() => expect(list.products.value.map(p => p.id)).toEqual([3, 4]))
     const before = reads.length
 
     // Four keystrokes, each in a tick of its own as typing is, and closer together than the
@@ -122,34 +122,41 @@ describe('useProductList', () => {
       await new Promise(resolve => setTimeout(resolve, 50))
     }
 
-    await vi.waitFor(() => expect(reads.at(-1)?.search).toBe('desk'))
+    // Waited for on the rows, not on `reads`: the endpoint records a request before it answers,
+    // so the moment the search is in `reads` the page still holds page 2 of everything — [3, 4] —
+    // until the answer lands. Asserting the rows then fails whenever the answer is slower than the
+    // check, which on a cold CI runner it sometimes is.
+    await vi.waitFor(() => expect(list.products.value.map(p => p.id)).toEqual([1, 3]))
 
     // One request for the whole word, not one per key, and on page 1: page 2 of everything is
     // past the end of three desks at two a page only by luck.
     expect(reads.slice(before).map(read => read.search)).toEqual(['desk'])
     expect(list.page.value).toBe(1)
     expect(list.isFiltered.value).toBe(true)
-    expect(list.products.value.map(p => p.id)).toEqual([1, 3])
   })
 
   it('filters by category, and clears back to the whole listing', async () => {
     const list = await mountList()
 
     list.page.value = 2
-    await vi.waitFor(() => expect(reads.at(-1)?.page).toBe('2'))
+    await vi.waitFor(() => expect(list.products.value.map(p => p.id)).toEqual([3, 4]))
 
     // A category with two pages of its own, so landing on page 1 is the reset and not the
     // last-page clamp doing the same thing by coincidence.
     list.categoryId.value = 1
 
-    await vi.waitFor(() => expect(reads.at(-1)?.categoryId).toBe('1'))
+    // On the answer, not the request — see the search test above.
+    await vi.waitFor(() => expect(list.products.value.map(p => p.id)).toEqual([1, 2]))
+    expect(reads.at(-1)?.categoryId).toBe('1')
     expect(list.page.value).toBe(1)
-    expect(list.products.value.map(p => p.id)).toEqual([1, 2])
     expect(list.pageCount.value).toBe(2)
 
     list.clearFilters()
 
-    await vi.waitFor(() => expect(list.products.value.map(p => p.id)).toEqual([1, 2]))
+    // The rows are [1, 2] either side of the clear, so they cannot say the answer has landed. The
+    // page count can: two pages of category 1, three of everything.
+    await vi.waitFor(() => expect(list.pageCount.value).toBe(3))
+    expect(list.products.value.map(p => p.id)).toEqual([1, 2])
     expect(reads.at(-1)?.categoryId).toBeUndefined()
     expect(list.isFiltered.value).toBe(false)
   })
