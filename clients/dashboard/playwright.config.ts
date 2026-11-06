@@ -31,7 +31,9 @@ export default defineConfig<ConfigOptions>({
     nuxt: {
       rootDir: fileURLToPath(new URL('.', import.meta.url)),
       // The dev server, not a production build: Vue only warns in development, and a warning —
-      // "Failed to resolve component" — is half of what the page tests are looking for.
+      // "Failed to resolve component" — is half of what the page tests are looking for. The price is
+      // that the dev server compiles each module on first request, which on a CI runner is longer
+      // than an assertion waits; `test/e2e/fixtures.ts` visits every page once before the tests.
       dev: true
     }
   }

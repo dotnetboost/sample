@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from '@nuxt/test-utils/playwright'
 import { stubApi } from './api'
+import { expect, heading, pages, test } from './fixtures'
 
 /**
  * The dashboard in a real browser, against a stubbed API.
@@ -54,21 +54,6 @@ test.afterEach(({ page }) => {
   expect(problems.filter(problem => !expected.some(pattern => pattern.test(problem))),
     'console errors and Vue warnings').toEqual([])
 })
-
-/** The page's own `<h1>` — the one in `DashboardPage`'s header. */
-const heading = (page: Page) => page.getByRole('heading', { level: 1 })
-
-const pages = [
-  { path: '/', title: 'Overview' },
-  { path: '/catalog', title: 'Catalog' },
-  { path: '/catalog?tab=products', title: 'Catalog' },
-  { path: '/media', title: 'Media' },
-  { path: '/languages', title: 'Languages' },
-  { path: '/audit', title: 'Audit' },
-  { path: '/settings/branding', title: 'Settings' },
-  { path: '/settings/catalog', title: 'Settings' },
-  { path: '/settings/auditing', title: 'Settings' }
-]
 
 for (const { path, title } of pages) {
   test(`${path} renders its title`, async ({ page, goto }) => {
