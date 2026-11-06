@@ -4,6 +4,7 @@ using DotNetBoostSample.Api.Authentication;
 using DotNetBoostSample.Application.Settings;
 using DotNetBoostSample.Domain.Catalog;
 using DotNetBoostSample.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Text.Json;
@@ -217,8 +218,8 @@ public abstract class AuditTrailTests(SampleApp app)
     ///
     /// <para>The group is stored one row per property, so the interceptor alone would record a
     /// save as an entry per row. <c>IgnoreEntity&lt;Setting&gt;()</c> keeps the rows out and
-    /// <see cref="SettingGroupAuditObserver"/> records the save, addressed as
-    /// <c>("Setting", &lt;group name&gt;)</c> — under the ignored name, which is why the observer
+    /// <see cref="SettingGroupAuditParticipant"/> records the save, addressed as
+    /// <c>("Setting", &lt;group name&gt;)</c> — under the ignored name, which is why the participant
     /// gives the write the group's type. Two values are changed at once here, because one entry
     /// holding both is the whole point.</para>
     /// </summary>
@@ -262,16 +263,15 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
-    /// A settings group's entry is saved through a context of its own, not the caller's.
+    /// A settings group's entry commits in the caller's own save, on the caller's own context.
     ///
-    /// <para>The settings rows are saved through the caller's <see cref="AppDbContext"/>, and the
-    /// observer runs once they have committed. Recording on that same context left the entry tracked
-    /// there afterwards — and, had its save failed, still pending for whatever saved next. Asked of
-    /// the caller's change tracker, because a save that fails is not one a test can cause on
-    /// demand.</para>
+    /// <para><see cref="SettingGroupAuditParticipant"/> runs inside the settings write, before the
+    /// store saves, and records on the scope's <see cref="AppDbContext"/> — the one the settings
+    /// store saves. So the entry is tracked there afterwards, already saved, with nothing left
+    /// pending: one save carried the rows and the entry.</para>
     /// </summary>
     [RequiresDockerFact]
-    public async Task A_settings_entry_is_saved_on_a_context_of_its_own()
+    public async Task A_settings_entry_commits_in_the_callers_own_save()
     {
         try
         {
@@ -283,11 +283,14 @@ public abstract class AuditTrailTests(SampleApp app)
                     .For<CatalogSettings>()
                     .SetAsync(new CatalogSettings { PageSize = 19, CurrencySymbol = "¥" });
 
-                // The caller's context saved the rows, and holds nothing of the trail.
-                Assert.Empty(db.ChangeTracker.Entries<AuditEntry>());
+                // The entry went out through the caller's context, in its save, and nothing waits.
+                Assert.Equal(
+                    EntityState.Unchanged,
+                    Assert.Single(db.ChangeTracker.Entries<AuditEntry>()).State);
+                Assert.False(db.ChangeTracker.HasChanges());
             });
 
-            // And the entry is in the trail all the same.
+            // And the entry is in the trail.
             var newest = (await GroupTrail(app.Client.AsActor()))[0];
 
             Assert.Equal("19", Changes(newest)["PageSize"].Str("newValue"));
@@ -296,6 +299,42 @@ public abstract class AuditTrailTests(SampleApp app)
         {
             await app.ResetCatalogSettingsAsync();
         }
+    }
+
+    /// <summary>
+    /// A settings write that fails after its entry was recorded leaves the group unchanged, no
+    /// entry in the trail, and nothing pending on the caller's context.
+    ///
+    /// <para>The guarantee the participant gives and the observer before it could not. The write is
+    /// failed by <see cref="SettingsWriteSabotage"/>, a test-only participant that runs after the
+    /// application's — so the entry and its change rows have been enlisted when it throws, and the
+    /// settings library has to take all of them back. The last save is the trap: had a change row
+    /// been left <c>Added</c>, the context's next unrelated save would insert it.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_settings_write_that_fails_leaves_the_group_and_the_trail_as_they_were()
+    {
+        var client = app.Client.AsActor();
+        var entriesBefore = (await GroupTrail(client)).Count;
+        var before = await client.GetJsonAsync("/api/settings/catalog");
+
+        await app.WithScopeAsync(async services =>
+        {
+            var db = services.GetRequiredService<AppDbContext>();
+            services.GetRequiredService<SettingsWriteSabotage>().Armed = true;
+
+            await Assert.ThrowsAsync<SettingsWriteSabotagedException>(() =>
+                services.GetRequiredService<ISettingManager>()
+                    .For<CatalogSettings>()
+                    .SetAsync(new CatalogSettings { PageSize = 23, CurrencySymbol = "₩" }));
+
+            // Neither the entry nor any of its change rows is left for the next save to insert.
+            Assert.False(db.ChangeTracker.HasChanges());
+            Assert.Equal(0, await db.SaveChangesAsync());
+        });
+
+        Assert.Equal(entriesBefore, (await GroupTrail(client)).Count);
+        Assert.Equal(before.Int("pageSize"), (await client.GetJsonAsync("/api/settings/catalog")).Int("pageSize"));
     }
 
     /// <summary>
@@ -469,7 +508,7 @@ public abstract class AuditTrailTests(SampleApp app)
     /// <para>Declared is not the same as recorded, and this is where the difference shows. The
     /// list is what <c>DeclareEntities</c> named, so it is the application's own two; the trail is
     /// wider — <c>MediaFile</c> and the rest are recorded too, by the interceptor, and a settings
-    /// group by its observer, as <see cref="A_settings_save_is_one_entry_for_the_group"/> shows. And <c>Translation</c> is
+    /// group by its participant, as <see cref="A_settings_save_is_one_entry_for_the_group"/> shows. And <c>Translation</c> is
     /// neither: ignored, so it cannot be declared, which <c>Build()</c> enforces.</para>
     ///
     /// <para>It also publishes <c>maxPageSize</c>, so a client can stop asking for more than it
@@ -497,7 +536,7 @@ public abstract class AuditTrailTests(SampleApp app)
     /// <summary>The catalog settings group's entries, newest first.</summary>
     private static async Task<List<JsonElement>> GroupTrail(HttpClient client) =>
         [.. (await client.GetJsonAsync(
-                $"/api/audit?entityName={SettingGroupAuditObserver.EntityName}&entityId={nameof(CatalogSettings)}"))
+                $"/api/audit?entityName={SettingGroupAuditParticipant.EntityName}&entityId={nameof(CatalogSettings)}"))
             .GetProperty("entries").EnumerateArray()];
 
     /// <summary>One entity's entries, newest first.</summary>

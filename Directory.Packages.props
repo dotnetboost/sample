@@ -11,19 +11,20 @@
        integration package pairing two of them. Each library is installed on its own
        and knows nothing about the others. tests/ asserts that stays true.
 
-       All four happen to be on 1.0.0-preview.2 today, and nothing aligns those numbers:
-       Auditing reached preview.2 a release after the other three, for a fix of its own
-       (IgnoreEntity<T>(), below). Four independently versioned libraries are four release
+       Nothing aligns their numbers. Auditing reached preview.2 a release after the other
+       three, for a fix of its own (IgnoreEntity<T>(), below); Settings and MultiLingual then
+       moved to preview.3 for fixes this sample's composition turned up, while Media and
+       Auditing stayed on preview.2. Four independently versioned libraries are four release
        cadences, which is the other half of what "no shared kernel" means.
        ────────────────────────────────────────────────────────────────────────── -->
   <ItemGroup Label="DotNetBoost — Settings">
-    <PackageVersion Include="DotNetBoost.Settings.Core" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.Settings.EntityFrameworkCore" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.Settings.API" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Settings.Core" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.Settings.EntityFrameworkCore" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.Settings.API" Version="1.0.0-preview.3" />
     <!-- Server-side rules for the settings groups, and the source of the constraints the
          schema endpoint publishes — so the dashboard's generated form reads them rather than
          hardcoding a range it guessed at. -->
-    <PackageVersion Include="DotNetBoost.Settings.FluentValidation" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Settings.FluentValidation" Version="1.0.0-preview.3" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — Media">
@@ -34,12 +35,12 @@
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — MultiLingual">
-    <PackageVersion Include="DotNetBoost.MultiLingual.Core" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.MultiLingual.EntityFrameworkCore" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.MultiLingual.API" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.Core" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.EntityFrameworkCore" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.API" Version="1.0.0-preview.3" />
     <!-- IStringLocalizer over Resources/*.json, answering in the language the CONTENT is served
          in. Still one library's family, so the independence tests are unaffected. -->
-    <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.MultiLingual.Localization" Version="1.0.0-preview.3" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — Auditing">

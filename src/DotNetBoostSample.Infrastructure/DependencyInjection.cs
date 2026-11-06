@@ -98,8 +98,9 @@ public static class DependencyInjection
             .UseSchemaContributor<MultiLingualSchemaContributor>()
             // GET /api/settings/branding with its text in the request's language and its logo.
             .UseProjector<BrandingSettings, BrandingProjector>()
-            // One audit entry per group saved, rather than one per Settings row.
-            .UseWriteObserver<SettingGroupAuditObserver>()
+            // One audit entry per group saved, rather than one per Settings row — enlisted in the
+            // settings save itself, so the entry commits with the change or not at all.
+            .UseWriteParticipant<SettingGroupAuditParticipant>()
             .Build();
 
         // ── DotNetBoost.Media ────────────────────────────────────────────────
@@ -154,15 +155,16 @@ public static class DependencyInjection
         //      is that attribute applied from outside. Translated text is out of the trail anyway.
         //
         //   2. Keys. For a database-generated key, the interceptor writes a Created entry in a
-        //      second, nested SaveChanges — which on this context also runs through MultiLingual's
-        //      interceptor mid-save, and once wrote an empty product name over the stored one.
-        //      Category and Product take HiLo keys instead (see their configurations), so the id
-        //      exists when the entity is added and every entry goes into the caller's own save.
+        //      second, nested SaveChanges. Since MultiLingual 1.0.0-preview.3 a nested save joins
+        //      MultiLingual's outer one rather than restarting it, so that is no longer a problem on
+        //      MultiLingual's side — but the nested save is still Auditing's, and Category and
+        //      Product keep HiLo keys (see their configurations) so the id exists when the entity is
+        //      added and every entry goes into the caller's own save.
         //
         //   3. Settings. The library stores a group one row per property. IgnoreEntity<Setting>()
-        //      keeps those rows out, and SettingGroupAuditObserver records the save as one entry for
-        //      the group instead — after the settings save commits, the one entry not written
-        //      atomically with its change.
+        //      keeps those rows out, and SettingGroupAuditParticipant records the save as one entry
+        //      for the group instead — enlisted in the settings store's own save, so it commits
+        //      atomically with its change like every other entry.
         //
         // Every other mapped entity is captured, because that is the library's default — MediaFile,
         // MediaAttachment and Language as well as the catalogue.

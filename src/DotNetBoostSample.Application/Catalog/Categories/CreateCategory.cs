@@ -48,10 +48,9 @@ public static class CreateCategory
             // AddAsync, because adding is what assigns the HiLo id — see CategoryConfiguration.
             await db.Categories.AddAsync(category, ct);
 
-            // One SaveChanges for the row, every language's text and its audit entry. TranslatedText
-            // saves, because with a base language configured the language it runs in decides where
-            // each value lands.
-            await translatedText.SaveAsync(db, category, request.Translations, ct);
+            // One SaveChanges for the row, every language's text and its audit entry. CreateAsync
+            // rather than SaveAsync, so a create under any language names every base-language value.
+            await translatedText.CreateAsync(db, category, request.Translations, ct);
 
             return new CategoryCreated(category.Id, category.Slug);
         }

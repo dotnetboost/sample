@@ -18,7 +18,8 @@ namespace DotNetBoostSample.Application.Catalog.Categories;
 ///
 /// <para>This is the exception to "the interceptors already translated it": an editor needs every
 /// language at once, which is what <c>TranslatedText.LoadAsync</c> answers with — the stored
-/// translations, plus the base language's own columns where a base language is configured.</para>
+/// translations, plus the base language read from its own columns where a base language is
+/// configured.</para>
 /// </summary>
 public static class GetCategory
 {

@@ -36,10 +36,10 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         // ids from "CategoryIds" and hands one out when the entity is ADDED, before anything is saved.
         // That is what keeps a creation's audit entry in the same SaveChanges as the row:
         // DotNetBoost.Auditing defers the entry for a key the INSERT has yet to generate, to a
-        // second save nested inside the first — on a context MultiLingual is writing translations
-        // through at the same moment. Infrastructure/DependencyInjection.cs has why that is worth
-        // avoiding, and DatabaseInitialiser creates the sequence on a database made before it
-        // existed.
+        // second save nested inside the first. MultiLingual (since 1.0.0-preview.3) lets a nested
+        // save join its own, so the reason is now Auditing's nested save alone — see
+        // Infrastructure/DependencyInjection.cs. DatabaseInitialiser creates the sequence on a
+        // database made before it existed.
         //
         // Add with AddAsync for the same reason: a block that has run out is refilled from the
         // database, and AddAsync is the overload that does that without blocking.

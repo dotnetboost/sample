@@ -32,7 +32,8 @@ namespace DotNetBoostSample.Infrastructure.Persistence;
 /// <para>
 /// It is also one of only <b>three</b> of the nine composition files that are infrastructure; the
 /// others are that one line in <c>DependencyInjection.cs</c> and
-/// <c>SettingGroupAuditObserver</c>, which saves its entry through this context. The remaining six —
+/// <c>SettingGroupAuditParticipant</c>, which enlists its entry in the settings store's save on this
+/// context. The remaining six —
 /// <c>MediaText</c>, <c>MediaTextCleanup</c>, <c>MultiLingualSchemaContributor</c>,
 /// <c>BrandingProjector</c> and the two entities' attributes — depend on <c>DotNetBoost.*.Core</c>
 /// and nothing else, so they live in the application and domain layers beside the code that uses

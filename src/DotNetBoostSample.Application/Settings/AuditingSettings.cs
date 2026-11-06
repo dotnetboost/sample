@@ -19,9 +19,9 @@ namespace DotNetBoostSample.Application.Settings;
 /// sample that started deleting its own trail because someone ran it for a year would be the
 /// wrong kind of helpful. Turned on, the trail older than <see cref="RetentionDays"/> goes.</para>
 ///
-/// <para>Editing this group is itself recorded — <c>SettingGroupAuditObserver</c> writes one entry
-/// per save, like any other group's — so who shortened the retention, and from what, is in the
-/// trail the change applies to. A prune never removes that entry sooner than any other.</para>
+/// <para>Editing this group is itself recorded — <c>SettingGroupAuditParticipant</c> writes one
+/// entry per save, like any other group's, in the same transaction as the save — so who shortened
+/// the retention, and from what, is in the trail the change applies to. A prune never removes that entry sooner than any other.</para>
 /// </summary>
 [SettingGroup("auditing")]
 public class AuditingSettings

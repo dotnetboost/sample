@@ -101,7 +101,7 @@ public abstract class AuditRetentionTests(SampleApp app)
             // Who changed the retention is recorded like any other group's save — and, being new, it
             // is not among what that retention deletes.
             var turnedOn = (await client.GetJsonAsync(
-                    $"/api/audit?entityName={SettingGroupAuditObserver.EntityName}&entityId={nameof(AuditingSettings)}"))
+                    $"/api/audit?entityName={SettingGroupAuditParticipant.EntityName}&entityId={nameof(AuditingSettings)}"))
                 .GetProperty("entries").EnumerateArray().First();
 
             Assert.Equal(Http.DefaultActor, turnedOn.Str("actor"));

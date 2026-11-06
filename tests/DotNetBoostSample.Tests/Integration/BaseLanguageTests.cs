@@ -10,7 +10,7 @@ namespace DotNetBoostSample.Tests.Integration;
 /// <para><b>Why a second container is worth it.</b> Base-language mode is not a flag that changes
 /// a response: it changes where content is STORED. A translatable property keeps its column, that
 /// column holds English, every other language stays a translation row, an entity may only be
-/// created in the base language, and <c>Set("en", …)</c> is refused outright. Four of those five
+/// created with its base-language text, and <c>Set("en", …)</c> is refused outright. Four of those five
 /// are invisible to every other test in this project, and the fifth is a 500 waiting for the first
 /// caller who posts under <c>Accept-Language: ar</c>.</para>
 ///
@@ -68,11 +68,11 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     /// is reading in Arabic — still answers <c>201</c>, with its sentence in Arabic, and stores the
     /// English text from the body as the base value.
     ///
-    /// <para>The library refuses a create outside the base language, for a good reason: the base
-    /// value is what every translation hangs off and the last fallback for every other language.
-    /// <c>TranslatedText</c> moves the save into the base language instead of letting that refusal
-    /// reach the caller — and puts the request's language back, which is why the message below is
-    /// Arabic.</para>
+    /// <para>The library refuses a create outside the base language unless every translatable value
+    /// came through <c>SetAll</c>, for a good reason: the base value is what every translation hangs
+    /// off and the last fallback for every other language. <c>TranslatedText</c> writes every
+    /// language through <c>SetAll</c>, which puts the English values in the columns without
+    /// changing the request's language — which is why the message below is Arabic.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_create_read_in_another_language_still_answers_201_in_that_language()
@@ -95,8 +95,8 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
 
         var created = await response.ReadJsonAsync("POST /api/products");
 
-        // The API's own sentence, in the language the request was read in — not in the language
-        // the row had to be written in.
+        // The API's own sentence, in the language the request was read in — not in the base
+        // language the row's columns were written in.
         Assert.StartsWith("تم إنشاء المنتج", created.Str("message"));
 
         var id = created.Int("id");
@@ -111,6 +111,54 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
             .GetProperty("items").EnumerateArray().First(p => p.Int("id") == id);
 
         Assert.Equal("Base value", french.Str("name"));
+
+        await client.SendJsonAsync(HttpMethod.Delete, $"/api/products/{id}");
+    }
+
+    /// <summary>
+    /// A create under <c>Accept-Language: ar</c> whose body names an English <c>Name</c> but no
+    /// English <c>Description</c> still answers <c>201</c>, with the description's column empty.
+    ///
+    /// <para>The case <c>TranslatedText.CreateAsync</c> exists for. <c>Description</c> is a
+    /// non-nullable string defaulting to <c>""</c>, and the library cannot tell that leftover from
+    /// a value — so a create in another language that left it unset would be refused as one whose
+    /// base text had not come through <c>SetAll</c>. Naming every base-language property, with
+    /// <c>""</c> for the ones the body left out, keeps the answer it had when the save ran in
+    /// English.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_create_in_another_language_without_every_base_property_still_answers_201()
+    {
+        var client = app.Client;
+
+        var response = await client.SendJsonAsync(HttpMethod.Post, "/api/products", new
+        {
+            sku = $"BP-{Guid.NewGuid():N}"[..12],
+            price = 10.0m,
+            categoryId = app.SeededCategoryId,
+            translations = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["en"] = new() { ["Name"] = "Name only" },
+                ["ar"] = new() { ["Name"] = "الاسم فقط", ["Description"] = "وصف." }
+            }
+        }, language: "ar");
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var id = (await response.ReadJsonAsync("POST /api/products")).Int("id");
+
+        Assert.Equal(
+            "Name only",
+            await app.ScalarAsync($"""select "Name" from "Products" where "Id" = {id}"""));
+        Assert.Equal(
+            "",
+            await app.ScalarAsync($"""select "Description" from "Products" where "Id" = {id}"""));
+
+        // The Arabic text is a translation like any other.
+        var detail = (await client.GetJsonAsync($"/api/products/{id}")).GetProperty("translations");
+
+        Assert.Equal("الاسم فقط", detail.GetProperty("ar").Str("Name"));
+        Assert.Equal("", detail.GetProperty("en").Str("Description"));
 
         await client.SendJsonAsync(HttpMethod.Delete, $"/api/products/{id}");
     }
@@ -375,11 +423,11 @@ public class BaseLanguageTests(BaseLanguageSampleApp app)
     /// A refused write is still a refusal — 400, 404 or 409 as before, and in the caller's
     /// language.
     ///
-    /// <para>The one assertion here that is really about this mode is the last. The save runs
-    /// inside the base language, and the refusal is raised by the database in the middle of that —
-    /// so the language has to be back before <c>DbUpdateExceptionHandler</c> looks the sentence up.
-    /// That is what the <c>finally</c> in <c>TranslatedText</c> is for, and a test that only
-    /// checked the status code would pass with it deleted.</para>
+    /// <para>The one assertion here that is really about this mode is the last. The save writes the
+    /// base language's columns, and the refusal is raised by the database in the middle of that —
+    /// so the sentence <c>DbUpdateExceptionHandler</c> looks up has to be in the caller's language,
+    /// not the one the columns were written in. <c>SetAll</c> never changes the request's language,
+    /// and a test that only checked the status code would not notice if something did.</para>
     /// </summary>
     [RequiresDockerFact]
     public async Task A_refused_write_keeps_its_status_and_its_language()
