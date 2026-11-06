@@ -203,7 +203,7 @@ last three, where one library's data has no place in another's in the shape it i
 | 5 | `Application/Settings/BrandingSettings.cs` | Settings × Media × MultiLingual | branding's name, its other languages and its logo are one thing |
 | 6 | `Infrastructure/DependencyInjection.cs` — one line | Auditing → MultiLingual | MultiLingual's translation row is not in the trail: `.IgnoreEntity<Translation>()` |
 | 7 | `Domain/Catalog/Category.cs` and `Product.cs` | MultiLingual → Auditing | a translated property is not in the trail: `[AuditIgnore]` beside `[MultiLingual]` |
-| 8 | `Infrastructure/Persistence/SettingGroupAuditObserver.cs` | Settings → Auditing | a settings save is one entry for the group, not one per row |
+| 8 | `Infrastructure/Persistence/SettingGroupAuditParticipant.cs` | Settings → Auditing | a settings save is one entry for the group, not one per row, committed with it |
 
 Nine files in eight entries, because the seventh is one sentence said once per entity. It was five
 before Auditing arrived. Three of these exist because two libraries **disagree**, which is a worse
@@ -219,7 +219,7 @@ string, an attribute or a type both sides must agree on, which is why `BrandingO
 
 **Six of the nine name only `DotNetBoost.*.Core`**, so they live in the application and domain
 layers beside the code that uses them. Only `AppDbContext`, the `IgnoreEntity` line and
-`SettingGroupAuditObserver` are infrastructure, and all three are there because four libraries share
+`SettingGroupAuditParticipant` are infrastructure, and all three are there because four libraries share
 **one `DbContext`**. Joining two libraries is not a persistence concern; joining them in one
 database is.
 
@@ -424,10 +424,11 @@ Neither library learned the other's name: the fix was an ignore-list on one buil
 pairing the two.
 
 **Keys are assigned before the save.** For a database-generated key, the interceptor writes the
-`Created` entry in a second, nested `SaveChanges` — which on this context also runs through
-MultiLingual's interceptor mid-save, and a second save of a just-created entity once wrote an empty
-product name over the stored one. Rather than depend on the order of two libraries' interceptors,
-the catalogue's entities take HiLo keys:
+`Created` entry in a second, nested `SaveChanges`. Up to MultiLingual `1.0.0-preview.2` that nested
+save also restarted MultiLingual's interceptor mid-save, dropping the outer save's pending work and
+committing its transaction from the inside. `1.0.0-preview.3` fixed that: a nested save now joins
+the outer one, and only the outermost writes, commits or rolls back. The nested save itself is still
+Auditing's, though, so rather than depend on it the catalogue's entities keep their HiLo keys:
 
 ```csharp
 category.Property(c => c.Id).UseHiLo("CategoryIds");
@@ -440,7 +441,7 @@ ids have gaps, and an older database needs the sequences created past its existi
 
 **What the trail holds:** everything this `DbContext` saves except `Translation` and `Setting` —
 `MediaFile`, `MediaAttachment` and `Language` as well as the catalogue, and the seed's first run with
-no actor. Settings saves are recorded by [the observer](#8-a-settings-save-is-one-entry-not-one-per-row--srcinfrastructurepersistencesettinggroupauditobservercs).
+no actor. Settings saves are recorded by [the participant](#8-a-settings-save-is-one-entry-not-one-per-row--srcinfrastructurepersistencesettinggroupauditparticipantcs).
 `GET /api/audit/entities` lists only what is **declared** — the application's own two — so the
 dashboard shows the libraries' entries under *Any*. `AuditTrailTests` asserts each of these.
 
@@ -469,31 +470,40 @@ way of recording honours it, and `GET /api/audit/entities/Product` reports it as
 each library's metadata — because a translated property added without the second attribute would
 produce a trail that confidently says the wrong thing.
 
-### 8. A settings save is one entry, not one per row — `src/.../Infrastructure/Persistence/SettingGroupAuditObserver.cs`
+### 8. A settings save is one entry, not one per row — `src/.../Infrastructure/Persistence/SettingGroupAuditParticipant.cs`
 
 DotNetBoost.Settings stores a group one row per property, so the interceptor alone recorded a
 branding save as one entry per value, each addressed by a row id nobody knows. The settings library
-already knows where an edit begins and ends, and reports it through `ISettingWriteObserver`:
+already knows where an edit begins and ends, and since `1.0.0-preview.3` lets code take part in it
+through `ISettingWriteParticipant`, which runs inside the write, before the store saves:
 
 ```csharp
 // Settings block
-.UseWriteObserver<SettingGroupAuditObserver>()
+.UseWriteParticipant<SettingGroupAuditParticipant>()
 
 // Auditing block
 .IgnoreEntity<Translation>()
 .IgnoreEntity<Setting>();
 ```
 
-The observer records the group's whole diff as one `Setting` entry addressed by the group's name.
-The write carries the group's class as its type, so the ignore — checked by type — does not drop it,
-and `[AuditIgnore]` and `[AuditRedact]` on a group's properties apply. A `[Sensitive]` property is
-marked redacted, so the trail does not read "changed from nothing to nothing". The entry is saved
-through a context of its own, so a failure leaves nothing behind on the request's.
+The participant records the group's whole diff as one `Setting` entry addressed by the group's
+name. The write carries the group's class as `SettingWrite.GroupType`, so the ignore — checked by
+type — does not drop it, and `[AuditIgnore]` and `[AuditRedact]` on a group's properties apply. A
+`[Sensitive]` property is marked redacted, so the trail does not read "changed from nothing to
+nothing".
 
-**The cost:** this is the one entry that does not commit with its change. The observer runs after
-the settings save, and DotNetBoost.Settings logs and swallows its failures, so a failed record leaves
-the change without an entry. For dashboard-edited configuration, "catalog: page size 17 → 18" in
-one line is worth that.
+**It commits with the change.** In the request's scope, Settings' EF Core store, Auditing's EF Core
+store and the participant all resolve the same `AppDbContext`, so `IAuditManager.RecordAsync` tracks
+the entry on the very context the settings store is about to save. The participant enlists the
+entry and each of its change rows with `EfCoreSettingWriteScope.Add`, and never saves. The entry goes
+out in the settings store's own save, or not at all: if anything fails, the write is aborted and
+everything enlisted is detached again, so nothing is left for the context's next save to insert. A
+failure to record now fails the request rather than passing silently. `AuditTrailTests` checks both
+halves, the second with a test-only participant that fails the write after the entry is enlisted.
+
+Up to Settings `1.0.0-preview.2` this was an `ISettingWriteObserver`, which runs after the commit
+and whose failures the library logs and swallows. This was then the one entry that did not commit
+with its change.
 
 ---
 
@@ -529,14 +539,22 @@ One class, `Catalog/Shared/TranslatedText.cs`, through which the four writes and
 
 | `TranslatedText` | In the default mode | With a base language |
 |---|---|---|
-| `SaveAsync` | queues every language with `Set` and saves | assigns the base language's values to the entity, queues the rest, and saves **in** the base language |
-| `LoadAsync` | the query, then `GetAllAsync()` | reads the entity in the base language and adds its columns under that language's code |
+| `SaveAsync` (an update) | `SetAll`, which is `Set` per language, and saves | `SetAll`: the base language to the entity's columns, the rest as rows, and saves |
+| `CreateAsync` (a create) | as `SaveAsync` | as `SaveAsync`, with `""` for every base-language property the body left out |
+| `LoadAsync` | the query, then `GetAllAsync()` | the query, then `GetAllAsync(includeBase: true)`, which reads the base language from its columns |
 
-Each half answers a refusal the library makes on purpose: `Set("en", …)` throws, because the base
-language is not a translation, and a create under `Accept-Language: ar` throws, because the base
-value must exist first. Saving in the base language settles both, and the request's language is put
-back afterwards so the response sentence stays in Arabic. The read half matters as much: without
-it, the editor would open with empty English boxes and save that emptiness over the real text.
+All of it stays in the request's language. Since MultiLingual `1.0.0-preview.3`, `SetAll` writes the
+base language to the columns whatever language is current, and `GetAllAsync(includeBase: true)`
+reads it back from the database by key, so the response sentence stays in Arabic without a detour
+through English. The read half matters as much as the write: without the base language, the editor
+would open with empty English boxes and save that emptiness over the real text.
+
+One rule is still the application's. The library accepts a create under `Accept-Language: ar` only
+when every translatable value came through `SetAll`, and it cannot tell a non-nullable property's
+leftover `""` from a value. So `CreateAsync` names every base-language property, giving `""` to any
+the body left out, which is what the column would hold anyway. An update does not fill anything: an
+unsent property there holds the request's language, and filling it would write that language over
+the base column.
 
 The seed authors content in `BaseLanguage ?? "en"`, and `Persistence/MultiLingualModelCacheKeyFactory.cs`
 puts the option in EF's model cache key so two hosts with different modes can share a process.
@@ -554,7 +572,7 @@ as `""` where the default mode answers `null`, because the column is a non-nulla
 
 `dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: fifty-seven tests against each, the same
+**The whole integration suite runs in both modes**: fifty-eight tests against each, the same
 assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
 `OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
 library version fails the suite rather than going uncalled.
@@ -562,8 +580,8 @@ library version fails the suite rather than going uncalled.
 `BaseLanguageTests` then asks what only this mode can: that the `Name` column holds English (read
 with raw SQL), that the editor's round trip keeps it, that writes in Arabic leave it alone, that
 refusals keep their status and language, and that cascades and the other libraries behave the same.
-Deleting the one line that puts base-language values on the entity fails six tests, two of them
-duplicated default-mode classes running in this mode, while every default-mode copy still passes.
+`A_create_in_another_language_without_every_base_property_still_answers_201` pins the one rule
+`TranslatedText` still adds to the library's.
 
 Measured as well: across two freshly seeded APIs, one per mode, the OpenAPI document is
 byte-identical apart from its port, and so is every `GET` response across nine endpoints in all
@@ -639,15 +657,15 @@ abstract class holds the assertions and two sealed subclasses bind it to each fi
 - **`RemainingRouteTests`** — the six routes nothing else called.
 - **`AuditTrailTests`** — a product's life in the trail and the history that outlives it; a change
   made straight through `AppDbContext` recorded all the same; no `Translation` entry; settings saves
-  as one entry; the right actor on each entry; and **a refused write records nothing**.
+  as one entry, committed in the settings save, and none at all when that save fails; the right actor on each entry; and **a refused write records nothing**.
 - **`AuditRetentionTests`** — retention is off by default, and once switched on,
   `AuditRetentionService` deletes old entries and keeps new ones.
 - **`SchemaUpgradeTests`** — a database from before the HiLo keys still boots and creates rows.
 - **`BaseLanguageTests`** — what only base-language mode can be asked.
-  Fifteen tests, beside the fifty-seven the suite runs in each mode.
+  Sixteen tests, beside the fifty-eight the suite runs in each mode.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 130 as skipped, with the reason.
+tests and reports the other 133 as skipped, with the reason.
 
 ### And the dashboard's own
 
@@ -792,7 +810,7 @@ src/DotNetBoostSample.Infrastructure/
   Persistence/AppDbContext.cs            one database, four Apply* calls
   Persistence/Configurations/            one per entity: unique indexes and HiLo keys
   Persistence/DatabaseInitialiser.cs     schema and seed on first run, and upgrades for old volumes
-  Persistence/SettingGroupAuditObserver.cs
+  Persistence/SettingGroupAuditParticipant.cs
   Persistence/PostgresErrorTranslator.cs
   DependencyInjection.cs                 AddInfrastructure(): four independent blocks
 src/DotNetBoostSample.Api/

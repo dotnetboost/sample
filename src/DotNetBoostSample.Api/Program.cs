@@ -28,7 +28,7 @@ using Scalar.AspNetCore;
 //
 //    Infrastructure/Persistence/AppDbContext.cs                — all four: one Apply* call each
 //    Infrastructure/DependencyInjection.cs                     — .IgnoreEntity<Translation>()
-//    Infrastructure/Persistence/SettingGroupAuditObserver.cs   — one audit entry per settings save
+//    Infrastructure/Persistence/SettingGroupAuditParticipant.cs — one audit entry per settings save
 //    Application/Composition/MediaText.cs                      — a file's per-language alt text
 //    Application/Composition/MediaTextCleanup.cs               — deleted with the file
 //    Application/Composition/MultiLingualSchemaContributor.cs  — `translated` in settings schemas

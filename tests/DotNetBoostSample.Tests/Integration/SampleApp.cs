@@ -1,6 +1,8 @@
 using DotNetBoostSample.Infrastructure.Persistence;
+using DotNetBoost.Settings.Core.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -27,7 +29,10 @@ namespace DotNetBoostSample.Tests.Integration;
 ///
 /// <para><b>Two things are overridden</b>, both infrastructure rather than composition: the
 /// connection string, so the run gets a throwaway database, and <c>Media:Root</c>, so uploaded
-/// bytes land in a temporary directory instead of the repository's media folder.</para>
+/// bytes land in a temporary directory instead of the repository's media folder. <b>One thing is
+/// added</b>: <see cref="SettingsWriteSabotage"/>, a settings write participant that does nothing
+/// until a test arms it in its own scope — the one way to make a settings write fail after the
+/// application's own participant has enlisted its audit entry.</para>
 ///
 /// <para>Postgres comes from Testcontainers. The README already asks for a container runtime to
 /// run the sample at all, so this adds no prerequisite — and where there is no Docker the tests
@@ -110,6 +115,7 @@ public class SampleApp : IAsyncLifetime
         {
             builder.UseSetting("ConnectionStrings:catalog", _postgres.GetConnectionString());
             builder.UseSetting("Media:Root", _mediaRoot);
+            UseTestHooks(builder);
 
             // The third override, and the only one that is not infrastructure: it decides where a
             // [MultiLingual] property is STORED, so a run with it set exercises a different schema
@@ -198,9 +204,22 @@ public class SampleApp : IAsyncLifetime
         {
             builder.UseSetting("ConnectionStrings:catalog", connectionString);
             builder.UseSetting("Media:Root", _mediaRoot);
+            UseTestHooks(builder);
 
             if (BaseLanguage is not null)
                 builder.UseSetting("MultiLingual:BaseLanguage", BaseLanguage);
+        });
+
+    /// <summary>
+    /// What a test can switch on in a scope of its own, and nothing else can: see
+    /// <see cref="SettingsWriteSabotage"/>. Added after the application's registrations, so the
+    /// sabotage runs after <c>SettingGroupAuditParticipant</c> has enlisted its entry.
+    /// </summary>
+    private static void UseTestHooks(IWebHostBuilder builder) =>
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddScoped<SettingsWriteSabotage>();
+            services.AddScoped<ISettingWriteParticipant>(sp => sp.GetRequiredService<SettingsWriteSabotage>());
         });
 
     /// <summary>
@@ -241,3 +260,28 @@ public sealed class SampleAppCollection : ICollectionFixture<SampleApp>
 {
     public const string Name = "sample-app";
 }
+
+/// <summary>
+/// A settings write participant that fails the write — but only in a scope where a test has set
+/// <see cref="Armed"/>, so every request and every other test is untouched.
+///
+/// <para>It is registered after the application's own participant, so when it throws the audit
+/// entry has already been recorded and enlisted. That is the case
+/// <c>SettingGroupAuditParticipant</c> has to get right: the write does not commit, and neither the
+/// entry nor its change rows may be left behind on the request's context.</para>
+/// </summary>
+public sealed class SettingsWriteSabotage : ISettingWriteParticipant
+{
+    /// <summary>Set by a test, in its own scope, to fail that scope's next settings write.</summary>
+    public bool Armed { get; set; }
+
+    /// <inheritdoc/>
+    public Task OnWritingAsync(SettingWrite write, CancellationToken cancellationToken) =>
+        Armed
+            ? throw new SettingsWriteSabotagedException(write.GroupName)
+            : Task.CompletedTask;
+}
+
+/// <summary>What <see cref="SettingsWriteSabotage"/> throws, so a test can tell it from a real failure.</summary>
+public sealed class SettingsWriteSabotagedException(string group)
+    : Exception($"The test failed the write to settings group '{group}' on purpose.");
