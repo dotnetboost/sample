@@ -155,11 +155,12 @@ public static class DependencyInjection
         //      is that attribute applied from outside. Translated text is out of the trail anyway.
         //
         //   2. Keys. For a database-generated key, the interceptor writes a Created entry in a
-        //      second, nested SaveChanges. Since MultiLingual 1.0.0-preview.3 a nested save joins
-        //      MultiLingual's outer one rather than restarting it, so that is no longer a problem on
-        //      MultiLingual's side — but the nested save is still Auditing's, and Category and
-        //      Product keep HiLo keys (see their configurations) so the id exists when the entity is
-        //      added and every entry goes into the caller's own save.
+        //      second, nested SaveChanges. Since MultiLingual 1.0.0-preview.3 and Auditing
+        //      1.0.0-preview.3 both libraries count nested saves, so that save is safe beside
+        //      MultiLingual's interceptor in either registration order. Category and Product keep
+        //      HiLo keys anyway (see their configurations): the id exists when the entity is added,
+        //      so a creation's entry goes into the caller's own save, with no second save and no
+        //      transaction opened to cover one.
         //
         //   3. Settings. The library stores a group one row per property. IgnoreEntity<Setting>()
         //      keeps those rows out, and SettingGroupAuditParticipant records the save as one entry

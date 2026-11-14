@@ -34,10 +34,11 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
 
         // The id comes from a HiLo sequence rather than an identity column: EF reserves a block of
         // ids from "CategoryIds" and hands one out when the entity is ADDED, before anything is saved.
-        // That is what keeps a creation's audit entry in the same SaveChanges as the row:
-        // DotNetBoost.Auditing defers the entry for a key the INSERT has yet to generate, to a
-        // second save nested inside the first. MultiLingual (since 1.0.0-preview.3) lets a nested
-        // save join its own, so the reason is now Auditing's nested save alone — see
+        // That is what keeps a creation's audit entry in the same SaveChanges as the row: for a key
+        // the INSERT has yet to generate, DotNetBoost.Auditing defers the entry to a second save
+        // nested inside the first, and opens a transaction to cover both. Since 1.0.0-preview.3 of
+        // both libraries that nested save is safe beside MultiLingual's interceptor, so HiLo is no
+        // longer what keeps the two apart; it keeps a creation to one save — see
         // Infrastructure/DependencyInjection.cs. DatabaseInitialiser creates the sequence on a
         // database made before it existed.
         //
