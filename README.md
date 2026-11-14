@@ -427,8 +427,11 @@ pairing the two.
 `Created` entry in a second, nested `SaveChanges`. Up to MultiLingual `1.0.0-preview.2` that nested
 save also restarted MultiLingual's interceptor mid-save, dropping the outer save's pending work and
 committing its transaction from the inside. `1.0.0-preview.3` fixed that: a nested save now joins
-the outer one, and only the outermost writes, commits or rolls back. The nested save itself is still
-Auditing's, though, so rather than depend on it the catalogue's entities keep their HiLo keys:
+the outer one, and only the outermost writes, commits or rolls back. Auditing `1.0.0-preview.3`
+fixed its own side the same way, so with either library registered first, the entity, its
+translations and its `Created` entry commit or roll back together. The catalogue's entities keep
+their HiLo keys anyway, because a creation in one save is simpler than a creation in two, and
+dropping them would need a data migration:
 
 ```csharp
 category.Property(c => c.Id).UseHiLo("CategoryIds");
