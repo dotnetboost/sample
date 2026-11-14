@@ -64,10 +64,17 @@ public static class DependencyInjection
         // handler mentions auditing. The two know nothing of each other; what it took for them to
         // share this context is in the Auditing block below.
         //
+        // EnableRetryOnFailure, so a dropped connection or a failover is retried rather than
+        // answered with a 500. Since MultiLingual 1.0.0-preview.3 and Auditing 1.0.0-preview.3 that
+        // is safe with both interceptors on the context: MultiLingual replays a save under the
+        // retrying strategy, and Auditing records a replayed save once. Before, every change in
+        // the trail was recorded twice — and again on each retry. The two interceptors may also be
+        // registered in either order; this one is the order the sample has always used.
+        //
         // ReplaceService, because the model depends on the base language and EF's own cache key
         // does not. See MultiLingualModelCacheKeyFactory.
         services.AddDbContext<AppDbContext>((sp, options) =>
-            options.UseNpgsql(connectionString)
+            options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
                    .UseMultiLingual(sp)
                    .UseAuditing(sp)
                    .ReplaceService<IModelCacheKeyFactory, MultiLingualModelCacheKeyFactory>());
@@ -155,12 +162,11 @@ public static class DependencyInjection
         //      is that attribute applied from outside. Translated text is out of the trail anyway.
         //
         //   2. Keys. For a database-generated key, the interceptor writes a Created entry in a
-        //      second, nested SaveChanges. Since MultiLingual 1.0.0-preview.3 and Auditing
-        //      1.0.0-preview.3 both libraries count nested saves, so that save is safe beside
-        //      MultiLingual's interceptor in either registration order. Category and Product keep
-        //      HiLo keys anyway (see their configurations): the id exists when the entity is added,
-        //      so a creation's entry goes into the caller's own save, with no second save and no
-        //      transaction opened to cover one.
+        //      second, nested SaveChanges, in a transaction it opens to cover both. Since
+        //      MultiLingual 1.0.0-preview.3 and Auditing 1.0.0-preview.3 both libraries count nested
+        //      saves, so that save is safe beside MultiLingual's interceptor in either registration
+        //      order. Category and Product took HiLo keys to avoid it until then; they are identity
+        //      columns again (see their configurations).
         //
         //   3. Settings. The library stores a group one row per property. IgnoreEntity<Setting>()
         //      keeps those rows out, and SettingGroupAuditParticipant records the save as one entry

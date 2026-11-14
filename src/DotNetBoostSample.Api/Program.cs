@@ -1,4 +1,5 @@
 using DotNetBoost.Auditing.API;
+using DotNetBoost.Auditing.Core.Models;
 using DotNetBoost.Media.API;
 using DotNetBoost.MultiLingual.API;
 using DotNetBoostSample.Api.Auditing;
@@ -73,6 +74,14 @@ var baseLanguage = builder.Configuration["MultiLingual:BaseLanguage"];
 //
 // UseHttpContextActor puts the signed-in user on every entry. UseLoggingObserver logs what the
 // engine chose not to record, so a skipped change can be told apart from one nobody made.
+//
+// OnLostAtomicity says what happens when another SaveChanges interceptor commits the transaction
+// before Auditing has written a creation's entry, so the entry can no longer commit with its
+// change. Report — logged as an error by UseLoggingObserver — unless configured otherwise. The
+// test host sets Auditing:OnLostAtomicity to Throw, so a composition that loses atomicity fails a
+// test instead of leaving a line in a log nobody reads.
+var lostAtomicity = builder.Configuration.GetValue("Auditing:OnLostAtomicity", LostAtomicity.Report);
+
 builder.Services.AddInfrastructure(
     connectionString,
     Path.GetFullPath(mediaRoot),
@@ -82,7 +91,8 @@ builder.Services.AddInfrastructure(
         .Allow<BrandingSettings>()),       // the settings group's translated StoreName
     audit => audit
         .UseHttpContextActor()
-        .UseLoggingObserver());
+        .UseLoggingObserver()
+        .OnLostAtomicity(lostAtomicity));
 
 // ── The dispatcher, the eleven slices, the behaviors, the composition ────────
 builder.Services.AddApplication();

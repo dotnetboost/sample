@@ -62,11 +62,12 @@ public static class CreateProduct
                 CategoryId = request.CategoryId
             };
 
-            // AddAsync, because adding is what assigns the HiLo id — see ProductConfiguration.
             await db.Products.AddAsync(product, ct);
 
-            // One SaveChanges for the row, every language's text and its audit entry. CreateAsync
-            // rather than SaveAsync, so a create under any language names every base-language value.
+            // One SaveChanges call for the row, every language's text and its audit entry — the
+            // entry in a save Auditing nests inside it once the INSERT has given the row its id, in
+            // one transaction. CreateAsync rather than SaveAsync, so a create under any language
+            // names every base-language value.
             await translatedText.CreateAsync(db, product, request.Translations, ct);
 
             return new ProductCreated(product.Id, product.Sku);

@@ -26,8 +26,9 @@ namespace DotNetBoostSample.Infrastructure.Persistence;
 /// tables are mapped here like any other library's, and its capture is attached to this context in
 /// <c>DependencyInjection.cs</c> — beside MultiLingual's, on the same save. Two things had to be
 /// true for that: MultiLingual's <c>Translation</c>, keyed on four columns, is kept out of the
-/// trail with <c>IgnoreEntity&lt;Translation&gt;()</c>, and the two entities here take HiLo keys
-/// so that a creation's entry is written in the save that creates the row. That file has both.
+/// trail with <c>IgnoreEntity&lt;Translation&gt;()</c>, and a creation's entry, written in a save
+/// nested inside the one that creates the row, has to be safe beside MultiLingual's interceptor —
+/// which both libraries' 1.0.0-preview.3 made it. That file has both.
 /// </para>
 /// <para>
 /// It is also one of only <b>three</b> of the nine composition files that are infrastructure; the
