@@ -214,13 +214,21 @@ public class SampleApp : IAsyncLifetime
     /// What a test can switch on in a scope of its own, and nothing else can: see
     /// <see cref="SettingsWriteSabotage"/>. Added after the application's registrations, so the
     /// sabotage runs after <c>SettingGroupAuditParticipant</c> has enlisted its entry.
+    ///
+    /// <para>And <c>Auditing:OnLostAtomicity</c> set to <c>Throw</c>: a save whose audit entries
+    /// can no longer commit with it fails the test that made it, rather than logging an error
+    /// that every test still passes beside.</para>
     /// </summary>
-    private static void UseTestHooks(IWebHostBuilder builder) =>
+    private static void UseTestHooks(IWebHostBuilder builder)
+    {
+        builder.UseSetting("Auditing:OnLostAtomicity", "Throw");
+
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<SettingsWriteSabotage>();
             services.AddScoped<ISettingWriteParticipant>(sp => sp.GetRequiredService<SettingsWriteSabotage>());
         });
+    }
 
     /// <summary>
     /// The running instance of a hosted service, for a test that drives one step of it rather than

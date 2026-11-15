@@ -32,19 +32,13 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         category.ToTable("Categories");
         category.HasKey(c => c.Id);
 
-        // The id comes from a HiLo sequence rather than an identity column: EF reserves a block of
-        // ids from "CategoryIds" and hands one out when the entity is ADDED, before anything is saved.
-        // That is what keeps a creation's audit entry in the same SaveChanges as the row: for a key
-        // the INSERT has yet to generate, DotNetBoost.Auditing defers the entry to a second save
-        // nested inside the first, and opens a transaction to cover both. Since 1.0.0-preview.3 of
-        // both libraries that nested save is safe beside MultiLingual's interceptor, so HiLo is no
-        // longer what keeps the two apart; it keeps a creation to one save — see
-        // Infrastructure/DependencyInjection.cs. DatabaseInitialiser creates the sequence on a
-        // database made before it existed.
-        //
-        // Add with AddAsync for the same reason: a block that has run out is refilled from the
-        // database, and AddAsync is the overload that does that without blocking.
-        category.Property(c => c.Id).UseHiLo("CategoryIds");
+        // The id is an identity column, Npgsql's default, so nothing is configured for it. The INSERT
+        // generates it, which means DotNetBoost.Auditing cannot write a creation's entry until the
+        // row is in: it defers the entry to a second save nested inside the first, in a transaction
+        // it opens to cover both. Since 1.0.0-preview.3 of Auditing and MultiLingual that nested
+        // save is safe beside MultiLingual's interceptor, in either order and under a retrying
+        // strategy — see Infrastructure/DependencyInjection.cs. This took its ids from a HiLo
+        // sequence until then; DatabaseInitialiser moves a database from that era back to identity.
         category.Property(c => c.Slug).HasMaxLength(128).IsRequired();
         category.HasIndex(c => c.Slug).IsUnique().HasDatabaseName(SlugIndex);
     }
