@@ -435,7 +435,9 @@ Until then `Category` and `Product` took HiLo keys, so the id existed at `AddAsy
 save was needed. They are identity columns again, which leaves one cost: a volume from the HiLo
 builds has key columns with no identity, or an identity counter behind the ids HiLo handed out.
 `DatabaseInitialiser` gives the columns their identity back and moves each counter past the rows
-already there, and `SchemaUpgradeTests` checks both kinds of volume. Stop the older build first: while
+already there, and past the last block each HiLo sequence handed out, so the id of a row deleted
+during those builds, whose audit trail outlives it, is never handed out again. `SchemaUpgradeTests`
+checks both kinds of volume. Stop the older build first: while
 it runs it keeps handing out ids from the HiLo block it holds.
 
 **Retries, and atomicity checked.** The context runs under Npgsql's `EnableRetryOnFailure`.
@@ -578,7 +580,7 @@ as `""` where the default mode answers `null`, because the column is a non-nulla
 
 `dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: sixty tests against each, the same
+**The whole integration suite runs in both modes**: sixty-two tests against each, the same
 assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
 `OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
 library version fails the suite rather than going uncalled.
@@ -663,17 +665,19 @@ abstract class holds the assertions and two sealed subclasses bind it to each fi
 - **`RemainingRouteTests`** — the six routes nothing else called.
 - **`AuditTrailTests`** — a product's life in the trail and the history that outlives it; a change
   made straight through `AppDbContext` recorded all the same; no `Translation` entry; settings saves
-  as one entry, committed in the settings save, and none at all when that save fails; the right actor on each entry; **a refused write records nothing**; and the suite itself runs
-  under a retrying strategy and fails any save that loses atomicity.
+  as one entry, committed in the settings save, and none at all when that save fails; the right actor on each entry; **a refused write records nothing**; a creation whose translation
+  write fails leaves no product, text or entry, and one retried after a transient failure is
+  recorded once; and the suite itself runs under a retrying strategy and fails any save that
+  loses atomicity.
 - **`AuditRetentionTests`** — retention is off by default, and once switched on,
   `AuditRetentionService` deletes old entries and keeps new ones.
 - **`SchemaUpgradeTests`** — a database from the HiLo builds, of either kind, gets identity keys
   back, counting past its existing rows.
 - **`BaseLanguageTests`** — what only base-language mode can be asked.
-  Sixteen tests, beside the sixty the suite runs in each mode.
+  Sixteen tests, beside the sixty-two the suite runs in each mode.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 138 as skipped, with the reason.
+tests and reports the other 142 as skipped, with the reason.
 
 ### And the dashboard's own
 

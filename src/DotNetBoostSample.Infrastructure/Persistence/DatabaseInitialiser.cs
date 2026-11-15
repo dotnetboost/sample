@@ -218,10 +218,16 @@ public static class DatabaseInitialiser
     /// them, the column kept its identity, but the HiLo builds sent their own ids, which the
     /// identity counter never saw, so the next one it hands out may be a row the table has.</para>
     ///
-    /// <para>So: add the identity where it is missing, then move the counter to the highest id when
-    /// it is behind it. Only forward, and every boot, so a database in step is left alone. The HiLo
-    /// sequences are left where they are; nothing reads them, and a process still running the
-    /// older build would.</para>
+    /// <para>So: add the identity where it is missing, then move the counter past the highest id
+    /// when it is behind it. Only forward, and every boot, so a database in step is left alone.</para>
+    ///
+    /// <para>The highest id is not only the highest row. A row the HiLo builds created and then
+    /// deleted is gone from its table, but its audit trail outlives it, addressed by its id; hand
+    /// that id out again and the new entity's trail begins with the old one's history. That
+    /// happened on this sample's own data volume. So the counter also goes past the last block
+    /// each HiLo sequence handed out: EF's HiLo generator takes the sequence's value and the
+    /// increment's worth of ids after it. The sequences are left where they are; nothing reads them
+    /// any more, and a process still running an older build would.</para>
     ///
     /// <para>Not safe while an older build is still running against the same database: it keeps
     /// handing out ids from the HiLo block it holds, which the identity counter knows nothing about.
@@ -230,12 +236,16 @@ public static class DatabaseInitialiser
     private static async Task RestoreIdentityKeysAsync(this AppDbContext db)
     {
         // The two tables that had HiLo keys, and no other: every library's tables are that
-        // library's to manage.
-        var keys = new[] { typeof(Category), typeof(Product) }
-            .Select(clr => db.Model.FindEntityType(clr)!)
-            .Select(type => (Table: type.GetTableName()!, Column: type.FindPrimaryKey()!.Properties.Single().GetColumnName()));
+        // library's to manage. With the sequences those builds drew from, which are history now and
+        // so named here rather than read off the model.
+        var keys = new[] { (typeof(Category), "CategoryIds"), (typeof(Product), "ProductIds") }
+            .Select(key => (Type: db.Model.FindEntityType(key.Item1)!, HiLo: key.Item2))
+            .Select(key => (
+                Table: key.Type.GetTableName()!,
+                Column: key.Type.FindPrimaryKey()!.Properties.Single().GetColumnName(),
+                key.HiLo));
 
-        foreach (var (table, column) in keys)
+        foreach (var (table, column, hiLo) in keys)
         {
             // Identifiers, which no parameter can carry — and every one of them read off this
             // application's own model, not from input.
@@ -252,12 +262,17 @@ public static class DatabaseInitialiser
                 await db.Database.ExecuteSqlRawAsync(identity);
             }
 
-            // setval's default is_called = true, so the next id is one past the highest. A table
-            // with no rows, or a counter already past them, is left as it is.
+            // The highest row, or the last id of the last HiLo block, whichever is higher; GREATEST
+            // skips a NULL, which is what an empty table or a sequence never drawn from gives.
+            // setval's default is_called = true, so the next id is one past it. A counter already
+            // past both is left as it is.
             var align = $"""
                 SELECT setval(s.seq, m.highest)
                 FROM (SELECT pg_get_serial_sequence('"{table}"', '{column}')::regclass AS seq) s,
-                     (SELECT MAX("{column}") AS highest FROM "{table}") m
+                     (SELECT GREATEST(
+                         (SELECT MAX("{column}") FROM "{table}"),
+                         (SELECT last_value + increment_by - 1 FROM pg_sequences
+                          WHERE schemaname = current_schema() AND sequencename = '{hiLo}')) AS highest) m
                 WHERE m.highest IS NOT NULL
                   AND m.highest > COALESCE(pg_sequence_last_value(s.seq), 0)
                 """;
