@@ -1,5 +1,6 @@
 using DotNetBoost.Auditing.Core;
 using DotNetBoost.Media.Core.Interfaces;
+using DotNetBoost.Media.Core.Models;
 using DotNetBoost.MultiLingual.Core;
 using DotNetBoost.MultiLingual.Core.Models;
 using DotNetBoost.Settings.Core.Interfaces;
@@ -126,6 +127,10 @@ public static class DependencyInjection
             // A deleted file's alt text goes with it, whoever deleted it — including Media's own
             // DELETE /api/media/{id}. Only files actually deleted, not ones merely detached.
             .OnFilesDeleted<MediaTextCleanup>()
+            // An audit entry per upload, attach, detach, reorder, edit and delete — the attaches
+            // filed under the product they were attached to — enlisted in the media store's own
+            // save, so each entry commits with its change or not at all.
+            .UseWriteParticipant<MediaAuditParticipant>()
             .Build();
 
         // ── DotNetBoost.MultiLingual ─────────────────────────────────────────
@@ -173,8 +178,14 @@ public static class DependencyInjection
         //      for the group instead — enlisted in the settings store's own save, so it commits
         //      atomically with its change like every other entry.
         //
-        // Every other mapped entity is captured, because that is the library's default — MediaFile,
-        // MediaAttachment and Language as well as the catalogue.
+        //   4. Media. A file is a MediaFile row and each use of it a MediaAttachment row, so the
+        //      interceptor alone recorded an attach under the link's own GUID and nothing under the
+        //      product. IgnoreEntity<MediaFile>() and IgnoreEntity<MediaAttachment>() keep the rows
+        //      out, and MediaAuditParticipant records each change instead — an attach under the
+        //      product, a delete under the file — enlisted in the media store's own save.
+        //
+        // Every other mapped entity is captured, because that is the library's default — Language
+        // as well as the catalogue.
         var auditing = services
             .AddAuditing()
             // In AppDbContext, which is what makes a change and its entry commit together: the
@@ -184,7 +195,9 @@ public static class DependencyInjection
             // finds types carrying the library's attributes and these two carry none.
             .DeclareEntities(typeof(Category), typeof(Product))
             .IgnoreEntity<Translation>()
-            .IgnoreEntity<Setting>();
+            .IgnoreEntity<Setting>()
+            .IgnoreEntity<MediaFile>()
+            .IgnoreEntity<MediaAttachment>();
 
         // No o.Retention: retention is the runtime-editable `auditing` settings group, applied by
         // the host's AuditRetentionService. An option here is read once, at Build(), and could not
