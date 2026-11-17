@@ -117,3 +117,12 @@ test('Arabic turns the page right-to-left', async ({ page, goto }) => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'ar')
   await expect(heading(page)).toHaveText('نظرة عامة')
 })
+
+test('a media entry shows its operation beside the action', async ({ page, goto }) => {
+  await goto('/audit')
+
+  // The Gallery attach is an Updated entry; the badge is what says it was an attach.
+  const row = page.getByRole('row').filter({ hasText: /5 hours ago/ })
+  await expect(row.getByText('Updated')).toBeVisible()
+  await expect(row.getByText('Attached')).toBeVisible()
+})

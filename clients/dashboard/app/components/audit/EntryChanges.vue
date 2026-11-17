@@ -113,11 +113,21 @@ const showNew = computed(() => props.entry.action !== 'Deleted')
         </dd>
       </div>
 
+      <!-- The one thing read out of the metadata: a media operation, which this application's API
+           writes there because the library's three actions cannot say "attached". -->
+      <div v-if="mediaOperationOf(entry)" class="flex items-center gap-2">
+        <dt>{{ $t('audit.entry.mediaOperation') }}</dt>
+        <dd>
+          <AuditMediaOperationBadge :entry="entry" />
+        </dd>
+      </div>
+
       <!-- Passed through as the string the application stored: the library never looked inside it,
            and neither does this. -->
-      <div v-if="entry.metadata" class="flex items-center gap-2">
+      <div v-if="entry.metadata" class="flex max-w-full min-w-0 items-center gap-2">
         <dt>{{ $t('audit.entry.metadata') }}</dt>
-        <dd dir="auto" class="text-foreground">
+        <!-- break-all: JSON with a GUID in it has nowhere to wrap, and would run off the row. -->
+        <dd dir="auto" class="min-w-0 break-all text-foreground">
           {{ entry.metadata }}
         </dd>
       </div>

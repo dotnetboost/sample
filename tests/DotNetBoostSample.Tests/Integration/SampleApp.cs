@@ -1,4 +1,6 @@
 using DotNetBoostSample.Infrastructure.Persistence;
+using DotNetBoost.Media.Core.Interfaces;
+using DotNetBoost.Media.Core.Models;
 using DotNetBoost.Settings.Core.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -29,10 +31,11 @@ namespace DotNetBoostSample.Tests.Integration;
 ///
 /// <para><b>Two things are overridden</b>, both infrastructure rather than composition: the
 /// connection string, so the run gets a throwaway database, and <c>Media:Root</c>, so uploaded
-/// bytes land in a temporary directory instead of the repository's media folder. <b>One thing is
-/// added</b>: <see cref="SettingsWriteSabotage"/>, a settings write participant that does nothing
-/// until a test arms it in its own scope — the one way to make a settings write fail after the
-/// application's own participant has enlisted its audit entry.</para>
+/// bytes land in a temporary directory instead of the repository's media folder. <b>Two things are
+/// added</b>: <see cref="SettingsWriteSabotage"/> and <see cref="MediaWriteSabotage"/>, write
+/// participants that do nothing until a test arms one in its own scope — the one way to make a
+/// settings or media write fail after the application's own participant has enlisted its audit
+/// entry.</para>
 ///
 /// <para>Postgres comes from Testcontainers. The README already asks for a container runtime to
 /// run the sample at all, so this adds no prerequisite — and where there is no Docker the tests
@@ -212,8 +215,9 @@ public class SampleApp : IAsyncLifetime
 
     /// <summary>
     /// What a test can switch on in a scope of its own, and nothing else can: see
-    /// <see cref="SettingsWriteSabotage"/>. Added after the application's registrations, so the
-    /// sabotage runs after <c>SettingGroupAuditParticipant</c> has enlisted its entry.
+    /// <see cref="SettingsWriteSabotage"/> and <see cref="MediaWriteSabotage"/>. Added after the
+    /// application's registrations, so each sabotage runs after <c>SettingGroupAuditParticipant</c>
+    /// or <c>MediaAuditParticipant</c> has enlisted its entry.
     ///
     /// <para>And <c>Auditing:OnLostAtomicity</c> set to <c>Throw</c>: a save whose audit entries
     /// can no longer commit with it fails the test that made it, rather than logging an error
@@ -227,6 +231,9 @@ public class SampleApp : IAsyncLifetime
         {
             services.AddScoped<SettingsWriteSabotage>();
             services.AddScoped<ISettingWriteParticipant>(sp => sp.GetRequiredService<SettingsWriteSabotage>());
+
+            services.AddScoped<MediaWriteSabotage>();
+            services.AddScoped<IMediaWriteParticipant>(sp => sp.GetRequiredService<MediaWriteSabotage>());
         });
     }
 
@@ -293,3 +300,27 @@ public sealed class SettingsWriteSabotage : ISettingWriteParticipant
 /// <summary>What <see cref="SettingsWriteSabotage"/> throws, so a test can tell it from a real failure.</summary>
 public sealed class SettingsWriteSabotagedException(string group)
     : Exception($"The test failed the write to settings group '{group}' on purpose.");
+
+/// <summary>
+/// The media counterpart of <see cref="SettingsWriteSabotage"/>: a media write participant that
+/// fails the write, but only in a scope where a test has set <see cref="Armed"/>.
+///
+/// <para>Registered after the application's own participant, so when it throws,
+/// <c>MediaAuditParticipant</c> has already recorded and enlisted the entry — and DotNetBoost.Media
+/// has to take it back off the request's context.</para>
+/// </summary>
+public sealed class MediaWriteSabotage : IMediaWriteParticipant
+{
+    /// <summary>Set by a test, in its own scope, to fail that scope's next media write.</summary>
+    public bool Armed { get; set; }
+
+    /// <inheritdoc/>
+    public Task OnWritingAsync(MediaChange change, CancellationToken ct) =>
+        Armed
+            ? throw new MediaWriteSabotagedException(change.Kind)
+            : Task.CompletedTask;
+}
+
+/// <summary>What <see cref="MediaWriteSabotage"/> throws, so a test can tell it from a real failure.</summary>
+public sealed class MediaWriteSabotagedException(MediaChangeKind kind)
+    : Exception($"The test failed a media {kind} write on purpose.");

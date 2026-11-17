@@ -130,6 +130,13 @@ const auditPage = (): AuditPage => ({
       changes: [{ propertyName: 'Price', oldValue: '35', newValue: '39', isRedacted: false, isTruncated: false }]
     },
     {
+      // A media operation: an Updated entry on the owner, the operation in its metadata.
+      id: 'a0000000-0000-0000-0000-000000000004', entityName: 'Product', entityId: '3', action: 'Updated',
+      actor: 'sample-user', correlationId: 'c0000000-0000-0000-0000-000000000003', occurredAt: hoursAgo(5),
+      metadata: '{"media":"Attach","fileId":"f0000000-0000-0000-0000-000000000001"}',
+      changes: [{ propertyName: 'Gallery', oldValue: null, newValue: 'lamp.png', isRedacted: false, isTruncated: false }]
+    },
+    {
       id: 'a0000000-0000-0000-0000-000000000002', entityName: 'Product', entityId: '3', action: 'Created',
       actor: 'sample-user', correlationId: 'c0000000-0000-0000-0000-000000000001', occurredAt: hoursAgo(26), metadata: null,
       changes: [
@@ -143,9 +150,9 @@ const auditPage = (): AuditPage => ({
       changes: [{ propertyName: 'Slug', oldValue: null, newValue: 'cases', isRedacted: false, isTruncated: false }]
     }
   ],
-  total: 3,
+  total: 4,
   skip: 0,
-  take: 3,
+  take: 4,
   nextCursor: null
 })
 

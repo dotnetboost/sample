@@ -24,12 +24,13 @@ using Scalar.AspNetCore;
 //  kernel and no integration package, and tests/ZeroCouplingTests.cs fails the build if that
 //  changes.
 //
-//  What joins them is nine files of this application's own code. The README's "Where the
+//  What joins them is ten files of this application's own code. The README's "Where the
 //  composition happens" says what each one does and why:
 //
 //    Infrastructure/Persistence/AppDbContext.cs                — all four: one Apply* call each
 //    Infrastructure/DependencyInjection.cs                     — .IgnoreEntity<Translation>()
 //    Infrastructure/Persistence/SettingGroupAuditParticipant.cs — one audit entry per settings save
+//    Infrastructure/Persistence/MediaAuditParticipant.cs       — media changes, in the owner's trail
 //    Application/Composition/MediaText.cs                      — a file's per-language alt text
 //    Application/Composition/MediaTextCleanup.cs               — deleted with the file
 //    Application/Composition/MultiLingualSchemaContributor.cs  — `translated` in settings schemas

@@ -14,7 +14,8 @@
        Nothing aligns their numbers. Auditing reached preview.2 a release after the other
        three, for a fix of its own (IgnoreEntity<T>(), below); Settings and MultiLingual then
        moved to preview.3 for fixes this sample's composition turned up, and Auditing followed
-       for its own side of them, while Media stayed on preview.2. Four independently versioned
+       for its own side of them. Media stayed on preview.2 until it too reached preview.3, for
+       the write participants this sample's media audit trail is built on. Four independently versioned
        libraries are four release cadences, which is the other half of what "no shared kernel"
        means.
        ────────────────────────────────────────────────────────────────────────── -->
@@ -29,10 +30,10 @@
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — Media">
-    <PackageVersion Include="DotNetBoost.Media.Core" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.Media.EntityFrameworkCore" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.Media.FileSystem" Version="1.0.0-preview.2" />
-    <PackageVersion Include="DotNetBoost.Media.API" Version="1.0.0-preview.2" />
+    <PackageVersion Include="DotNetBoost.Media.Core" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.Media.EntityFrameworkCore" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.Media.FileSystem" Version="1.0.0-preview.3" />
+    <PackageVersion Include="DotNetBoost.Media.API" Version="1.0.0-preview.3" />
   </ItemGroup>
 
   <ItemGroup Label="DotNetBoost — MultiLingual">

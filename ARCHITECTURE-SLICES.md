@@ -5,7 +5,7 @@ the two disagreed the code won — §10 lists what changed on contact with the c
 written while the work sat on `feat/vertical-slices-cqrs` and still argues with itself about
 whether to merge it; §11.3 says how that ended.
 
-The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 172 tests
+The solution builds clean on `net8.0` and `net10.0` with `TreatWarningsAsErrors`, and all 178 tests
 pass, including the integration suite that boots the real `Program.cs` against a throwaway
 PostgreSQL and drives every route over HTTP. No endpoint's URL, status code or JSON shape changed.
 
@@ -56,7 +56,7 @@ compile against DotNetBoost's own `net8.0` TFM.
 
 This repo was **1,788 lines of C# in 13 files** when this was written, and the README's thesis is
 that the integration between three independent libraries is *five files, none of them large*. A
-fourth library has since been installed, and that count is now nine files — see the README; the
+fourth library has since been installed, and that count is now ten files — see the README; the
 reasoning below is unaffected. The one new file it would have changed its mind about,
 `Composition/CreationTrail.cs` — a creation's audit entry, written by hand in a scope of its own —
 is gone again: DotNetBoost.Auditing 1.0.0-preview.2 added `IgnoreEntity<T>()`, its capture is now

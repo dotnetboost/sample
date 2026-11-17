@@ -1,4 +1,5 @@
 using DotNetBoost.Auditing.Core.Models;
+using DotNetBoost.Media.Core.Interfaces;
 using DotNetBoost.Settings.Core.Interfaces;
 using DotNetBoostSample.Api.Authentication;
 using DotNetBoostSample.Application.Settings;
@@ -340,6 +341,134 @@ public abstract class AuditTrailTests(SampleApp app)
     }
 
     /// <summary>
+    /// A product image's whole life, in the trails people actually read: the upload under the file,
+    /// the attach in the product's own history — <c>Gallery: — → lamp.png</c>, the operation in the
+    /// entry's metadata — and, when the product is deleted, the detach on the product and the
+    /// delete under the file. None of DotNetBoost.Media's own rows are in the trail.
+    ///
+    /// <para>The interceptor alone recorded this as a <c>MediaAttachment</c> entry addressed by the
+    /// link's own GUID, and a soft delete as a <c>MediaFile</c> <c>Updated</c> entry about
+    /// <c>DeletedAt</c>; the product's trail said nothing. <c>IgnoreEntity&lt;MediaFile&gt;()</c>
+    /// and <c>IgnoreEntity&lt;MediaAttachment&gt;()</c> keep the rows out, and
+    /// <see cref="MediaAuditParticipant"/> records each operation as DotNetBoost.Media reports it —
+    /// under the product, because Media's owner address and Auditing's entity address are the same
+    /// <c>(entityName, entityId)</c>.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_product_images_life_is_in_the_product_and_file_trails()
+    {
+        var client = app.Client.AsActor("media.editor@example.com");
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Has a photo");
+
+        var upload = await client.UploadAsync($"/api/products/{id}/images?role=gallery", "lamp.png");
+        var fileId = upload.Str("id");
+
+        // The attach, in the product's own history, by whoever made it.
+        var attached = Assert.Single(await MediaTrail(client, "Product", id));
+        Assert.Equal("Updated", attached.Str("action"));
+        Assert.Equal("media.editor@example.com", attached.Str("actor"));
+        Assert.Equal(("Gallery", null, "lamp.png"), Row(attached));
+        Assert.Equal(("Attach", fileId), (Operation(attached).Str("media"), Operation(attached).Str("fileId")));
+
+        // The upload, under the file — and the attach shares its correlation id: one call.
+        var uploaded = Assert.Single(await FileTrail(client, fileId));
+        Assert.Equal("Created", uploaded.Str("action"));
+        Assert.Equal("lamp.png", Changes(uploaded)["FileName"].Str("newValue"));
+        Assert.DoesNotContain("Tags", Changes(uploaded).Keys);   // no tags, so no empty row
+        Assert.Equal(uploaded.Str("correlationId"), attached.Str("correlationId"));
+
+        // Deleting the product deletes the image only it held: one delete under the file, and a
+        // detach on the product that says why.
+        await client.SendJsonCheckedAsync(HttpMethod.Delete, $"/api/products/{id}");
+
+        var detached = (await MediaTrail(client, "Product", id)).Single(e => Operation(e).Str("media") == "Detach");
+        Assert.Equal(("Gallery", "lamp.png", null), Row(detached));
+        Assert.Equal("FileDeleted", Operation(detached).Str("reason"));
+
+        var fileTrail = await FileTrail(client, fileId);
+        Assert.Equal(["Created", "Deleted"], fileTrail.Select(e => e.Str("action")).Order());
+
+        var deleted = fileTrail.Single(e => e.Str("action") == "Deleted");
+        Assert.Equal("lamp.png", Changes(deleted)["FileName"].Str("oldValue"));
+        Assert.Equal($"Product {id} as gallery", Changes(deleted)["Attachments"].Str("oldValue"));
+        Assert.Equal(deleted.Str("correlationId"), detached.Str("correlationId"));
+
+        // And not one of the media library's rows, from this test or any other.
+        Assert.Equal("0", await app.ScalarAsync(
+            "SELECT COUNT(*) FROM \"AuditEntries\" WHERE \"EntityName\" IN ('MediaFile', 'MediaAttachment')"));
+    }
+
+    /// <summary>
+    /// Replacing a single-valued role and reordering a gallery are one entry each in the product's
+    /// history: <c>Primary: first.png → second.png</c>, and <c>Gallery</c> with the whole order before
+    /// and after — not a detach and an attach, and not one entry per image that moved.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_replacement_and_a_reorder_are_one_entry_each()
+    {
+        var client = app.Client.AsActor();
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Rearranged");
+
+        var first = (await client.UploadAsync($"/api/products/{id}/images?role=primary", "first.png")).Str("id");
+        var a     = (await client.UploadAsync($"/api/products/{id}/images?role=gallery", "a.png")).Str("id");
+        var b     = (await client.UploadAsync($"/api/products/{id}/images?role=gallery", "b.png")).Str("id");
+        var second = Guid.Parse((await client.UploadAsync("/api/media", "second.png")).Str("id"));
+
+        await app.WithScopeAsync(async services =>
+        {
+            var media = services.GetRequiredService<IMediaManager>().For("Product", id.ToString());
+
+            await media.SetAsync("primary", second);
+            await media.ReorderAsync("gallery", [Guid.Parse(b), Guid.Parse(a)]);
+        });
+
+        var trail = await MediaTrail(client, "Product", id);
+
+        var replaced = Assert.Single(trail, e => Operation(e).Str("media") == "Replace");
+        Assert.Equal(("Primary", "first.png", "second.png"), Row(replaced));
+        Assert.Equal(
+            (second.ToString("D"), first),
+            (Operation(replaced).Str("fileId"), Operation(replaced).Str("previousFileId")));
+
+        var reordered = Assert.Single(trail, e => Operation(e).Str("media") == "Reorder");
+        Assert.Equal(("Gallery", "a.png, b.png", "b.png, a.png"), Row(reordered));
+    }
+
+    /// <summary>
+    /// A media write that fails after its entry was recorded leaves the file unattached, no entry in
+    /// the trail, and nothing pending on the caller's context.
+    ///
+    /// <para>The media counterpart of the settings test above. <see cref="MediaWriteSabotage"/> runs
+    /// after <see cref="MediaAuditParticipant"/>, so the entry and its change row are enlisted when
+    /// it throws, and DotNetBoost.Media has to take them back. The last save is the trap: an entry
+    /// left <c>Added</c> would be inserted by the context's next unrelated save.</para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_media_write_that_fails_leaves_the_link_and_the_trail_as_they_were()
+    {
+        var client = app.Client.AsActor();
+        var id = await client.CreateProductAsync(app.SeededCategoryId, "Refuses a photo");
+        var fileId = Guid.Parse((await client.UploadAsync("/api/media", "refused.png")).Str("id"));
+        var before = (await Trail(client, "Product", id)).Count;
+
+        await app.WithScopeAsync(async services =>
+        {
+            var db = services.GetRequiredService<AppDbContext>();
+            services.GetRequiredService<MediaWriteSabotage>().Armed = true;
+
+            await Assert.ThrowsAsync<MediaWriteSabotagedException>(() =>
+                services.GetRequiredService<IMediaManager>().For("Product", id.ToString()).AddAsync(fileId, "gallery"));
+
+            Assert.False(db.ChangeTracker.HasChanges());
+            Assert.Equal(0, await db.SaveChangesAsync());
+        });
+
+        Assert.Equal(before, (await Trail(client, "Product", id)).Count);
+        Assert.Equal("0", await app.ScalarAsync(
+            $"SELECT COUNT(*) FROM \"MediaAttachments\" WHERE \"MediaFileId\" = '{fileId}'"));
+    }
+
+    /// <summary>
     /// <c>GET /api/audit/{id}</c> — one entry, read by the id the page carries, with its changes.
     /// </summary>
     [RequiresDockerFact]
@@ -509,9 +638,11 @@ public abstract class AuditTrailTests(SampleApp app)
     ///
     /// <para>Declared is not the same as recorded, and this is where the difference shows. The
     /// list is what <c>DeclareEntities</c> named, so it is the application's own two; the trail is
-    /// wider — <c>MediaFile</c> and the rest are recorded too, by the interceptor, and a settings
-    /// group by its participant, as <see cref="A_settings_save_is_one_entry_for_the_group"/> shows. And <c>Translation</c> is
-    /// neither: ignored, so it cannot be declared, which <c>Build()</c> enforces.</para>
+    /// wider — <c>Language</c> is recorded too, by the interceptor, a settings group by its
+    /// participant, as <see cref="A_settings_save_is_one_entry_for_the_group"/> shows, and a media
+    /// file under <c>Media</c> by its. And <c>Translation</c>, <c>MediaFile</c> and
+    /// <c>MediaAttachment</c> are neither: ignored, so they cannot be declared, which <c>Build()</c>
+    /// enforces.</para>
     ///
     /// <para>It also publishes <c>maxPageSize</c>, so a client can stop asking for more than it
     /// will ever be given rather than discovering the clamp by comparing <c>take</c> with what it
@@ -730,6 +861,29 @@ public abstract class AuditTrailTests(SampleApp app)
     private static async Task<List<JsonElement>> GroupTrail(HttpClient client) =>
         [.. (await client.GetJsonAsync(
                 $"/api/audit?entityName={SettingGroupAuditParticipant.EntityName}&entityId={nameof(CatalogSettings)}"))
+            .GetProperty("entries").EnumerateArray()];
+
+    /// <summary>An entity's media entries — the ones carrying an operation in their metadata — newest first.</summary>
+    private static async Task<List<JsonElement>> MediaTrail(HttpClient client, string entityName, int entityId) =>
+        [.. (await Trail(client, entityName, entityId)).Where(e => e.TryGetProperty("metadata", out var m)
+                                                                 && m.ValueKind == JsonValueKind.String)];
+
+    /// <summary>The operation a media entry records, from its metadata.</summary>
+    private static JsonElement Operation(JsonElement entry) =>
+        JsonDocument.Parse(entry.Str("metadata")).RootElement;
+
+    /// <summary>A media entry's one row, as (property, old, new).</summary>
+    private static (string, string?, string?) Row(JsonElement entry)
+    {
+        var change = Assert.Single(entry.GetProperty("changes").EnumerateArray());
+        return (change.Str("propertyName"),
+                change.GetProperty("oldValue").GetString(),
+                change.GetProperty("newValue").GetString());
+    }
+
+    /// <summary>A media file's own entries, newest first.</summary>
+    private static async Task<List<JsonElement>> FileTrail(HttpClient client, string fileId) =>
+        [.. (await client.GetJsonAsync($"/api/audit?entityName={MediaAuditParticipant.FileEntityName}&entityId={fileId}"))
             .GetProperty("entries").EnumerateArray()];
 
     /// <summary>One entity's entries, newest first.</summary>

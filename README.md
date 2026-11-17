@@ -17,7 +17,7 @@ What it demonstrates is as much what is *absent* as what is present:
 - no integration package pairing any two libraries
 
 Each library is installed and configured on its own. Everything that joins them is this
-application's code, in nine files, [listed below](#where-the-composition-happens). `tests/` asserts
+application's code, in ten files, [listed below](#where-the-composition-happens). `tests/` asserts
 that no library references another, so the claim cannot quietly stop being true.
 
 **Auditing was added last, to a solution the other three were already in** — the one measure of
@@ -190,9 +190,9 @@ are `npm run lint`, `npm run typecheck`, `npm test` and `npm run test:e2e`.
 
 ## Where the composition happens
 
-Nine files of this application's own code. Each is a place where it says two libraries are talking
+Ten files of this application's own code. Each is a place where it says two libraries are talking
 about the same thing — the only way they ever find out, since none references another — or, for the
-last three, where one library's data has no place in another's in the shape it is stored in:
+last four, where one library's data has no place in another's in the shape it is stored in:
 
 | | File | Joins | What it says |
 |---|---|---|---|
@@ -204,9 +204,10 @@ last three, where one library's data has no place in another's in the shape it i
 | 6 | `Infrastructure/DependencyInjection.cs` — one line | Auditing → MultiLingual | MultiLingual's translation row is not in the trail: `.IgnoreEntity<Translation>()` |
 | 7 | `Domain/Catalog/Category.cs` and `Product.cs` | MultiLingual → Auditing | a translated property is not in the trail: `[AuditIgnore]` beside `[MultiLingual]` |
 | 8 | `Infrastructure/Persistence/SettingGroupAuditParticipant.cs` | Settings → Auditing | a settings save is one entry for the group, not one per row, committed with it |
+| 9 | `Infrastructure/Persistence/MediaAuditParticipant.cs` | Media → Auditing | attaching a file is a change to the product it is attached to, and is recorded there, committed with it |
 
-Nine files in eight entries, because the seventh is one sentence said once per entity. It was five
-before Auditing arrived. Three of these exist because two libraries **disagree**, which is a worse
+Ten files in nine entries, because the seventh is one sentence said once per entity. It was five
+before Auditing arrived. Four of these exist because two libraries **disagree**, which is a worse
 kind of glue than "these two tables are about one thing" — and the reason the count is kept honest
 rather than tidy.
 
@@ -217,9 +218,9 @@ it to Media is the string `"MediaFile"`, not a type. A join is an identity asser
 string, an attribute or a type both sides must agree on, which is why `BrandingOwnerTests`,
 `KeyFormatAgreementTests` and `AuditRuleTests` exist.
 
-**Six of the nine name only `DotNetBoost.*.Core`**, so they live in the application and domain
-layers beside the code that uses them. Only `AppDbContext`, the `IgnoreEntity` line and
-`SettingGroupAuditParticipant` are infrastructure, and all three are there because four libraries share
+**Six of the ten name only `DotNetBoost.*.Core`**, so they live in the application and domain
+layers beside the code that uses them. Only `AppDbContext`, the `IgnoreEntity` lines,
+`SettingGroupAuditParticipant` and `MediaAuditParticipant` are infrastructure, and all four are there because four libraries share
 **one `DbContext`**. Joining two libraries is not a persistence concern; joining them in one
 database is.
 
@@ -513,6 +514,58 @@ Up to Settings `1.0.0-preview.2` this was an `ISettingWriteObserver`, which runs
 and whose failures the library logs and swallows. This was then the one entry that did not commit
 with its change.
 
+### 9. A media change is recorded where people look for it — `src/.../Infrastructure/Persistence/MediaAuditParticipant.cs`
+
+DotNetBoost.Media stores a file as a `MediaFile` row and each use of it as a `MediaAttachment` row,
+so the interceptor alone recorded attaching a photo to a product as a `MediaAttachment` entry
+addressed by the link's own GUID, and a soft delete as a `MediaFile` change to `DeletedAt`. Product
+42's own history said nothing. The media library knows what each write means, and lets code take
+part in it through `IMediaWriteParticipant`, which runs inside the write, before the store saves:
+
+```csharp
+// Media block
+.UseWriteParticipant<MediaAuditParticipant>()
+
+// Auditing block
+.IgnoreEntity<MediaFile>()
+.IgnoreEntity<MediaAttachment>();
+```
+
+Media reports each operation once — an attach, a detach, a replacement, a reorder, a delete — and
+the participant files it where a reader would look for it. A change to which files an entity uses
+is an `Updated` entry **on that entity**, with one row named after the role, file names as its
+values, and the operation in the entry's `Metadata`:
+
+| Operation | Entry | Row | Metadata |
+|---|---|---|---|
+| attach | Category 4 | `Banner: — → photo.png` | `{"media":"Attach","fileId":"…"}` |
+| detach | Category 4 | `Banner: photo.png → —` | `{"media":"Detach","fileId":"…"}` |
+| replace | Category 4 | `Banner: photo.png → new.png` | `{"media":"Replace","fileId":"…","previousFileId":"…"}` |
+| reorder | Product 42 | `Gallery: a.png, b.png → b.png, a.png` | `{"media":"Reorder"}` |
+
+An upload, an edit and a delete are about the file itself: `Created`, `Updated` and `Deleted` on
+`("Media", <file id>)`, with its name, type, size, category and tags — only the ones it has. A
+delete also writes a detach on every entity that still used the file, marked
+`"reason":"FileDeleted"`, so a product's history says why its image went, and lists those entities
+on the file's own entry as one `Attachments` row (`Category 4 as banner, Product 42 as gallery`),
+so the file's history is complete on its own. All of them share one correlation id.
+
+An attach can be filed under the product because Media's owner address and Auditing's entity
+address are the same `(entityName, entityId)` — Entity Addressing v1, which
+`KeyFormatAgreementTests` pins. The file's id is in the metadata rather than the row, which keeps
+the row readable and still tells two files with the same name apart. The file entries are filed as
+`"Media"` rather than `"MediaFile"` with `MediaFileInfo` as their type, because Auditing honours
+`IgnoreEntity<MediaFile>()` by name when an entry has no type.
+
+**It commits with the change**, exactly as the settings participant does: Media's EF Core store,
+Auditing's and the participant share the request's `AppDbContext`, the entry and its change rows
+are enlisted with `EfCoreMediaWriteScope.Add`, and the media store's own save carries them. A
+participant that throws aborts the media write and everything enlisted is detached again.
+`AuditTrailTests` checks both halves, the second with a test-only participant that fails the write
+after the entry is enlisted.
+
+Needs DotNetBoost.Media `1.0.0-preview.3`, the release that added write participants.
+
 ---
 
 ## Two places a language can live
@@ -580,7 +633,7 @@ as `""` where the default mode answers `null`, because the column is a non-nulla
 
 `dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: sixty-two tests against each, the same
+**The whole integration suite runs in both modes**: sixty-five tests against each, the same
 assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
 `OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
 library version fails the suite rather than going uncalled.
@@ -674,10 +727,10 @@ abstract class holds the assertions and two sealed subclasses bind it to each fi
 - **`SchemaUpgradeTests`** — a database from the HiLo builds, of either kind, gets identity keys
   back, counting past its existing rows.
 - **`BaseLanguageTests`** — what only base-language mode can be asked.
-  Sixteen tests, beside the sixty-two the suite runs in each mode.
+  Sixteen tests, beside the sixty-five the suite runs in each mode.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 142 as skipped, with the reason.
+tests and reports the other 148 as skipped, with the reason.
 
 ### And the dashboard's own
 
@@ -795,7 +848,7 @@ A duplicate slug or SKU never reaches a handler: the unique index refuses it, an
 `409`. Reading a `PostgresException` cannot happen in `Application` and `IExceptionHandler` cannot
 happen in `Infrastructure`, so the translator is an interface implemented on the provider's side.
 
-### Why four projects for 47 files
+### Why four projects for 48 files
 
 It is more structure than 1,800 lines of behaviour needs, deliberately: the dependency rules above
 are enforced by the build, not by a comment. The cost is that a route no longer shows what it does —
@@ -823,6 +876,7 @@ src/DotNetBoostSample.Infrastructure/
   Persistence/Configurations/            one per entity: tables and unique indexes
   Persistence/DatabaseInitialiser.cs     schema and seed on first run, and upgrades for old volumes
   Persistence/SettingGroupAuditParticipant.cs
+  Persistence/MediaAuditParticipant.cs
   Persistence/PostgresErrorTranslator.cs
   DependencyInjection.cs                 AddInfrastructure(): four independent blocks
 src/DotNetBoostSample.Api/
