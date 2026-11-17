@@ -564,7 +564,7 @@ participant that throws aborts the media write and everything enlisted is detach
 `AuditTrailTests` checks both halves, the second with a test-only participant that fails the write
 after the entry is enlisted.
 
-Needs DotNetBoost.Media's write participants, which arrive in the release after `1.0.0-preview.2`.
+Needs DotNetBoost.Media `1.0.0-preview.3`, the release that added write participants.
 
 ---
 
