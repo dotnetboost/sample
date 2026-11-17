@@ -531,19 +531,29 @@ part in it through `IMediaWriteParticipant`, which runs inside the write, before
 .IgnoreEntity<MediaAttachment>();
 ```
 
-The participant files each change where a reader would look for it:
+Media reports each operation once — an attach, a detach, a replacement, a reorder, a delete — and
+the participant files it where a reader would look for it. A change to which files an entity uses
+is an `Updated` entry **on that entity**, with one row named after the role, file names as its
+values, and the operation in the entry's `Metadata`:
 
-| Media change | Entry |
-|---|---|
-| attach, detach, reorder | `Updated` on the **owner** — `("Product", "42")` — with a `media.{role}` change naming the file |
-| upload, edit, delete | `Created`, `Updated`, `Deleted` on `("Media", <file id>)`, with the file's name, type, size, category and tags |
+| Operation | Entry | Row | Metadata |
+|---|---|---|---|
+| attach | Category 4 | `Banner: — → photo.png` | `{"media":"Attach","fileId":"…"}` |
+| detach | Category 4 | `Banner: photo.png → —` | `{"media":"Detach","fileId":"…"}` |
+| replace | Category 4 | `Banner: photo.png → new.png` | `{"media":"Replace","fileId":"…","previousFileId":"…"}` |
+| reorder | Product 42 | `Gallery: a.png, b.png → b.png, a.png` | `{"media":"Reorder"}` |
+
+An upload, an edit and a delete are about the file itself: `Created`, `Updated` and `Deleted` on
+`("Media", <file id>)`, with its name, type, size, category and tags. A delete also writes a detach
+on every entity that still used the file, marked `"reason":"FileDeleted"`, so a product's history
+says why its image went; all of them share one correlation id.
 
 An attach can be filed under the product because Media's owner address and Auditing's entity
 address are the same `(entityName, entityId)` — Entity Addressing v1, which
-`KeyFormatAgreementTests` pins. A delete is one entry under the file plus a detach under each owner
-that still used it, with one correlation id; so is a product delete's `DeleteAllAsync`. The file
-entries are filed as `"Media"` rather than `"MediaFile"` with `MediaFileInfo` as their type,
-because Auditing honours `IgnoreEntity<MediaFile>()` by name when an entry has no type.
+`KeyFormatAgreementTests` pins. The file's id is in the metadata rather than the row, which keeps
+the row readable and still tells two files with the same name apart. The file entries are filed as
+`"Media"` rather than `"MediaFile"` with `MediaFileInfo` as their type, because Auditing honours
+`IgnoreEntity<MediaFile>()` by name when an entry has no type.
 
 **It commits with the change**, exactly as the settings participant does: Media's EF Core store,
 Auditing's and the participant share the request's `AppDbContext`, the entry and its change rows
@@ -621,7 +631,7 @@ as `""` where the default mode answers `null`, because the column is a non-nulla
 
 `dotnet test` boots the sample twice, in two hosts against two schemas.
 
-**The whole integration suite runs in both modes**: sixty-four tests against each, the same
+**The whole integration suite runs in both modes**: sixty-five tests against each, the same
 assertions, unchanged — and between them they call **every one of the API's 48 published routes**.
 `OpenApiShapeTests` asserts that inventory by name, so a route added by this application or a new
 library version fails the suite rather than going uncalled.
@@ -715,10 +725,10 @@ abstract class holds the assertions and two sealed subclasses bind it to each fi
 - **`SchemaUpgradeTests`** — a database from the HiLo builds, of either kind, gets identity keys
   back, counting past its existing rows.
 - **`BaseLanguageTests`** — what only base-language mode can be asked.
-  Sixteen tests, beside the sixty-four the suite runs in each mode.
+  Sixteen tests, beside the sixty-five the suite runs in each mode.
 
 **Without a container runtime these skip rather than fail** — `dotnet test` still runs the 30 fast
-tests and reports the other 146 as skipped, with the reason.
+tests and reports the other 148 as skipped, with the reason.
 
 ### And the dashboard's own
 
