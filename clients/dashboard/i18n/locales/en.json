@@ -350,6 +350,13 @@
       "updated": "Updated",
       "deleted": "Deleted"
     },
+    "media": {
+      "attach": "Attached",
+      "detach": "Detached",
+      "detachFileDeleted": "Detached, file deleted",
+      "replace": "Replaced",
+      "reorder": "Reordered"
+    },
     "columns": {
       "occurredAt": "When",
       "entity": "Entity",
@@ -367,7 +374,8 @@
       "occurredAt": "Recorded",
       "metadata": "Metadata",
       "correlationId": "Edit",
-      "showEdit": "The rest of this edit"
+      "showEdit": "The rest of this edit",
+      "mediaOperation": "Media"
     },
     "editFilter": {
       "title": "One edit",

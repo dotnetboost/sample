@@ -350,6 +350,13 @@
       "updated": "Modifié",
       "deleted": "Supprimé"
     },
+    "media": {
+      "attach": "Attaché",
+      "detach": "Détaché",
+      "detachFileDeleted": "Détaché, fichier supprimé",
+      "replace": "Remplacé",
+      "reorder": "Réordonné"
+    },
     "columns": {
       "occurredAt": "Quand",
       "entity": "Entité",
@@ -367,7 +374,8 @@
       "occurredAt": "Enregistrée",
       "metadata": "Métadonnées",
       "correlationId": "Édition",
-      "showEdit": "Le reste de cette édition"
+      "showEdit": "Le reste de cette édition",
+      "mediaOperation": "Média"
     },
     "editFilter": {
       "title": "Une seule édition",

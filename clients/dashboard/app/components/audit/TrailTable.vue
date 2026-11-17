@@ -275,7 +275,10 @@ function showEdit(correlationId: string) {
             </TableCell>
 
             <TableCell v-if="shown('action')">
-              <AuditActionBadge :action="row.original.action" />
+              <div class="flex flex-wrap items-center gap-1">
+                <AuditActionBadge :action="row.original.action" />
+                <AuditMediaOperationBadge :entry="row.original" compact />
+              </div>
             </TableCell>
 
             <TableCell v-if="shown('actor')" class="hidden lg:table-cell">

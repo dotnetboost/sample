@@ -350,6 +350,13 @@
       "updated": "عُدِّل",
       "deleted": "حُذف"
     },
+    "media": {
+      "attach": "أُرفق",
+      "detach": "فُصل",
+      "detachFileDeleted": "فُصل، حُذف الملف",
+      "replace": "استُبدل",
+      "reorder": "أُعيد ترتيبه"
+    },
     "columns": {
       "occurredAt": "الوقت",
       "entity": "الكيان",
@@ -367,7 +374,8 @@
       "occurredAt": "سُجِّل",
       "metadata": "بيانات وصفية",
       "correlationId": "التعديل",
-      "showEdit": "بقية هذا التعديل"
+      "showEdit": "بقية هذا التعديل",
+      "mediaOperation": "الوسائط"
     },
     "editFilter": {
       "title": "تعديل واحد",
