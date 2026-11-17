@@ -390,6 +390,7 @@ public abstract class AuditTrailTests(SampleApp app)
 
         var deleted = fileTrail.Single(e => e.Str("action") == "Deleted");
         Assert.Equal("lamp.png", Changes(deleted)["FileName"].Str("oldValue"));
+        Assert.Equal($"Product {id} as gallery", Changes(deleted)["Attachments"].Str("oldValue"));
         Assert.Equal(deleted.Str("correlationId"), detached.Str("correlationId"));
 
         // And not one of the media library's rows, from this test or any other.

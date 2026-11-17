@@ -544,9 +544,11 @@ values, and the operation in the entry's `Metadata`:
 | reorder | Product 42 | `Gallery: a.png, b.png → b.png, a.png` | `{"media":"Reorder"}` |
 
 An upload, an edit and a delete are about the file itself: `Created`, `Updated` and `Deleted` on
-`("Media", <file id>)`, with its name, type, size, category and tags. A delete also writes a detach
-on every entity that still used the file, marked `"reason":"FileDeleted"`, so a product's history
-says why its image went; all of them share one correlation id.
+`("Media", <file id>)`, with its name, type, size, category and tags — only the ones it has. A
+delete also writes a detach on every entity that still used the file, marked
+`"reason":"FileDeleted"`, so a product's history says why its image went, and lists those entities
+on the file's own entry as one `Attachments` row (`Category 4 as banner, Product 42 as gallery`),
+so the file's history is complete on its own. All of them share one correlation id.
 
 An attach can be filed under the product because Media's owner address and Auditing's entity
 address are the same `(entityName, entityId)` — Entity Addressing v1, which

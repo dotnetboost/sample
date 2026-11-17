@@ -130,7 +130,7 @@ public sealed class MediaAuditParticipant(IAuditManager audit, EfCoreMediaWriteS
                         new { media = "Detach", fileId = change.MediaFileId, reason = "FileDeleted" });
                 }
 
-                yield return OnFile(change, AuditAction.Deleted, Values(change.File, deleted: true));
+                yield return OnFile(change, AuditAction.Deleted, Values(change.File, deleted: true, attachments: change.Attachments));
                 break;
 
             default:
@@ -191,9 +191,15 @@ public sealed class MediaAuditParticipant(IAuditManager audit, EfCoreMediaWriteS
     /// The file's recorded properties as changes. An upload reports each as a new value and a
     /// delete each as an old one — the file as it was, which after the delete is the only copy of
     /// its name. An edit reports only what moved, from <paramref name="before"/> to
-    /// <paramref name="file"/>.
+    /// <paramref name="file"/>. A delete also records where the file was still in use, as one
+    /// <c>Attachments</c> row — the same links each owner's own detach entry records, gathered on
+    /// the file so its history is complete on its own.
     /// </summary>
-    private static List<AuditChange> Values(MediaFileInfo? file, MediaFileInfo? before = null, bool deleted = false)
+    private static List<AuditChange> Values(
+        MediaFileInfo? file,
+        MediaFileInfo? before = null,
+        bool deleted = false,
+        IReadOnlyList<MediaAttachmentInfo>? attachments = null)
     {
         if (file is null) return [];
 
@@ -224,6 +230,12 @@ public sealed class MediaAuditParticipant(IAuditManager audit, EfCoreMediaWriteS
         {
             Add(nameof(MediaFileInfo.ContentType), file.ContentType);
             Add(nameof(MediaFileInfo.Size), file.Size.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (attachments is { Count: > 0 })
+        {
+            Add("Attachments", string.Join(", ", attachments.Select(a =>
+                $"{a.Owner.EntityName} {a.Owner.EntityId} as {a.Role}")));
         }
 
         return changes;
