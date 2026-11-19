@@ -156,7 +156,8 @@ async function submit() {
             </FieldLabel>
             <Select v-model="state.direction">
               <SelectTrigger id="language-direction" class="w-full">
-                <SelectValue />
+                <!-- Drawn from the value, not copied from the option: the copy keeps the language it was made in. -->
+                <SelectValue>{{ directions.find(item => item.value === state.direction)?.label }}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="item in directions" :key="item.value" :value="item.value">

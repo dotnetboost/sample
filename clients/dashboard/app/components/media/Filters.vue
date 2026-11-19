@@ -135,7 +135,8 @@ function onSort(value: SortValue) {
     <Select v-if="!compact" :model-value="kind" @update:model-value="onKind(String($event))">
       <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
         <Filter class="text-muted-foreground" />
-        <SelectValue />
+        <!-- Drawn from the value, not copied from the option: the copy keeps the language it was made in. -->
+        <SelectValue>{{ kinds.find(item => item.value === kind)?.label }}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem v-for="item in kinds" :key="item.value" :value="item.value">
@@ -147,7 +148,7 @@ function onSort(value: SortValue) {
     <Select :model-value="sort" @update:model-value="onSort($event as SortValue)">
       <SelectTrigger class="w-full *:data-[slot=select-value]:flex-1 md:min-w-0 md:flex-1">
         <ArrowUpDown class="text-muted-foreground" />
-        <SelectValue />
+        <SelectValue>{{ sorts.find(item => item.value === sort)?.label }}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem v-for="item in sorts" :key="item.value" :value="item.value">

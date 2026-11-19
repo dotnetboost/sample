@@ -145,7 +145,8 @@ watch(() => props.query.entityId, (value) => {
           :aria-label="$t('audit.filters.entity')"
         >
           <Box class="text-muted-foreground" />
-          <SelectValue />
+          <!-- Drawn from the value, not copied from the option: the copy keeps the language it was made in. -->
+          <SelectValue>{{ entityItems.find(item => item.value === entity)?.label }}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem
