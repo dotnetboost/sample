@@ -162,7 +162,10 @@ async function save() {
         </FieldLabel>
         <Select v-model="categoryId">
           <SelectTrigger id="product-category" class="w-full">
-            <SelectValue />
+            <!-- Drawn from the value: a category's name is content, read again in the new language. -->
+            <SelectValue>
+              <span dir="auto">{{ categories.find(category => category.id === categoryId)?.name }}</span>
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="category in categories" :key="category.id" :value="category.id">

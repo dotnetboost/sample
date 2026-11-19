@@ -118,6 +118,18 @@ test('Arabic turns the page right-to-left', async ({ page, goto }) => {
   await expect(heading(page)).toHaveText('نظرة عامة')
 })
 
+test('a filter on screen follows the language, rather than keeping the words it was drawn in', async ({ page, goto }) => {
+  await goto('/audit')
+
+  await expect(page.getByRole('combobox', { name: 'Entity' })).toHaveText('Any entity')
+
+  await page.getByRole('combobox', { name: 'Reading language' }).click()
+  await page.getByRole('option', { name: /العربية/ }).click()
+
+  // A select copies its chosen option's text when it is drawn; this one is drawn from its value.
+  await expect(page.getByRole('combobox', { name: 'الكيان' })).toHaveText('أي كيان')
+})
+
 test('a media entry shows its operation beside the action', async ({ page, goto }) => {
   await goto('/audit')
 
